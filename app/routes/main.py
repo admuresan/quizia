@@ -31,11 +31,6 @@ def quizmaster_create():
     """Quiz creation/editing page."""
     return render_template('quiz_editor.html')
 
-@bp.route('/quizmaster/preview/<quiz_name>')
-def quizmaster_preview(quiz_name):
-    """Quiz preview page."""
-    return render_template('quiz_preview.html', quiz_name=quiz_name)
-
 @bp.route('/display/<room_code>')
 def display(room_code):
     """Display page for quiz room."""

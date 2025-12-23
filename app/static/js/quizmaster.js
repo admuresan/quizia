@@ -182,7 +182,6 @@ async function loadQuizzes() {
                             <span>Public</span>
                         </label>` : ''}
                         <button class="btn btn-small" onclick="editQuiz('${quiz.name}')">Edit</button>
-                        <button class="btn btn-small" onclick="previewQuiz('${quiz.name}')">Preview</button>
                         <button class="btn btn-small" onclick="startQuiz('${quiz.name}')">Start</button>
                         <button class="btn btn-small" onclick="downloadQuiz('${quiz.name}')">Download</button>
                         ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.name}')">Delete</button>` : ''}
@@ -222,7 +221,6 @@ async function loadQuizzes() {
                             <span>Public</span>
                         </label>` : ''}
                         <button class="btn btn-small" onclick="editQuiz('${quiz.name}')">Edit</button>
-                        <button class="btn btn-small" onclick="previewQuiz('${quiz.name}')">Preview</button>
                         <button class="btn btn-small" onclick="startQuiz('${quiz.name}')">Start</button>
                         <button class="btn btn-small" onclick="downloadQuiz('${quiz.name}')">Download</button>
                         ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.name}')">Delete</button>` : ''}
@@ -243,10 +241,6 @@ async function loadQuizzes() {
 
 async function editQuiz(name) {
     window.location.href = `/quizmaster/create?quiz=${encodeURIComponent(name)}`;
-}
-
-async function previewQuiz(name) {
-    window.location.href = `/quizmaster/preview/${encodeURIComponent(name)}`;
 }
 
 async function startQuiz(name) {

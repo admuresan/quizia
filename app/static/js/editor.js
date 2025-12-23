@@ -79,16 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
         autosaveQuiz();
     }, 1000));
 
-    // Preview button
-    document.getElementById('preview-btn').addEventListener('click', () => {
-        const name = document.getElementById('quiz-name').value.trim();
-        if (!name) {
-            alert('Please enter a quiz name');
-            return;
-        }
-        window.location.href = `/quizmaster/preview/${encodeURIComponent(name)}`;
-    });
-
     // Back button
     document.getElementById('back-btn').addEventListener('click', () => {
         window.location.href = '/quizmaster';

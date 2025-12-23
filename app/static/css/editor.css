@@ -6,23 +6,61 @@
 }
 
 .editor-header {
-    background: white;
-    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .editor-header #quiz-name {
     flex: 1;
     max-width: 300px;
     margin-right: 2rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #333;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.editor-header #quiz-name::placeholder {
+    color: #999;
+}
+
+.editor-header #quiz-name:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.6);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2);
 }
 
 .editor-actions {
     display: flex;
     gap: 1rem;
+    align-items: center;
+}
+
+.editor-actions #save-status {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+.editor-actions .btn {
+    background: rgba(255, 255, 255, 0.95);
+    color: #667eea;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.editor-actions .btn:hover {
+    background: white;
+    border-color: rgba(255, 255, 255, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .editor-main {
