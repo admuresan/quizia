@@ -1,4 +1,4 @@
-// Quiz editor
+// Quiz editor - Main file that coordinates editor modules
 let currentQuiz = {
     name: '',
     pages: [],
@@ -8,6 +8,27 @@ let currentQuiz = {
 let currentPageIndex = 0;
 let selectedElement = null;
 let currentView = 'display'; // 'display', 'participant', or 'control'
+
+// Helper functions that bridge to modules
+function debounce(func, wait) {
+    return Editor.Utils.debounce(func, wait);
+}
+
+async function autosaveQuiz() {
+    const name = document.getElementById('quiz-name').value.trim();
+    await Editor.QuizStorage.autosaveQuiz(currentQuiz, name);
+}
+
+async function loadQuiz(name) {
+    const quiz = await Editor.QuizStorage.loadQuiz(name);
+    if (quiz) {
+        currentQuiz = quiz;
+        document.getElementById('quiz-name').value = currentQuiz.name;
+        currentPageIndex = 0;
+        renderPages();
+        renderCanvas();
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     // Load quiz if editing
@@ -19,7 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize
     if (currentQuiz.pages.length === 0) {
-        addPage('display');
+        const newIndex = Editor.PageManager.addPage('display', currentQuiz, currentPageIndex, {
+            onPageAdded: (index) => {
+                currentPageIndex = index;
+                renderPages();
+                renderCanvas();
+                autosaveQuiz();
+            }
+        });
+        currentPageIndex = newIndex;
     }
     renderPages();
     renderCanvas();
@@ -56,20 +85,70 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Page management
+    const pageCallbacks = {
+        getCurrentQuiz: () => currentQuiz,
+        getCurrentPageIndex: () => currentPageIndex,
+        onPageAdded: (index) => {
+            currentPageIndex = index;
+            renderPages();
+            renderCanvas();
+            autosaveQuiz();
+        },
+        onPageSelected: (index) => {
+            currentPageIndex = index;
+            renderPages();
+            renderCanvas();
+        },
+        onMovePage: (fromIndex, toIndex) => {
+            [currentQuiz.pages[fromIndex], currentQuiz.pages[toIndex]] = 
+                [currentQuiz.pages[toIndex], currentQuiz.pages[fromIndex]];
+            if (currentPageIndex === fromIndex) {
+                currentPageIndex = toIndex;
+            } else if (currentPageIndex === toIndex) {
+                currentPageIndex = fromIndex;
+            }
+            renderPages();
+            renderCanvas();
+            autosaveQuiz();
+        },
+        onPageRenamed: () => {
+            autosaveQuiz();
+        },
+        onDeletePage: (index) => {
+            currentQuiz.pages.splice(index, 1);
+            if (currentPageIndex >= index) {
+                if (currentPageIndex > 0) {
+                    currentPageIndex--;
+                } else {
+                    currentPageIndex = 0;
+                }
+            }
+            if (currentPageIndex >= currentQuiz.pages.length) {
+                currentPageIndex = currentQuiz.pages.length - 1;
+            }
+            renderPages();
+            renderCanvas();
+            autosaveQuiz();
+        }
+    };
+
     document.getElementById('add-page-btn').addEventListener('click', () => {
-        addPage('display');
+        const newIndex = Editor.PageManager.addPage('display', currentQuiz, currentPageIndex, pageCallbacks);
+        currentPageIndex = newIndex;
         renderPages();
         renderCanvas();
     });
 
     document.getElementById('add-status-page-btn').addEventListener('click', () => {
-        addPage('status');
+        const newIndex = Editor.PageManager.addPage('status', currentQuiz, currentPageIndex, pageCallbacks);
+        currentPageIndex = newIndex;
         renderPages();
         renderCanvas();
     });
 
     document.getElementById('add-results-page-btn').addEventListener('click', () => {
-        addPage('results');
+        const newIndex = Editor.PageManager.addPage('results', currentQuiz, currentPageIndex, pageCallbacks);
+        currentPageIndex = newIndex;
         renderPages();
         renderCanvas();
     });
@@ -87,10 +166,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Quiz name already handled above for autosave
 
     // Media modal handlers
-    initMediaModal();
+    Editor.MediaModal.init();
     
     // Properties panel resize
-    initPropertiesResize();
+    Editor.Utils.initPropertiesResize();
     
     // Canvas view tabs
     document.querySelectorAll('.canvas-tab').forEach(tab => {
@@ -119,386 +198,49 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function addPage(type) {
-    // Generate default page name based on type
-    let defaultName = '';
-    if (type === 'status') {
-        defaultName = 'Status Page';
-    } else if (type === 'results') {
-        defaultName = 'Results Page';
-    } else {
-        const pageNumber = currentQuiz.pages.filter(p => p.type === 'display').length + 1;
-        defaultName = `Page ${pageNumber}`;
-    }
-    
-    const page = {
-        type: type,
-        name: defaultName,
-        elements: [],
-        background_color: currentQuiz.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        background_image: null
+function renderPages() {
+    const pageCallbacks = {
+        getCurrentQuiz: () => currentQuiz,
+        getCurrentPageIndex: () => currentPageIndex,
+        onPageSelected: (index) => {
+            currentPageIndex = index;
+            renderPages();
+            renderCanvas();
+        },
+        onMovePage: (fromIndex, toIndex) => {
+            [currentQuiz.pages[fromIndex], currentQuiz.pages[toIndex]] = 
+                [currentQuiz.pages[toIndex], currentQuiz.pages[fromIndex]];
+            if (currentPageIndex === fromIndex) {
+                currentPageIndex = toIndex;
+            } else if (currentPageIndex === toIndex) {
+                currentPageIndex = fromIndex;
+            }
+            renderPages();
+            renderCanvas();
+            autosaveQuiz();
+        },
+        onPageRenamed: () => {
+            autosaveQuiz();
+        },
+        onDeletePage: (index) => {
+            currentQuiz.pages.splice(index, 1);
+            if (currentPageIndex >= index) {
+                if (currentPageIndex > 0) {
+                    currentPageIndex--;
+                } else {
+                    currentPageIndex = 0;
+                }
+            }
+            if (currentPageIndex >= currentQuiz.pages.length) {
+                currentPageIndex = currentQuiz.pages.length - 1;
+            }
+            renderPages();
+            renderCanvas();
+            autosaveQuiz();
+        }
     };
     
-    // Auto-populate status page with template
-    if (type === 'status') {
-        // Podium at top
-        page.elements.push({
-            id: `status-podium-${Date.now()}`,
-            type: 'text',
-            x: 50,
-            y: 50,
-            width: 900,
-            height: 300,
-            text: 'PODIUM',
-            html: '<div style="text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;">🥇 🥈 🥉<br>PODIUM</div>',
-            visible: true,
-            is_question: false
-        });
-        
-        // Participant table below
-        page.elements.push({
-            id: `status-table-${Date.now()}`,
-            type: 'text',
-            x: 50,
-            y: 400,
-            width: 900,
-            height: 400,
-            text: 'PARTICIPANT TABLE',
-            html: '<div style="text-align: center; font-size: 36px; font-weight: bold;">📊 PARTICIPANT RANKINGS TABLE</div>',
-            visible: true,
-            is_question: false
-        });
-    }
-    
-    // Auto-populate results page with template
-    if (type === 'results') {
-        // Winner section (left half) with confetti/fireworks
-        page.elements.push({
-            id: `results-winner-${Date.now()}`,
-            type: 'text',
-            x: 50,
-            y: 50,
-            width: 450,
-            height: 700,
-            text: 'WINNER',
-            html: '<div style="text-align: center; padding: 2rem;"><div style="font-size: 120px;">🎉</div><div style="font-size: 64px; margin: 1rem 0;">👤</div><div style="font-size: 48px; font-weight: bold; margin: 1rem 0;">WINNER NAME</div><div style="font-size: 36px; margin-top: 1rem;">🏆 CHAMPION 🏆</div></div>',
-            visible: true,
-            is_question: false
-        });
-        
-        // Rankings list (right half)
-        page.elements.push({
-            id: `results-rankings-${Date.now()}`,
-            type: 'text',
-            x: 550,
-            y: 50,
-            width: 450,
-            height: 700,
-            text: 'RANKINGS',
-            html: '<div style="padding: 2rem;"><div style="font-size: 36px; font-weight: bold; margin-bottom: 1rem;">📋 RANKINGS</div><div style="font-size: 24px; line-height: 2;">2nd Place - Name<br>3rd Place - Name<br>4th Place - Name<br>5th Place - Name<br>...</div></div>',
-            visible: true,
-            is_question: false
-        });
-    }
-    
-    currentQuiz.pages.push(page);
-    currentPageIndex = currentQuiz.pages.length - 1;
-    
-    // Autosave after adding page
-    autosaveQuiz();
-}
-
-function renderPages() {
-    const list = document.getElementById('pages-list');
-    list.innerHTML = '';
-    
-    currentQuiz.pages.forEach((page, index) => {
-        const item = document.createElement('div');
-        item.className = 'page-item';
-        if (index === currentPageIndex) {
-            item.classList.add('active');
-        }
-        
-        // Create container for page content
-        const pageContent = document.createElement('div');
-        pageContent.style.display = 'flex';
-        pageContent.style.alignItems = 'center';
-        pageContent.style.justifyContent = 'space-between';
-        pageContent.style.width = '100%';
-        pageContent.style.gap = '0.5rem';
-        
-        // Arrow buttons container (stacked vertically, before page name)
-        const arrowButtonsContainer = document.createElement('div');
-        arrowButtonsContainer.style.display = 'flex';
-        arrowButtonsContainer.style.flexDirection = 'column';
-        arrowButtonsContainer.style.gap = '0.1rem';
-        arrowButtonsContainer.style.alignItems = 'center';
-        
-        // Move up button
-        const moveUpBtn = document.createElement('button');
-        moveUpBtn.innerHTML = '↑';
-        moveUpBtn.className = 'page-move-btn';
-        moveUpBtn.title = 'Move up';
-        moveUpBtn.disabled = index === 0;
-        moveUpBtn.style.cssText = 'padding: 0.15rem 0.3rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem; min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;';
-        
-        // Style for active page
-        if (index === currentPageIndex) {
-            moveUpBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            moveUpBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-            moveUpBtn.style.color = 'white';
-        }
-        
-        moveUpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (index > 0) {
-                // Swap pages
-                [currentQuiz.pages[index - 1], currentQuiz.pages[index]] = 
-                    [currentQuiz.pages[index], currentQuiz.pages[index - 1]];
-                // Update current page index if needed
-                if (currentPageIndex === index) {
-                    currentPageIndex = index - 1;
-                } else if (currentPageIndex === index - 1) {
-                    currentPageIndex = index;
-                }
-                renderPages();
-                renderCanvas();
-                autosaveQuiz();
-            }
-        });
-        arrowButtonsContainer.appendChild(moveUpBtn);
-        
-        // Move down button
-        const moveDownBtn = document.createElement('button');
-        moveDownBtn.innerHTML = '↓';
-        moveDownBtn.className = 'page-move-btn';
-        moveDownBtn.title = 'Move down';
-        moveDownBtn.disabled = index === currentQuiz.pages.length - 1;
-        moveDownBtn.style.cssText = 'padding: 0.15rem 0.3rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem; min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;';
-        
-        // Style for active page
-        if (index === currentPageIndex) {
-            moveDownBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            moveDownBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-            moveDownBtn.style.color = 'white';
-        }
-        
-        moveDownBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (index < currentQuiz.pages.length - 1) {
-                // Swap pages
-                [currentQuiz.pages[index], currentQuiz.pages[index + 1]] = 
-                    [currentQuiz.pages[index + 1], currentQuiz.pages[index]];
-                // Update current page index if needed
-                if (currentPageIndex === index) {
-                    currentPageIndex = index + 1;
-                } else if (currentPageIndex === index + 1) {
-                    currentPageIndex = index;
-                }
-                renderPages();
-                renderCanvas();
-                autosaveQuiz();
-            }
-        });
-        arrowButtonsContainer.appendChild(moveDownBtn);
-        
-        pageContent.appendChild(arrowButtonsContainer);
-        
-        // Page name (clickable to select page)
-        const pageNameContainer = document.createElement('div');
-        pageNameContainer.style.flex = '1';
-        pageNameContainer.style.minWidth = '0';
-        pageNameContainer.style.cursor = 'pointer';
-        
-        const pageNameInput = document.createElement('input');
-        pageNameInput.type = 'text';
-        pageNameInput.value = page.name || `Page ${index + 1} (${page.type})`;
-        pageNameInput.className = 'page-name-input';
-        pageNameInput.readOnly = true;
-        pageNameInput.style.cssText = 'width: 100%; padding: 0.25rem; border: 1px solid transparent; background: transparent; font-size: 0.9rem; cursor: pointer;';
-        if (index === currentPageIndex) {
-            pageNameInput.style.color = 'white';
-        }
-        
-        // Track editing state
-        let isEditing = false;
-        
-        // Function to start editing
-        const startEditing = () => {
-            isEditing = true;
-            pageNameInput.readOnly = false;
-            pageNameInput.style.border = '1px solid #2196F3';
-            pageNameInput.style.background = 'white';
-            pageNameInput.style.color = '#333';
-            pageNameInput.style.cursor = 'text';
-            pageNameInput.focus();
-            pageNameInput.select();
-        };
-        
-        // Function to stop editing
-        const stopEditing = () => {
-            isEditing = false;
-            pageNameInput.readOnly = true;
-            page.name = pageNameInput.value.trim() || pageNameInput.value || `Page ${index + 1} (${page.type})`;
-            pageNameInput.value = page.name;
-            pageNameInput.style.border = '1px solid transparent';
-            pageNameInput.style.background = 'transparent';
-            if (index === currentPageIndex) {
-                pageNameInput.style.color = 'white';
-            } else {
-                pageNameInput.style.color = '#333';
-            }
-            pageNameInput.style.cursor = 'pointer';
-            autosaveQuiz();
-        };
-        
-        // Click on page name to select page (not edit)
-        pageNameContainer.addEventListener('click', (e) => {
-            if (!isEditing && (e.target === pageNameContainer || e.target === pageNameInput)) {
-                e.stopPropagation();
-                currentPageIndex = index;
-                renderPages();
-                renderCanvas();
-            }
-        });
-        
-        // Handle blur to stop editing
-        pageNameInput.addEventListener('blur', () => {
-            if (isEditing) {
-                stopEditing();
-            }
-        });
-        
-        // Handle keyboard events
-        pageNameInput.addEventListener('keydown', (e) => {
-            if (isEditing) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    stopEditing();
-                } else if (e.key === 'Escape') {
-                    e.preventDefault();
-                    pageNameInput.value = page.name || `Page ${index + 1} (${page.type})`;
-                    stopEditing();
-                }
-            }
-        });
-        
-        pageNameContainer.appendChild(pageNameInput);
-        pageContent.appendChild(pageNameContainer);
-        
-        // Action buttons container (edit and delete)
-        const buttonsContainer = document.createElement('div');
-        buttonsContainer.style.display = 'flex';
-        buttonsContainer.style.gap = '0.25rem';
-        buttonsContainer.style.alignItems = 'center';
-        
-        // Edit button (to rename page)
-        const editBtn = document.createElement('button');
-        editBtn.innerHTML = '✏️';
-        editBtn.className = 'page-edit-btn';
-        editBtn.title = 'Rename page';
-        editBtn.style.cssText = 'padding: 0.15rem 0.3rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem; min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #2196F3;';
-        
-        // Style for active page
-        if (index === currentPageIndex) {
-            editBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            editBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-            editBtn.style.color = '#90CAF9';
-        }
-        
-        editBtn.addEventListener('mouseenter', () => {
-            if (index === currentPageIndex) {
-                editBtn.style.background = 'rgba(255, 255, 255, 0.3)';
-            } else {
-                editBtn.style.background = '#e3f2fd';
-            }
-        });
-        
-        editBtn.addEventListener('mouseleave', () => {
-            if (index === currentPageIndex) {
-                editBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            } else {
-                editBtn.style.background = 'white';
-            }
-        });
-        
-        editBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            startEditing();
-        });
-        
-        buttonsContainer.appendChild(editBtn);
-        
-        // Delete button (trash can icon)
-        const deleteBtn = document.createElement('button');
-        deleteBtn.innerHTML = '🗑️';
-        deleteBtn.className = 'page-delete-btn';
-        deleteBtn.title = 'Delete page';
-        deleteBtn.style.cssText = 'padding: 0.15rem 0.3rem; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.75rem; min-width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #dc3545;';
-        deleteBtn.disabled = currentQuiz.pages.length === 1; // Don't allow deleting the last page
-        
-        // Style for active page
-        if (index === currentPageIndex) {
-            deleteBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-            deleteBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-            deleteBtn.style.color = '#ff6b6b';
-        }
-        
-        deleteBtn.addEventListener('mouseenter', () => {
-            if (!deleteBtn.disabled) {
-                deleteBtn.style.background = '#dc3545';
-                deleteBtn.style.color = 'white';
-            }
-        });
-        
-        deleteBtn.addEventListener('mouseleave', () => {
-            if (index === currentPageIndex) {
-                deleteBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-                deleteBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-                deleteBtn.style.color = '#ff6b6b';
-            } else {
-                deleteBtn.style.background = 'white';
-                deleteBtn.style.color = '#dc3545';
-            }
-        });
-        
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (currentQuiz.pages.length === 1) {
-                alert('Cannot delete the last page');
-                return;
-            }
-            
-            if (confirm(`Are you sure you want to delete "${page.name || `Page ${index + 1}`}"?`)) {
-                // Remove the page
-                currentQuiz.pages.splice(index, 1);
-                
-                // Adjust current page index
-                if (currentPageIndex >= index) {
-                    if (currentPageIndex > 0) {
-                        currentPageIndex--;
-                    } else {
-                        currentPageIndex = 0;
-                    }
-                }
-                
-                // Ensure currentPageIndex is valid
-                if (currentPageIndex >= currentQuiz.pages.length) {
-                    currentPageIndex = currentQuiz.pages.length - 1;
-                }
-                
-                renderPages();
-                renderCanvas();
-                autosaveQuiz();
-            }
-        });
-        
-        buttonsContainer.appendChild(deleteBtn);
-        
-        pageContent.appendChild(buttonsContainer);
-        item.appendChild(pageContent);
-        list.appendChild(item);
-    });
+    Editor.PageManager.renderPages(currentQuiz, currentPageIndex, pageCallbacks);
 }
 
 function renderCanvas() {
@@ -588,15 +330,167 @@ function renderCanvas() {
             
             // Position the question container on the canvas
             questionContainer.style.position = 'absolute';
+            const headerOffset = currentView === 'participant' ? 80 : 0;
             questionContainer.style.left = `${question.x || 50}px`;
-            questionContainer.style.top = `${(question.y || 50) + (currentView === 'participant' ? 80 : 0)}px`;
+            questionContainer.style.top = `${(question.y || 50) + headerOffset}px`;
+            
+            // Make the question container draggable so the title and answer input move together
+            // Create a wrapper for drag handling that accounts for header offset
+            let isDragging = false;
+            let startX, startY, startLeft, startTop;
+            let dragThreshold = 5;
+            let hasMoved = false;
+            
+            questionContainer.addEventListener('mousedown', (e) => {
+                // Don't start dragging if clicking on interactive elements (inputs, buttons, etc.)
+                const target = e.target;
+                if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'LABEL' || 
+                    target.tagName === 'SELECT' || target.tagName === 'TEXTAREA' || target.closest('button') || 
+                    target.closest('input') || target.closest('label') || target.closest('select')) {
+                    return;
+                }
+                
+                isDragging = true;
+                hasMoved = false;
+                startX = e.clientX;
+                startY = e.clientY;
+                startLeft = question.x || 50;
+                startTop = question.y || 50;
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', function dragMove(e) {
+                if (!isDragging) return;
+                
+                const dx = Math.abs(e.clientX - startX);
+                const dy = Math.abs(e.clientY - startY);
+                
+                if (dx > dragThreshold || dy > dragThreshold) {
+                    hasMoved = true;
+                }
+                
+                if (hasMoved) {
+                    const totalDx = e.clientX - startX;
+                    const totalDy = e.clientY - startY;
+                    const newX = startLeft + totalDx;
+                    const newY = startTop + totalDy;
+                    
+                    // Update question element position (without header offset)
+                    question.x = newX;
+                    question.y = newY;
+                    
+                    // Update container position (with header offset for display)
+                    questionContainer.style.left = `${newX}px`;
+                    questionContainer.style.top = `${newY + headerOffset}px`;
+                }
+            });
+            
+            document.addEventListener('mouseup', function dragEnd() {
+                if (isDragging && hasMoved) {
+                    autosaveQuiz();
+                }
+                isDragging = false;
+                hasMoved = false;
+            });
+            
+            // Add click handler to select the question element
+            questionContainer.addEventListener('click', (e) => {
+                // Don't select if we just dragged
+                if (hasMoved) {
+                    hasMoved = false;
+                    return;
+                }
+                // Don't select if clicking on interactive elements inside
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || 
+                    e.target.tagName === 'LABEL' || e.target.closest('button') || 
+                    e.target.closest('input') || e.target.closest('label')) {
+                    return;
+                }
+                selectElement(question);
+            });
             
             canvas.appendChild(questionContainer);
         });
         // Don't render other elements in participant view - we've handled questions above
         return;
-    } else {
+    } else if (currentView === 'control') {
         // Control view shows elements with matching view
+        elementsToRender = page.elements.filter(el => el.view === currentView);
+        
+        // Always add next/previous navigation buttons to control view
+        // Check if navigation buttons already exist
+        const existingNavButtons = page.elements.filter(el => 
+            el.type === 'navigation_control' && el.view === 'control'
+        );
+        
+        if (existingNavButtons.length === 0) {
+            // Create next button
+            const nextButton = {
+                id: `nav-next-${Date.now()}`,
+                type: 'navigation_control',
+                view: 'control',
+                button_type: 'next',
+                x: 50,
+                y: 50,
+                width: 150,
+                height: 50,
+                visible: true
+            };
+            page.elements.push(nextButton);
+            elementsToRender.push(nextButton);
+            
+            // Create previous button
+            const prevButton = {
+                id: `nav-prev-${Date.now()}`,
+                type: 'navigation_control',
+                view: 'control',
+                button_type: 'prev',
+                x: 220,
+                y: 50,
+                width: 150,
+                height: 50,
+                visible: true
+            };
+            page.elements.push(prevButton);
+            elementsToRender.push(prevButton);
+            
+            // Autosave to persist navigation buttons
+            autosaveQuiz();
+        } else {
+            // Add existing navigation buttons to render list
+            elementsToRender.push(...existingNavButtons);
+        }
+        
+        // Ensure audio/video controls exist for all audio/video elements
+        const audioVideoElements = page.elements.filter(el => 
+            (el.type === 'audio' || el.type === 'video' || el.media_type === 'audio' || el.media_type === 'video') &&
+            (!el.view || el.view === 'display')
+        );
+        
+        audioVideoElements.forEach(mediaElement => {
+            // Check if control element already exists
+            const existingControl = page.elements.find(el => 
+                el.type === 'audio_control' && 
+                el.parent_id === mediaElement.id && 
+                el.view === 'control'
+            );
+            
+            if (!existingControl) {
+                // Create audio/video control element
+                const controlElement = Editor.ElementCreator.createMediaControlElement(mediaElement);
+                if (controlElement) {
+                    page.elements.push(controlElement);
+                    elementsToRender.push(controlElement);
+                }
+            } else {
+                // Add existing control to render list if not already there
+                if (!elementsToRender.find(el => el.id === existingControl.id)) {
+                    elementsToRender.push(existingControl);
+                }
+            }
+        });
+    } else {
+        // Other views
         elementsToRender = page.elements.filter(el => el.view === currentView);
     }
 
@@ -625,10 +519,13 @@ function renderElementOnCanvas(canvas, element, insideContainer = false) {
         el.style.position = 'relative';
         el.style.width = '100%';
         el.style.height = 'auto';
+        // Don't make elements inside containers draggable - the container handles dragging
     }
     
-    // Make draggable
-    makeDraggable(el, element);
+    // Make draggable only if not inside a container
+    if (!insideContainer) {
+        makeDraggable(el, element);
+    }
     
     el.addEventListener('click', () => {
         selectElement(element);
@@ -738,25 +635,99 @@ function renderElementOnCanvas(canvas, element, insideContainer = false) {
             el.style.flexDirection = 'column';
             el.style.gap = '0.5rem';
             
-            const filenameLabel = document.createElement('label');
-            filenameLabel.textContent = element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
+            // Filename label above controls
+            const filenameLabel = document.createElement('div');
+            let filename = element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
+            // Extract just the filename without path
+            if (filename && typeof filename === 'string') {
+                filename = filename.split('/').pop().split('\\').pop();
+            }
+            filenameLabel.textContent = filename || (element.media_type === 'video' ? 'Video' : 'Audio');
             filenameLabel.style.fontWeight = '500';
             filenameLabel.style.fontSize = '0.9rem';
+            filenameLabel.style.marginBottom = '0.25rem';
+            filenameLabel.style.color = '#333';
             el.appendChild(filenameLabel);
             
+            // Play/pause controls
+            const controlsContainer = document.createElement('div');
+            controlsContainer.style.display = 'flex';
+            controlsContainer.style.gap = '0.5rem';
+            controlsContainer.style.alignItems = 'center';
+            
+            const playBtn = document.createElement('button');
+            playBtn.textContent = '▶ Play';
+            playBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
+            playBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (element.media_type === 'video') {
+                    const video = document.getElementById(`video-control-${element.id}`);
+                    if (video) video.play();
+                } else {
+                    const audio = document.getElementById(`audio-control-${element.id}`);
+                    if (audio) audio.play();
+                }
+            };
+            
+            const pauseBtn = document.createElement('button');
+            pauseBtn.textContent = '⏸ Pause';
+            pauseBtn.style.cssText = 'padding: 0.5rem 1rem; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
+            pauseBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (element.media_type === 'video') {
+                    const video = document.getElementById(`video-control-${element.id}`);
+                    if (video) video.pause();
+                } else {
+                    const audio = document.getElementById(`audio-control-${element.id}`);
+                    if (audio) audio.pause();
+                }
+            };
+            
+            controlsContainer.appendChild(playBtn);
+            controlsContainer.appendChild(pauseBtn);
+            el.appendChild(controlsContainer);
+            
+            // Hidden media element for actual playback
             if (element.media_type === 'video') {
                 const videoControl = document.createElement('video');
-                videoControl.controls = true;
+                videoControl.style.display = 'none';
                 videoControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
-                videoControl.style.width = '100%';
+                videoControl.id = `video-control-${element.id}`;
                 el.appendChild(videoControl);
             } else {
                 const audioControl = document.createElement('audio');
-                audioControl.controls = true;
+                audioControl.style.display = 'none';
                 audioControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
-                audioControl.style.width = '100%';
+                audioControl.id = `audio-control-${element.id}`;
                 el.appendChild(audioControl);
             }
+            break;
+        case 'navigation_control':
+            // Navigation button for control view
+            el.style.backgroundColor = '#2196F3';
+            el.style.border = '2px solid #1976D2';
+            el.style.borderRadius = '4px';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.cursor = 'pointer';
+            el.style.color = 'white';
+            el.style.fontWeight = 'bold';
+            el.style.fontSize = '1rem';
+            
+            if (element.button_type === 'next') {
+                el.textContent = 'Next →';
+            } else if (element.button_type === 'prev') {
+                el.textContent = '← Previous';
+            }
+            
+            // Make it look like a button but non-functional in editor
+            el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // In editor mode, just select the element
+                selectElement(element);
+            });
             break;
         case 'answer_input':
             // Answer input element for participant view - show actual interactive elements
@@ -1015,8 +986,8 @@ function renderElementOnCanvas(canvas, element, insideContainer = false) {
         addResizeHandles(el, element);
     }
     
-    // Add resize handles for child elements (audio_control, answer_input, answer_display)
-    if (['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
+    // Add resize handles for child elements (audio_control, answer_input, answer_display, navigation_control)
+    if (['audio_control', 'answer_input', 'answer_display', 'navigation_control'].includes(element.type)) {
         addResizeHandles(el, element);
     }
     
@@ -1025,9 +996,9 @@ function renderElementOnCanvas(canvas, element, insideContainer = false) {
         addResizeHandles(el, element);
     }
     
-    // Add resize handles for child elements (audio_control, answer_input, answer_display)
+    // Add resize handles for child elements (audio_control, answer_input, answer_display, navigation_control)
     // But not if inside a container (participant view question containers)
-    if (!insideContainer && ['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
+    if (!insideContainer && ['audio_control', 'answer_input', 'answer_display', 'navigation_control'].includes(element.type)) {
         addResizeHandles(el, element);
     }
 
@@ -1130,162 +1101,36 @@ function makeDraggable(element, elementData) {
     });
 }
 
-// Helper function to create audio/video control child elements
+// Helper functions that delegate to modules
 function createMediaControlElement(parentElement) {
-    const isAudio = parentElement.type === 'audio' || parentElement.media_type === 'audio';
-    const isVideo = parentElement.type === 'video' || parentElement.media_type === 'video';
-    
-    if (!isAudio && !isVideo) return null;
-    
-    return {
-        id: `element-${Date.now()}-control`,
-        type: 'audio_control',  // Use same type for both audio and video controls
-        media_type: isAudio ? 'audio' : 'video',
-        parent_id: parentElement.id,
-        view: 'control',
-        x: 50,
-        y: 50,
-        width: 400,
-        height: 80,
-        filename: parentElement.filename,
-        src: parentElement.src
-    };
+    return Editor.ElementCreator.createMediaControlElement(parentElement);
 }
 
-// Helper function to create question answer child elements
 function createQuestionChildElements(parentElement) {
-    const childElements = [];
-    
-    // Answer element for participant view
-    const answerElement = {
-        id: `element-${Date.now()}-answer`,
-        type: 'answer_input',
-        parent_id: parentElement.id,
-        view: 'participant',
-        answer_type: parentElement.answer_type || 'text',
-        x: 50,
-        y: 100,
-        width: 400,
-        height: 100,
-        options: parentElement.options || []
-    };
-    childElements.push(answerElement);
-    
-    // Answer display/marking element for control view
-    const answerDisplayElement = {
-        id: `element-${Date.now()}-answer-display`,
-        type: 'answer_display',
-        parent_id: parentElement.id,
-        view: 'control',
-        answer_type: parentElement.answer_type || 'text',
-        x: 50,
-        y: 200,
-        width: 600,
-        height: 300
-    };
-    childElements.push(answerDisplayElement);
-    
-    return childElements;
+    return Editor.ElementCreator.createQuestionChildElements(parentElement);
 }
 
 function addElement(type, x, y) {
-    const page = currentQuiz.pages[currentPageIndex];
-    if (!page) return;
-
-    // Only allow adding elements to display view
-    if (currentView !== 'display') {
-        alert('Elements can only be added to the Display view');
-        return;
-    }
-
-    // Prevent adding text elements (removed feature)
-    if (type === 'text') {
-        return;
-    }
-
-    // Handle media type - open modal
-    if (type === 'media') {
-        openMediaModal((selectedMedia) => {
-            const element = {
-                id: `element-${Date.now()}`,
-                type: selectedMedia.media_type,
-                media_type: selectedMedia.media_type,
-                view: 'display',  // Elements on display view
-                x: x,
-                y: y,
-                width: 200,
-                height: 150,
-                visible: true,
-                is_question: false,
-                answer_type: 'text',
-                src: selectedMedia.url,
-                filename: selectedMedia.filename
-            };
-
-            if (!page.elements) {
-                page.elements = [];
-            }
-            page.elements.push(element);
-            
-            // Create audio/video control child elements
-            const controlElement = createMediaControlElement(element);
-            if (controlElement) {
-                page.elements.push(controlElement);
-            }
-            
+    const elementCallbacks = {
+        getCurrentQuiz: () => currentQuiz,
+        getCurrentPageIndex: () => currentPageIndex,
+        getCurrentView: () => currentView,
+        openMediaModal: (callback) => {
+            Editor.MediaModal.open(callback);
+        },
+        onElementAdded: (element) => {
             renderCanvas();
             selectElement(element);
-        });
-        return;
-    }
-
-    const element = {
-        id: `element-${Date.now()}`,
-        type: type,
-        view: 'display',  // Elements added to display view
-        x: x,
-        y: y,
-        width: 200,
-        height: 100,
-        visible: true,
-        is_question: false,
-        answer_type: 'text',
-        rotation: 0
-    };
-
-    // Set defaults based on type
-    if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(type)) {
-        element.fill_color = '#ddd';
-        element.border_color = '#999';
-        element.border_width = 2;
-        if (type === 'line') {
-            element.width = 200;
-            element.height = 2;
-        } else if (type === 'arrow') {
-            // Set default arrow properties
-            element.arrow_body_thickness = 20;
-            element.arrow_head_length = 30;
+            autosaveQuiz();
         }
-    } else if (type === 'richtext') {
-        element.width = 300;
-        element.height = 150;
-        element.content = '<p>Enter your text here</p>'; // Default HTML content
-        element.font_size = 16;
-        element.text_color = '#000000';
-        element.background_color = 'transparent';
-    }
-
-    if (!page.elements) {
-        page.elements = [];
-    }
-    page.elements.push(element);
+    };
     
-    // Create audio/video control child elements (only for media elements)
-    // Note: Question answer elements are created when is_question is toggled
-    
-    renderCanvas();
-    selectElement(element);
-    autosaveQuiz();
+    const element = Editor.ElementCreator.createElement(type, x, y, elementCallbacks);
+    if (element) {
+        renderCanvas();
+        selectElement(element);
+        autosaveQuiz();
+    }
 }
 
 function selectElement(element) {
@@ -1294,6 +1139,12 @@ function selectElement(element) {
         el.classList.remove('selected');
         el.querySelectorAll('.resize-handle, .rotate-handle').forEach(h => h.remove());
     });
+    // Also clear selection from question containers and navigation controls
+    document.querySelectorAll('.question-container, [id^="element-nav-"]').forEach(el => {
+        el.classList.remove('selected');
+        el.querySelectorAll('.resize-handle, .rotate-handle').forEach(h => h.remove());
+    });
+    
     const el = document.getElementById(`element-${element.id}`);
     if (el) {
         el.classList.add('selected');
@@ -1301,6 +1152,8 @@ function selectElement(element) {
             addResizeHandles(el, element);
             addRotateHandle(el, element);
         } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {
+            addResizeHandles(el, element);
+        } else if (['audio_control', 'answer_input', 'answer_display', 'navigation_control'].includes(element.type)) {
             addResizeHandles(el, element);
         }
     }
@@ -1312,6 +1165,12 @@ function deleteSelectedElement() {
     
     const page = currentQuiz.pages[currentPageIndex];
     if (!page || !page.elements) return;
+    
+    // Don't allow deleting navigation controls - they're always needed
+    if (selectedElement.type === 'navigation_control') {
+        alert('Navigation buttons cannot be deleted. They are always shown in control view.');
+        return;
+    }
     
     // Remove element from array
     const elementIndex = page.elements.findIndex(el => el.id === selectedElement.id);
@@ -1670,7 +1529,7 @@ function renderProperties() {
             // Create child answer elements
             selectedElement.answer_type = selectedElement.answer_type || 'text';
             if (!wasQuestion) {
-                const childElements = createQuestionChildElements(selectedElement);
+                const childElements = Editor.ElementCreator.createQuestionChildElements(selectedElement);
                 childElements.forEach(child => {
                     if (!page.elements) page.elements = [];
                     page.elements.push(child);
@@ -1903,6 +1762,16 @@ function updateElementDisplay() {
         el.style.width = `${selectedElement.width}px`;
         el.style.height = `${selectedElement.height}px`;
         
+        // If in participant view and this is a question element, also update the question container
+        if (currentView === 'participant' && selectedElement.is_question) {
+            const questionContainer = document.getElementById(`question-${selectedElement.id}`);
+            if (questionContainer) {
+                const headerOffset = 80;
+                questionContainer.style.left = `${selectedElement.x}px`;
+                questionContainer.style.top = `${selectedElement.y + headerOffset}px`;
+            }
+        }
+        
         if (selectedElement.type === 'rectangle') {
             el.style.backgroundColor = selectedElement.fill_color || '#ddd';
             el.style.border = `${selectedElement.border_width || 2}px solid ${selectedElement.border_color || '#999'}`;
@@ -1987,101 +1856,11 @@ function updateElementDisplay() {
     }
 }
 
-async function loadQuiz(name) {
-    try {
-        const response = await fetch(`/api/quiz/load/${encodeURIComponent(name)}`);
-        const data = await response.json();
-        if (data.quiz) {
-            currentQuiz = data.quiz;
-            document.getElementById('quiz-name').value = currentQuiz.name;
-            
-            // Ensure all pages have names
-            if (currentQuiz.pages) {
-                currentQuiz.pages.forEach((page, index) => {
-                    if (!page.name) {
-                        if (page.type === 'status') {
-                            page.name = 'Status Page';
-                        } else if (page.type === 'results') {
-                            page.name = 'Results Page';
-                        } else {
-                            const pageNumber = currentQuiz.pages.slice(0, index + 1).filter(p => p.type === 'display').length;
-                            page.name = `Page ${pageNumber}`;
-                        }
-                    }
-                });
-            }
-            
-            currentPageIndex = 0;
-            renderPages();
-            renderCanvas();
-        }
-    } catch (error) {
-        console.error('Error loading quiz:', error);
-    }
-}
+// loadQuiz is now handled by Editor.QuizStorage module
+// Function removed - using Editor.QuizStorage.loadQuiz instead
 
-let autosaveTimeout = null;
-
-function debounce(func, wait) {
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(autosaveTimeout);
-            func(...args);
-        };
-        clearTimeout(autosaveTimeout);
-        autosaveTimeout = setTimeout(later, wait);
-    };
-}
-
-async function autosaveQuiz() {
-    const name = document.getElementById('quiz-name').value.trim();
-    if (!name) {
-        return; // Don't save if no name
-    }
-
-    currentQuiz.name = name;
-    const saveStatus = document.getElementById('save-status');
-    
-    if (saveStatus) {
-        saveStatus.textContent = 'Saving...';
-        saveStatus.style.color = '#2196F3';
-    }
-
-    try {
-        const response = await fetch('/api/quiz/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: name,
-                quiz: currentQuiz
-            })
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-            if (saveStatus) {
-                saveStatus.textContent = 'Saved';
-                saveStatus.style.color = '#4CAF50';
-                setTimeout(() => {
-                    if (saveStatus) {
-                        saveStatus.textContent = 'Saved';
-                        saveStatus.style.color = '#666';
-                    }
-                }, 2000);
-            }
-        } else {
-            if (saveStatus) {
-                saveStatus.textContent = 'Error';
-                saveStatus.style.color = '#f44336';
-            }
-        }
-    } catch (error) {
-        if (saveStatus) {
-            saveStatus.textContent = 'Error';
-            saveStatus.style.color = '#f44336';
-        }
-    }
-}
+// debounce and autosaveQuiz are now handled by modules
+// Functions removed - using Editor.Utils.debounce and Editor.QuizStorage.autosaveQuiz instead
 
 function addResizeHandles(element, elementData) {
     if (!element.classList.contains('selected')) return;
@@ -2217,205 +1996,6 @@ function addRotateHandle(element, elementData) {
     element.appendChild(handle);
 }
 
-function initMediaModal() {
-    const modal = document.getElementById('media-modal');
-    const closeBtn = document.getElementById('media-modal-close');
-    const tabs = document.querySelectorAll('.modal-tab');
-    
-    closeBtn.addEventListener('click', () => {
-        modal.style.display = 'none';
-    });
-    
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-    
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabName = tab.dataset.tab;
-            tabs.forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
-            tab.classList.add('active');
-            document.getElementById(`media-tab-${tabName}`).classList.add('active');
-            loadMediaForTab(tabName);
-        });
-    });
-    
-    // Upload handlers
-    ['image', 'audio', 'video'].forEach(type => {
-        const uploadBtn = document.getElementById(`upload-${type}-btn`);
-        const uploadFile = document.getElementById(`upload-${type}-file`);
-        
-        uploadBtn.addEventListener('click', () => uploadFile.click());
-        
-        uploadFile.addEventListener('change', async (e) => {
-            const files = Array.from(e.target.files);
-            for (const file of files) {
-                await uploadMediaFile(file, type);
-            }
-            loadMediaForTab(type);
-        });
-    });
-}
-
-let mediaModalCallback = null;
-
-function openMediaModal(callback) {
-    mediaModalCallback = callback;
-    const modal = document.getElementById('media-modal');
-    modal.style.display = 'flex';
-    loadMediaForTab('images');
-}
-
-async function loadMediaForTab(tabType) {
-    try {
-        const response = await fetch('/api/media/list');
-        const data = await response.json();
-        
-        const checkResponse = await fetch('/api/auth/check');
-        const checkData = await checkResponse.json();
-        const currentUsername = checkData.username;
-        
-        const myList = document.getElementById(`my-${tabType}-list`);
-        const publicList = document.getElementById(`public-${tabType}-list`);
-        
-        myList.innerHTML = '';
-        publicList.innerHTML = '';
-        
-        const fileTypes = {
-            images: ['jpg', 'jpeg', 'png', 'gif', 'svg'],
-            audio: ['mp3', 'wav', 'ogg'],
-            video: ['mp4', 'webm']
-        };
-        
-        const myMedia = data.files.filter(f => {
-            const ext = f.filename.split('.').pop().toLowerCase();
-            return f.creator === currentUsername && fileTypes[tabType].includes(ext);
-        });
-        
-        const publicMedia = data.files.filter(f => {
-            const ext = f.filename.split('.').pop().toLowerCase();
-            return f.public && f.creator !== currentUsername && fileTypes[tabType].includes(ext);
-        });
-        
-        myMedia.forEach(file => {
-            const item = createMediaItem(file, tabType);
-            myList.appendChild(item);
-        });
-        
-        publicMedia.forEach(file => {
-            const item = createMediaItem(file, tabType);
-            publicList.appendChild(item);
-        });
-    } catch (error) {
-        console.error('Error loading media:', error);
-    }
-}
-
-function createMediaItem(file, tabType) {
-    const item = document.createElement('div');
-    item.className = 'media-item';
-    item.style.cssText = 'padding: 0.5rem; border: 1px solid #ddd; margin: 0.5rem 0; cursor: pointer; border-radius: 4px;';
-    item.style.display = 'flex';
-    item.style.alignItems = 'center';
-    item.style.gap = '0.5rem';
-    
-    if (tabType === 'images') {
-        const img = document.createElement('img');
-        img.src = `/api/media/serve/${file.filename}`;
-        img.style.width = '50px';
-        img.style.height = '50px';
-        img.style.objectFit = 'cover';
-        img.style.borderRadius = '4px';
-        item.appendChild(img);
-    } else if (tabType === 'video') {
-        const icon = document.createElement('div');
-        icon.innerHTML = '▶';
-        icon.style.fontSize = '24px';
-        item.appendChild(icon);
-    } else if (tabType === 'audio') {
-        const icon = document.createElement('div');
-        icon.innerHTML = '🔊';
-        icon.style.fontSize = '24px';
-        item.appendChild(icon);
-    }
-    
-    const name = document.createElement('span');
-    name.textContent = file.original_name;
-    item.appendChild(name);
-    
-    item.addEventListener('click', () => {
-        const mediaType = tabType === 'images' ? 'image' : tabType;
-        mediaModalCallback({
-            media_type: mediaType,
-            url: `/api/media/serve/${file.filename}`,
-            filename: file.filename
-        });
-        document.getElementById('media-modal').style.display = 'none';
-    });
-    
-    return item;
-}
-
-async function uploadMediaFile(file, type) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('public', 'false');
-    
-    try {
-        const response = await fetch('/api/media/upload', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-        if (!response.ok) {
-            alert(`Error uploading ${file.name}: ${data.error}`);
-        }
-    } catch (error) {
-        alert(`Error uploading ${file.name}`);
-    }
-}
-
-function initPropertiesResize() {
-    const resizeHandle = document.querySelector('.properties-resize-handle');
-    const propertiesPanel = document.querySelector('.editor-properties');
-    
-    if (!resizeHandle || !propertiesPanel) return;
-    
-    let isResizing = false;
-    let startX = 0;
-    let startWidth = 0;
-    
-    resizeHandle.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        startX = e.clientX;
-        startWidth = parseInt(window.getComputedStyle(propertiesPanel).width, 10);
-        document.body.style.cursor = 'col-resize';
-        document.body.style.userSelect = 'none';
-        e.preventDefault();
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        
-        const diff = startX - e.clientX; // Reverse because we're resizing from the left
-        const newWidth = startWidth + diff;
-        const minWidth = 200;
-        const maxWidth = 600;
-        
-        if (newWidth >= minWidth && newWidth <= maxWidth) {
-            propertiesPanel.style.width = `${newWidth}px`;
-        }
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isResizing) {
-            isResizing = false;
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-        }
-    });
-}
+// Media modal and properties resize are now handled by modules
+// Functions removed - using Editor.MediaModal and Editor.Utils instead
 

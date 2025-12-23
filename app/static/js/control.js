@@ -102,7 +102,39 @@ function loadAnswers() {
         canvas.style.setProperty('background-image', 'none', 'important');
         if (page.elements) {
             // Filter to only show control view elements
-            const controlElements = page.elements.filter(el => el.view === 'control');
+            let controlElements = page.elements.filter(el => el.view === 'control');
+            
+            // Ensure navigation buttons exist (create them on-the-fly if not in quiz data)
+            const existingNavButtons = controlElements.filter(el => el.type === 'navigation_control');
+            if (existingNavButtons.length === 0) {
+                // Create next button (temporary, not saved to quiz)
+                const nextButton = {
+                    id: `nav-next-temp`,
+                    type: 'navigation_control',
+                    view: 'control',
+                    button_type: 'next',
+                    x: 50,
+                    y: 50,
+                    width: 150,
+                    height: 50,
+                    visible: true
+                };
+                controlElements.push(nextButton);
+                
+                // Create previous button (temporary, not saved to quiz)
+                const prevButton = {
+                    id: `nav-prev-temp`,
+                    type: 'navigation_control',
+                    view: 'control',
+                    button_type: 'prev',
+                    x: 220,
+                    y: 50,
+                    width: 150,
+                    height: 50,
+                    visible: true
+                };
+                controlElements.push(prevButton);
+            }
             
             controlElements.forEach(element => {
                 renderControlElement(canvas, element);
@@ -134,26 +166,130 @@ function renderControlElement(container, element) {
         el.style.flexDirection = 'column';
         el.style.gap = '0.5rem';
         
-        const filenameLabel = document.createElement('label');
-        filenameLabel.textContent = element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
+        // Filename label above controls
+        const filenameLabel = document.createElement('div');
+        let filename = element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
+        // Extract just the filename without path
+        if (filename && typeof filename === 'string') {
+            filename = filename.split('/').pop().split('\\').pop();
+        }
+        filenameLabel.textContent = filename || (element.media_type === 'video' ? 'Video' : 'Audio');
         filenameLabel.style.fontWeight = '500';
         filenameLabel.style.fontSize = '0.9rem';
+        filenameLabel.style.marginBottom = '0.25rem';
+        filenameLabel.style.color = '#333';
         el.appendChild(filenameLabel);
         
+        // Play/pause controls
+        const controlsContainer = document.createElement('div');
+        controlsContainer.style.display = 'flex';
+        controlsContainer.style.gap = '0.5rem';
+        controlsContainer.style.alignItems = 'center';
+        
+        const playBtn = document.createElement('button');
+        playBtn.textContent = '▶ Play';
+        playBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
+        playBtn.onclick = () => {
+            if (element.media_type === 'video') {
+                const video = document.getElementById(`video-control-${element.id}`);
+                if (video) {
+                    video.play();
+                    socket.emit('quizmaster_control_element', {
+                        room_code: roomCode,
+                        element_id: element.parent_id,
+                        action: 'play'
+                    });
+                }
+            } else {
+                const audio = document.getElementById(`audio-control-${element.id}`);
+                if (audio) {
+                    audio.play();
+                    socket.emit('quizmaster_control_element', {
+                        room_code: roomCode,
+                        element_id: element.parent_id,
+                        action: 'play'
+                    });
+                }
+            }
+        };
+        
+        const pauseBtn = document.createElement('button');
+        pauseBtn.textContent = '⏸ Pause';
+        pauseBtn.style.cssText = 'padding: 0.5rem 1rem; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
+        pauseBtn.onclick = () => {
+            if (element.media_type === 'video') {
+                const video = document.getElementById(`video-control-${element.id}`);
+                if (video) {
+                    video.pause();
+                    socket.emit('quizmaster_control_element', {
+                        room_code: roomCode,
+                        element_id: element.parent_id,
+                        action: 'pause'
+                    });
+                }
+            } else {
+                const audio = document.getElementById(`audio-control-${element.id}`);
+                if (audio) {
+                    audio.pause();
+                    socket.emit('quizmaster_control_element', {
+                        room_code: roomCode,
+                        element_id: element.parent_id,
+                        action: 'pause'
+                    });
+                }
+            }
+        };
+        
+        controlsContainer.appendChild(playBtn);
+        controlsContainer.appendChild(pauseBtn);
+        el.appendChild(controlsContainer);
+        
+        // Hidden media element for actual playback
         if (element.media_type === 'video') {
             const videoControl = document.createElement('video');
-            videoControl.controls = true;
+            videoControl.style.display = 'none';
             videoControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
             videoControl.style.width = '100%';
             videoControl.id = `video-control-${element.id}`;
             el.appendChild(videoControl);
         } else {
             const audioControl = document.createElement('audio');
-            audioControl.controls = true;
+            audioControl.style.display = 'none';
             audioControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
             audioControl.style.width = '100%';
             audioControl.id = `audio-control-${element.id}`;
             el.appendChild(audioControl);
+        }
+    } else if (element.type === 'navigation_control') {
+        // Navigation button for control view
+        el.style.backgroundColor = '#2196F3';
+        el.style.border = '2px solid #1976D2';
+        el.style.borderRadius = '4px';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.cursor = 'pointer';
+        el.style.color = 'white';
+        el.style.fontWeight = 'bold';
+        el.style.fontSize = '1rem';
+        el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        
+        if (element.button_type === 'next') {
+            el.textContent = 'Next →';
+            el.onclick = () => {
+                socket.emit('quizmaster_navigate', {
+                    room_code: roomCode,
+                    direction: 'next'
+                });
+            };
+        } else if (element.button_type === 'prev') {
+            el.textContent = '← Previous';
+            el.onclick = () => {
+                socket.emit('quizmaster_navigate', {
+                    room_code: roomCode,
+                    direction: 'prev'
+                });
+            };
         }
     } else if (element.type === 'answer_display') {
         el.style.backgroundColor = '#fff3e0';

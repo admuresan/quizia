@@ -1,0 +1,190 @@
+// Media modal functionality for the editor
+
+(function(Editor) {
+    'use strict';
+
+    let mediaModalCallback = null;
+
+    Editor.MediaModal = {
+        init: function() {
+            const modal = document.getElementById('media-modal');
+            const closeBtn = document.getElementById('media-modal-close');
+            const tabs = document.querySelectorAll('.modal-tab');
+            
+            if (!modal || !closeBtn) return;
+            
+            closeBtn.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+                    tabs.forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.modal-tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    const tabContent = document.getElementById(`media-tab-${tabName}`);
+                    if (tabContent) {
+                        tabContent.classList.add('active');
+                    }
+                    this.loadMediaForTab(tabName);
+                });
+            });
+            
+            ['image', 'audio', 'video'].forEach(type => {
+                const uploadBtn = document.getElementById(`upload-${type}-btn`);
+                const uploadFile = document.getElementById(`upload-${type}-file`);
+                
+                if (uploadBtn && uploadFile) {
+                    uploadBtn.addEventListener('click', () => uploadFile.click());
+                    
+                    uploadFile.addEventListener('change', async (e) => {
+                        const files = Array.from(e.target.files);
+                        for (const file of files) {
+                            await this.uploadMediaFile(file, type);
+                        }
+                        this.loadMediaForTab(type);
+                    });
+                }
+            });
+        },
+
+        open: function(callback) {
+            mediaModalCallback = callback;
+            const modal = document.getElementById('media-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                this.loadMediaForTab('images');
+            }
+        },
+
+        loadMediaForTab: async function(tabType) {
+            try {
+                const response = await fetch('/api/media/list');
+                const data = await response.json();
+                
+                const checkResponse = await fetch('/api/auth/check');
+                const checkData = await checkResponse.json();
+                const currentUsername = checkData.username;
+                
+                const myList = document.getElementById(`my-${tabType}-list`);
+                const publicList = document.getElementById(`public-${tabType}-list`);
+                
+                if (!myList || !publicList) return;
+                
+                myList.innerHTML = '';
+                publicList.innerHTML = '';
+                
+                const fileTypes = {
+                    images: ['jpg', 'jpeg', 'png', 'gif', 'svg'],
+                    audio: ['mp3', 'wav', 'ogg'],
+                    video: ['mp4', 'webm']
+                };
+                
+                const myMedia = data.files.filter(f => {
+                    const ext = f.filename.split('.').pop().toLowerCase();
+                    return f.creator === currentUsername && fileTypes[tabType].includes(ext);
+                });
+                
+                const publicMedia = data.files.filter(f => {
+                    const ext = f.filename.split('.').pop().toLowerCase();
+                    return f.public && f.creator !== currentUsername && fileTypes[tabType].includes(ext);
+                });
+                
+                myMedia.forEach(file => {
+                    const item = this.createMediaItem(file, tabType);
+                    myList.appendChild(item);
+                });
+                
+                publicMedia.forEach(file => {
+                    const item = this.createMediaItem(file, tabType);
+                    publicList.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading media:', error);
+            }
+        },
+
+        createMediaItem: function(file, tabType) {
+            const item = document.createElement('div');
+            item.className = 'media-item';
+            item.style.cssText = 'padding: 0.5rem; border: 1px solid #ddd; margin: 0.5rem 0; cursor: pointer; border-radius: 4px;';
+            item.style.display = 'flex';
+            item.style.alignItems = 'center';
+            item.style.gap = '0.5rem';
+            
+            if (tabType === 'images') {
+                const img = document.createElement('img');
+                img.src = `/api/media/serve/${file.filename}`;
+                img.style.width = '50px';
+                img.style.height = '50px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '4px';
+                item.appendChild(img);
+            } else if (tabType === 'video') {
+                const icon = document.createElement('div');
+                icon.innerHTML = '▶';
+                icon.style.fontSize = '24px';
+                item.appendChild(icon);
+            } else if (tabType === 'audio') {
+                const icon = document.createElement('div');
+                icon.innerHTML = '🔊';
+                icon.style.fontSize = '24px';
+                item.appendChild(icon);
+            }
+            
+            const name = document.createElement('span');
+            name.textContent = file.original_name;
+            item.appendChild(name);
+            
+            item.addEventListener('click', () => {
+                const mediaType = tabType === 'images' ? 'image' : tabType;
+                if (mediaModalCallback) {
+                    mediaModalCallback({
+                        media_type: mediaType,
+                        url: `/api/media/serve/${file.filename}`,
+                        filename: file.filename
+                    });
+                }
+                const modal = document.getElementById('media-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+            });
+            
+            return item;
+        },
+
+        uploadMediaFile: async function(file, type) {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('public', 'false');
+            
+            try {
+                const response = await fetch('/api/media/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    alert(`Error uploading ${file.name}: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`Error uploading ${file.name}`);
+            }
+        }
+    };
+
+    if (typeof window.Editor === 'undefined') {
+        window.Editor = {};
+    }
+    window.Editor.MediaModal = Editor.MediaModal;
+
+})(typeof Editor !== 'undefined' ? Editor : {});
+
