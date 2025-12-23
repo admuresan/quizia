@@ -144,6 +144,21 @@
     min-height: 600px;
 }
 
+.editor-participant-header {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 3px solid #2196F3;
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
+
 .canvas-element {
     position: absolute;
     border: 2px dashed transparent;

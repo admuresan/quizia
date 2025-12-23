@@ -122,12 +122,13 @@ function renderPage(pageIndex, page) {
         questionDiv.className = 'question-container';
         questionDiv.id = `question-${question.id}`;
         
-        // Render question prompt
-        if (question.text) {
-            const prompt = document.createElement('div');
-            prompt.className = 'question-prompt';
-            prompt.textContent = question.text;
-            questionDiv.appendChild(prompt);
+        // Render question title if available (above answer element)
+        // This helps participants distinguish between different questions
+        if (question.question_title && question.question_title.trim()) {
+            const title = document.createElement('div');
+            title.className = 'question-title';
+            title.textContent = question.question_title;
+            questionDiv.appendChild(title);
         }
         
         // Render answer input based on type

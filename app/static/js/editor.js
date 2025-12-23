@@ -517,14 +517,86 @@ function renderCanvas() {
         page.elements = [];
     }
 
+    // Add participant header if viewing participant view
+    if (currentView === 'participant') {
+        const participantHeader = document.createElement('div');
+        participantHeader.className = 'editor-participant-header';
+        participantHeader.style.cssText = 'position: absolute; top: 0; left: 0; right: 0; background: white; border-bottom: 3px solid #2196F3; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 1000;';
+        
+        // Avatar placeholder
+        const avatar = document.createElement('div');
+        avatar.style.cssText = 'font-size: 2.5rem; width: 3.5rem; height: 3.5rem; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 50%; border: 2px solid #2196F3;';
+        avatar.textContent = '👤';
+        participantHeader.appendChild(avatar);
+        
+        // Name placeholder
+        const name = document.createElement('div');
+        name.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333; flex: 1;';
+        name.textContent = 'Participant Name';
+        participantHeader.appendChild(name);
+        
+        // Points placeholder
+        const points = document.createElement('div');
+        points.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3;';
+        points.textContent = 'Points: 0';
+        participantHeader.appendChild(points);
+        
+        canvas.appendChild(participantHeader);
+        
+        // Add padding to canvas to account for header
+        canvas.style.paddingTop = '80px';
+    } else {
+        // Remove padding for other views
+        canvas.style.paddingTop = '0';
+    }
+
     // Filter elements by current view
     // Elements with view property matching currentView, or parent elements on display view
     let elementsToRender = [];
     if (currentView === 'display') {
         // Display view shows all elements without a view property or with view='display'
         elementsToRender = page.elements.filter(el => !el.view || el.view === 'display');
+    } else if (currentView === 'participant') {
+        // Participant view should match the actual participant page structure
+        // Find question elements and render them with titles and answer inputs
+        const questionElements = page.elements.filter(el => el.is_question && (!el.view || el.view === 'display'));
+        questionElements.forEach(question => {
+            // Create question container (matching participant page structure)
+            const questionContainer = document.createElement('div');
+            questionContainer.className = 'question-container';
+            questionContainer.id = `question-${question.id}`;
+            questionContainer.style.cssText = 'position: relative; background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 300px;';
+            
+            // Add question title if available
+            if (question.question_title && question.question_title.trim()) {
+                const title = document.createElement('div');
+                title.className = 'question-title';
+                title.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-bottom: 1rem; margin-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: block; width: 100%;';
+                title.textContent = question.question_title;
+                questionContainer.appendChild(title);
+            }
+            
+            // Find and render the answer_input element for this question
+            const answerInput = page.elements.find(el => el.type === 'answer_input' && el.parent_id === question.id && el.view === 'participant');
+            if (answerInput) {
+                // Render the answer input inside the question container
+                const answerEl = renderElementOnCanvas(questionContainer, answerInput, true); // Pass true to indicate it's inside a container
+                if (answerEl) {
+                    questionContainer.appendChild(answerEl);
+                }
+            }
+            
+            // Position the question container on the canvas
+            questionContainer.style.position = 'absolute';
+            questionContainer.style.left = `${question.x || 50}px`;
+            questionContainer.style.top = `${(question.y || 50) + (currentView === 'participant' ? 80 : 0)}px`;
+            
+            canvas.appendChild(questionContainer);
+        });
+        // Don't render other elements in participant view - we've handled questions above
+        return;
     } else {
-        // Participant and control views show elements with matching view
+        // Control view shows elements with matching view
         elementsToRender = page.elements.filter(el => el.view === currentView);
     }
 
@@ -537,14 +609,23 @@ function renderCanvas() {
     renderProperties();
 }
 
-function renderElementOnCanvas(canvas, element) {
+function renderElementOnCanvas(canvas, element, insideContainer = false) {
     const el = document.createElement('div');
     el.className = 'canvas-element';
     el.id = `element-${element.id}`;
-    el.style.left = `${element.x}px`;
-    el.style.top = `${element.y}px`;
-    el.style.width = `${element.width}px`;
-    el.style.height = `${element.height}px`;
+    
+    // If inside a container, don't set absolute positioning
+    if (!insideContainer) {
+        el.style.left = `${element.x}px`;
+        el.style.top = `${element.y}px`;
+        el.style.width = `${element.width}px`;
+        el.style.height = `${element.height}px`;
+    } else {
+        // When inside a container, use relative positioning and full width
+        el.style.position = 'relative';
+        el.style.width = '100%';
+        el.style.height = 'auto';
+    }
     
     // Make draggable
     makeDraggable(el, element);
@@ -678,16 +759,217 @@ function renderElementOnCanvas(canvas, element) {
             }
             break;
         case 'answer_input':
-            // Answer input element for participant view
-            el.style.backgroundColor = '#e3f2fd';
-            el.style.border = '2px dashed #2196F3';
-            el.style.borderRadius = '4px';
+            // Answer input element for participant view - show actual interactive elements
+            el.style.backgroundColor = 'transparent';
+            el.style.border = 'none';
             el.style.display = 'flex';
-            el.style.alignItems = 'center';
-            el.style.justifyContent = 'center';
-            el.style.fontSize = '0.9rem';
-            el.style.color = '#666';
-            el.textContent = `Answer Input (${element.answer_type || 'text'})`;
+            el.style.flexDirection = 'column';
+            el.style.gap = '0.5rem';
+            el.style.padding = '0.5rem';
+            el.style.overflow = 'visible';
+            
+            // Find parent question element to get answer_type and options
+            const page = currentQuiz.pages[currentPageIndex];
+            const parentQuestion = page.elements.find(e => e.id === element.parent_id);
+            const answerType = element.answer_type || (parentQuestion ? parentQuestion.answer_type : 'text');
+            const options = element.options || (parentQuestion ? parentQuestion.options : []);
+            
+            // Clear any existing content
+            el.innerHTML = '';
+            
+            // Render based on answer type
+            if (answerType === 'text') {
+                const textInput = document.createElement('input');
+                textInput.type = 'text';
+                textInput.placeholder = 'Type your answer...';
+                textInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #2196F3; border-radius: 4px; font-size: 0.9rem;';
+                el.appendChild(textInput);
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                submitBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    alert('Submit clicked (editor mode)');
+                };
+                el.appendChild(submitBtn);
+            } else if (answerType === 'radio') {
+                const optionsDiv = document.createElement('div');
+                optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
+                
+                (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option, index) => {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
+                    const radio = document.createElement('input');
+                    radio.type = 'radio';
+                    radio.name = `answer-${element.id}`;
+                    radio.value = option;
+                    radio.onclick = (e) => e.stopPropagation();
+                    label.appendChild(radio);
+                    label.appendChild(document.createTextNode(option));
+                    optionsDiv.appendChild(label);
+                });
+                el.appendChild(optionsDiv);
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                submitBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    alert('Submit clicked (editor mode)');
+                };
+                el.appendChild(submitBtn);
+            } else if (answerType === 'checkbox') {
+                const checkboxesDiv = document.createElement('div');
+                checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
+                
+                (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option) => {
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = option;
+                    checkbox.onclick = (e) => e.stopPropagation();
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(option));
+                    checkboxesDiv.appendChild(label);
+                });
+                el.appendChild(checkboxesDiv);
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                submitBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    alert('Submit clicked (editor mode)');
+                };
+                el.appendChild(submitBtn);
+            } else if (answerType === 'image' || answerType === 'image_click') {
+                // Find the parent question element to get the image source
+                // The parent question might be an image element, so check for src, filename, or image_src
+                let imageSrc = null;
+                if (parentQuestion) {
+                    imageSrc = parentQuestion.src || 
+                              (parentQuestion.filename ? '/api/media/serve/' + parentQuestion.filename : null) ||
+                              parentQuestion.image_src;
+                    
+                    // If parent is an image element, it might have the image in a different property
+                    if (!imageSrc && parentQuestion.type === 'image') {
+                        imageSrc = parentQuestion.src || (parentQuestion.filename ? '/api/media/serve/' + parentQuestion.filename : null);
+                    }
+                }
+                
+                if (imageSrc) {
+                    const imageContainer = document.createElement('div');
+                    imageContainer.style.cssText = 'position: relative; width: 100%; display: inline-block;';
+                    
+                    let clickIndicator = null;
+                    
+                    const img = document.createElement('img');
+                    img.src = imageSrc;
+                    img.style.cssText = 'max-width: 100%; height: auto; display: block; cursor: crosshair; border: 2px solid #2196F3; border-radius: 4px;';
+                    img.onclick = (e) => {
+                        e.stopPropagation();
+                        const rect = img.getBoundingClientRect();
+                        const x = ((e.clientX - rect.left) / rect.width) * 100;
+                        const y = ((e.clientY - rect.top) / rect.height) * 100;
+                        
+                        // Remove old indicator
+                        if (clickIndicator) {
+                            clickIndicator.remove();
+                        }
+                        
+                        // Create click indicator (10% of image size)
+                        clickIndicator = document.createElement('div');
+                        clickIndicator.style.cssText = `position: absolute; border-radius: 50%; background: rgba(33, 150, 243, 0.3); border: 2px solid rgba(33, 150, 243, 0.8); pointer-events: none; left: ${x - 5}%; top: ${y - 5}%; width: 10%; height: 10%;`;
+                        imageContainer.appendChild(clickIndicator);
+                    };
+                    imageContainer.appendChild(img);
+                    el.appendChild(imageContainer);
+                } else {
+                    const placeholder = document.createElement('div');
+                    placeholder.textContent = 'Image (set image source on parent question)';
+                    placeholder.style.cssText = 'padding: 2rem; text-align: center; border: 2px dashed #2196F3; border-radius: 4px; color: #666;';
+                    el.appendChild(placeholder);
+                }
+                
+                const submitBtn = document.createElement('button');
+                submitBtn.textContent = 'Submit';
+                submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 0.5rem;';
+                submitBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    alert('Submit clicked (editor mode)');
+                };
+                el.appendChild(submitBtn);
+            } else if (answerType === 'stopwatch') {
+                const stopwatchContainer = document.createElement('div');
+                stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; align-items: center;';
+                
+                const timerDisplay = document.createElement('div');
+                timerDisplay.textContent = '0:00';
+                timerDisplay.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333; display: none;';
+                stopwatchContainer.appendChild(timerDisplay);
+                
+                const controlsDiv = document.createElement('div');
+                controlsDiv.style.cssText = 'display: flex; gap: 0.5rem;';
+                
+                let startTime = null;
+                let intervalId = null;
+                let elapsedTime = 0;
+                
+                const startBtn = document.createElement('button');
+                startBtn.textContent = 'Start';
+                startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                startBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    startTime = Date.now();
+                    startBtn.disabled = true;
+                    startBtn.style.opacity = '0.5';
+                    stopBtn.disabled = false;
+                    stopBtn.style.opacity = '1';
+                    timerDisplay.style.display = 'none';
+                    
+                    intervalId = setInterval(() => {
+                        elapsedTime = Date.now() - startTime;
+                    }, 10);
+                };
+                
+                const stopBtn = document.createElement('button');
+                stopBtn.textContent = 'Stop';
+                stopBtn.disabled = true;
+                stopBtn.style.opacity = '0.5';
+                stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
+                stopBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (startTime) {
+                        elapsedTime = Date.now() - startTime;
+                        clearInterval(intervalId);
+                        
+                        const seconds = Math.floor(elapsedTime / 1000);
+                        const minutes = Math.floor(seconds / 60);
+                        const secs = seconds % 60;
+                        timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+                        timerDisplay.style.display = 'block';
+                        
+                        startBtn.disabled = true;
+                        stopBtn.disabled = true;
+                        startBtn.style.opacity = '0.5';
+                        stopBtn.style.opacity = '0.5';
+                    }
+                };
+                
+                controlsDiv.appendChild(startBtn);
+                controlsDiv.appendChild(stopBtn);
+                stopwatchContainer.appendChild(controlsDiv);
+                el.appendChild(stopwatchContainer);
+            } else {
+                // Fallback for unknown types
+                el.textContent = `Answer Input (${answerType})`;
+                el.style.backgroundColor = '#e3f2fd';
+                el.style.border = '2px dashed #2196F3';
+                el.style.borderRadius = '4px';
+                el.style.padding = '1rem';
+            }
             break;
         case 'answer_display':
             // Answer display element for control view
@@ -700,6 +982,19 @@ function renderElementOnCanvas(canvas, element) {
             el.style.fontSize = '0.9rem';
             el.style.color = '#666';
             el.textContent = `Answer Display (${element.answer_type || 'text'})`;
+            break;
+        case 'richtext':
+            // Display the rich text content with formatting
+            el.innerHTML = element.content || '<p>Enter your text here</p>';
+            el.style.fontSize = `${element.font_size || 16}px`;
+            el.style.color = element.text_color || '#000000';
+            el.style.backgroundColor = element.background_color || 'transparent';
+            el.style.padding = '8px';
+            el.style.overflow = 'auto';
+            el.style.wordWrap = 'break-word';
+            el.style.border = 'none';
+            // Make sure the element can display HTML properly
+            el.style.textAlign = 'left';
             break;
     }
 
@@ -724,8 +1019,25 @@ function renderElementOnCanvas(canvas, element) {
     if (['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
         addResizeHandles(el, element);
     }
+    
+    // Add resize handles for richtext elements
+    if (element.type === 'richtext') {
+        addResizeHandles(el, element);
+    }
+    
+    // Add resize handles for child elements (audio_control, answer_input, answer_display)
+    // But not if inside a container (participant view question containers)
+    if (!insideContainer && ['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
+        addResizeHandles(el, element);
+    }
 
-    canvas.appendChild(el);
+    // Only append to canvas if not inside a container (container will append it)
+    if (!insideContainer) {
+        canvas.appendChild(el);
+    }
+    
+    // Return the element so it can be appended to a container if needed
+    return el;
 }
 
 function renderMediaElement(el, element) {
@@ -771,6 +1083,14 @@ function makeDraggable(element, elementData) {
     let hasMoved = false;
 
     element.addEventListener('mousedown', (e) => {
+        // Don't start dragging if clicking on interactive elements (inputs, buttons, etc.)
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'LABEL' || 
+            target.tagName === 'SELECT' || target.tagName === 'TEXTAREA' || target.closest('button') || 
+            target.closest('input') || target.closest('label') || target.closest('select')) {
+            return;
+        }
+        
         isDragging = true;
         hasMoved = false;
         startX = e.clientX;
@@ -946,6 +1266,13 @@ function addElement(type, x, y) {
             element.arrow_body_thickness = 20;
             element.arrow_head_length = 30;
         }
+    } else if (type === 'richtext') {
+        element.width = 300;
+        element.height = 150;
+        element.content = '<p>Enter your text here</p>'; // Default HTML content
+        element.font_size = 16;
+        element.text_color = '#000000';
+        element.background_color = 'transparent';
     }
 
     if (!page.elements) {
@@ -973,7 +1300,7 @@ function selectElement(element) {
         if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(element.type)) {
             addResizeHandles(el, element);
             addRotateHandle(el, element);
-        } else if (['image', 'video', 'audio'].includes(element.type)) {
+        } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {
             addResizeHandles(el, element);
         }
     }
@@ -1035,6 +1362,204 @@ function renderProperties() {
     });
 
     // Type-specific properties
+    // Rich text editor
+    if (selectedElement.type === 'richtext') {
+        // Rich text content editor
+        const contentGroup = document.createElement('div');
+        contentGroup.className = 'property-group';
+        const contentLabel = document.createElement('label');
+        contentLabel.textContent = 'Content';
+        contentLabel.style.marginBottom = '0.5rem';
+        contentLabel.style.display = 'block';
+        contentGroup.appendChild(contentLabel);
+        
+        // Contenteditable div for rich text editing
+        const editor = document.createElement('div');
+        editor.contentEditable = true;
+        editor.innerHTML = selectedElement.content || '<p>Enter your text here</p>';
+        editor.style.cssText = 'min-height: 200px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white; overflow-y: auto; font-size: 14px; line-height: 1.5;';
+        editor.style.fontSize = `${selectedElement.font_size || 16}px`;
+        editor.style.color = selectedElement.text_color || '#000000';
+        
+        // Update content function - immediate display update
+        const updateRichTextDisplay = () => {
+            selectedElement.content = editor.innerHTML;
+            updateElementDisplay();
+        };
+        
+        // Debounced save function - only for autosave
+        const saveRichText = debounce(() => {
+            autosaveQuiz();
+        }, 500);
+        
+        // Combined update function for toolbar buttons (immediate update + debounced save)
+        const updateRichTextContent = () => {
+            updateRichTextDisplay();
+            saveRichText();
+        };
+        
+        // Formatting toolbar
+        const toolbar = document.createElement('div');
+        toolbar.style.cssText = 'display: flex; gap: 0.25rem; margin-bottom: 0.5rem; flex-wrap: wrap; padding: 0.5rem; background: #f5f5f5; border-radius: 4px;';
+        
+        // Bold button
+        const boldBtn = document.createElement('button');
+        boldBtn.innerHTML = '<strong>B</strong>';
+        boldBtn.title = 'Bold';
+        boldBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-weight: bold;';
+        boldBtn.onclick = (e) => {
+            e.preventDefault();
+            editor.focus();
+            document.execCommand('bold', false, null);
+            updateRichTextContent();
+        };
+        toolbar.appendChild(boldBtn);
+        
+        // Italic button
+        const italicBtn = document.createElement('button');
+        italicBtn.innerHTML = '<em>I</em>';
+        italicBtn.title = 'Italic';
+        italicBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-style: italic;';
+        italicBtn.onclick = (e) => {
+            e.preventDefault();
+            editor.focus();
+            document.execCommand('italic', false, null);
+            updateRichTextContent();
+        };
+        toolbar.appendChild(italicBtn);
+        
+        // Underline button
+        const underlineBtn = document.createElement('button');
+        underlineBtn.innerHTML = '<u>U</u>';
+        underlineBtn.title = 'Underline';
+        underlineBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; text-decoration: underline;';
+        underlineBtn.onclick = (e) => {
+            e.preventDefault();
+            editor.focus();
+            document.execCommand('underline', false, null);
+            updateRichTextContent();
+        };
+        toolbar.appendChild(underlineBtn);
+        
+        // Font size dropdown
+        const fontSizeLabel = document.createElement('label');
+        fontSizeLabel.textContent = 'Size:';
+        fontSizeLabel.style.marginLeft = '0.5rem';
+        fontSizeLabel.style.marginRight = '0.25rem';
+        toolbar.appendChild(fontSizeLabel);
+        
+        const fontSizeSelect = document.createElement('select');
+        fontSizeSelect.style.cssText = 'padding: 0.25rem; border: 1px solid #ddd; border-radius: 3px;';
+        const sizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+        sizes.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size;
+            option.textContent = size;
+            if (size === (selectedElement.font_size || 16)) {
+                option.selected = true;
+            }
+            fontSizeSelect.appendChild(option);
+        });
+        fontSizeSelect.onchange = () => {
+            editor.focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                if (!range.collapsed) {
+                    const span = document.createElement('span');
+                    span.style.fontSize = fontSizeSelect.value + 'px';
+                    try {
+                        range.surroundContents(span);
+                    } catch (e) {
+                        // If surroundContents fails, use alternative method
+                        span.appendChild(range.extractContents());
+                        range.insertNode(span);
+                    }
+                    updateRichTextContent();
+                } else {
+                    // If no selection, apply to entire content
+                    editor.style.fontSize = fontSizeSelect.value + 'px';
+                    selectedElement.font_size = parseInt(fontSizeSelect.value);
+                    updateRichTextContent();
+                }
+            }
+        };
+        toolbar.appendChild(fontSizeSelect);
+        
+        // Text color picker
+        const colorLabel = document.createElement('label');
+        colorLabel.textContent = 'Color:';
+        colorLabel.style.marginLeft = '0.5rem';
+        colorLabel.style.marginRight = '0.25rem';
+        toolbar.appendChild(colorLabel);
+        
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.value = selectedElement.text_color || '#000000';
+        colorInput.style.cssText = 'width: 40px; height: 24px; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;';
+        colorInput.onchange = () => {
+            editor.focus();
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                document.execCommand('foreColor', false, colorInput.value);
+            } else {
+                // If no selection, apply to entire content
+                editor.style.color = colorInput.value;
+                selectedElement.text_color = colorInput.value;
+            }
+            updateRichTextContent();
+        };
+        toolbar.appendChild(colorInput);
+        
+        contentGroup.appendChild(toolbar);
+        
+        // Update display immediately as user types, but debounce autosave
+        editor.addEventListener('input', () => {
+            updateRichTextDisplay();
+            saveRichText();
+        });
+        editor.addEventListener('blur', updateRichTextContent);
+        
+        // Prevent default behavior for formatting buttons
+        editor.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'b') {
+                    e.preventDefault();
+                    document.execCommand('bold', false, null);
+                    updateRichTextContent();
+                } else if (e.key === 'i') {
+                    e.preventDefault();
+                    document.execCommand('italic', false, null);
+                    updateRichTextContent();
+                } else if (e.key === 'u') {
+                    e.preventDefault();
+                    document.execCommand('underline', false, null);
+                    updateRichTextContent();
+                }
+            }
+        });
+        
+        contentGroup.appendChild(editor);
+        panel.appendChild(contentGroup);
+        
+        // Background color
+        const bgColorGroup = document.createElement('div');
+        bgColorGroup.className = 'property-group';
+        const bgColorLabel = document.createElement('label');
+        bgColorLabel.textContent = 'Background Color';
+        const bgColorInput = document.createElement('input');
+        bgColorInput.type = 'color';
+        bgColorInput.value = selectedElement.background_color || '#ffffff';
+        bgColorInput.onchange = () => {
+            selectedElement.background_color = bgColorInput.value;
+            updateElementDisplay();
+            autosaveQuiz();
+        };
+        bgColorGroup.appendChild(bgColorLabel);
+        bgColorGroup.appendChild(bgColorInput);
+        panel.appendChild(bgColorGroup);
+    }
+    
     // Shape properties (rectangle, circle, triangle, arrow, line)
     if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(selectedElement.type)) {
         // Fill color
@@ -1107,11 +1632,10 @@ function renderProperties() {
     questionGroup.style.paddingBottom = '4px';
     questionGroup.style.paddingLeft = '0';
     questionGroup.style.marginLeft = '0';
-    const questionLabel = document.createElement('label');
+    const questionLabel = document.createElement('div');
     questionLabel.style.display = 'flex';
     questionLabel.style.alignItems = 'center';
     questionLabel.style.gap = '0.25rem';
-    questionLabel.style.cursor = 'pointer';
     questionLabel.style.fontWeight = '500';
     questionLabel.style.whiteSpace = 'nowrap';
     questionLabel.style.justifyContent = 'flex-start';
@@ -1164,6 +1688,34 @@ function renderProperties() {
     questionGroup.appendChild(questionLabel);
     panel.appendChild(questionGroup);
     
+    // Question title - only shown if element is a question
+    if (selectedElement.is_question) {
+        const titleGroup = document.createElement('div');
+        titleGroup.className = 'property-group';
+        const titleLabel = document.createElement('label');
+        titleLabel.textContent = 'Question Title';
+        const titleInput = document.createElement('input');
+        titleInput.type = 'text';
+        titleInput.value = selectedElement.question_title || '';
+        titleInput.style.width = '100%';
+        titleInput.style.padding = '0.5rem';
+        titleInput.style.border = '1px solid #ddd';
+        titleInput.style.borderRadius = '4px';
+        titleInput.onchange = () => {
+            selectedElement.question_title = titleInput.value;
+            renderCanvas(); // Re-render canvas to show updated title
+            autosaveQuiz();
+        };
+        titleInput.oninput = () => {
+            selectedElement.question_title = titleInput.value;
+            renderCanvas(); // Re-render canvas to show updated title
+            autosaveQuiz();
+        };
+        titleGroup.appendChild(titleLabel);
+        titleGroup.appendChild(titleInput);
+        panel.appendChild(titleGroup);
+    }
+    
     // Answer type dropdown - only shown if element is a question
     if (selectedElement.is_question) {
         const answerTypeGroup = document.createElement('div');
@@ -1195,6 +1747,7 @@ function renderProperties() {
         });
         
         answerTypeSelect.onchange = () => {
+            const page = currentQuiz.pages[currentPageIndex];
             selectedElement.answer_type = answerTypeSelect.value;
             // Set default options for radio/checkbox
             if (selectedElement.answer_type === 'radio' || selectedElement.answer_type === 'checkbox') {
@@ -1204,7 +1757,19 @@ function renderProperties() {
             } else {
                 delete selectedElement.options;
             }
+            
+            // Update child answer_input elements
+            if (page.elements) {
+                page.elements.forEach(el => {
+                    if (el.parent_id === selectedElement.id && el.type === 'answer_input') {
+                        el.answer_type = selectedElement.answer_type;
+                        el.options = selectedElement.options;
+                    }
+                });
+            }
+            
             renderProperties(); // Re-render to show/hide options
+            renderCanvas(); // Re-render canvas to show updated answer input
             autosaveQuiz();
         };
         
@@ -1388,6 +1953,12 @@ function updateElementDisplay() {
         } else if (['image', 'video', 'audio'].includes(selectedElement.type)) {
             // No border for media elements
             el.style.border = 'none';
+        } else if (selectedElement.type === 'richtext') {
+            // Update rich text content immediately
+            el.innerHTML = selectedElement.content || '<p>Enter your text here</p>';
+            el.style.fontSize = `${selectedElement.font_size || 16}px`;
+            el.style.color = selectedElement.text_color || '#000000';
+            el.style.backgroundColor = selectedElement.background_color || 'transparent';
         }
         
         // Apply rotation
@@ -1409,7 +1980,7 @@ function updateElementDisplay() {
             if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(selectedElement.type)) {
                 addResizeHandles(el, selectedElement);
                 addRotateHandle(el, selectedElement);
-            } else if (['image', 'video', 'audio'].includes(selectedElement.type)) {
+            } else if (['image', 'video', 'audio', 'richtext'].includes(selectedElement.type)) {
                 addResizeHandles(el, selectedElement);
             }
         }

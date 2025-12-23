@@ -131,6 +131,17 @@ function renderElement(container, element) {
             audioElement.id = `audio-${element.id}`;
             el.appendChild(audioElement);
             break;
+        case 'richtext':
+            // Display rich text content with formatting
+            el.innerHTML = element.content || '<p>Enter your text here</p>';
+            el.style.fontSize = `${element.font_size || 16}px`;
+            el.style.color = element.text_color || '#000000';
+            el.style.backgroundColor = element.background_color || 'transparent';
+            el.style.padding = '8px';
+            el.style.overflow = 'auto';
+            el.style.wordWrap = 'break-word';
+            el.style.textAlign = 'left';
+            break;
     }
 
     container.appendChild(el);
