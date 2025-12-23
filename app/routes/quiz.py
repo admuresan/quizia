@@ -9,6 +9,7 @@ from app.utils.quiz_storage import (
     delete_quiz,
     validate_quiz_json
 )
+from app.utils.room_manager import get_running_rooms_for_quizmaster, end_room
 from pathlib import Path
 import json
 
@@ -188,4 +189,83 @@ def toggle_quiz_public(quiz_name):
         return jsonify({'message': 'Public status updated', 'public': quiz['public']}), 200
     else:
         return jsonify({'error': result['error']}), 400
+
+@bp.route('/running', methods=['GET'])
+def get_running_quizzes():
+    """Get all running quizzes for the current quizmaster."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    running_rooms = get_running_rooms_for_quizmaster(username)
+    
+    return jsonify({'running_quizzes': running_rooms}), 200
+
+@bp.route('/end/<room_code>', methods=['POST'])
+def end_running_quiz(room_code):
+    """End a running quiz (quizmaster only, must be owner)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    
+    # Check if room exists and belongs to this quizmaster
+    from app.utils.room_manager import get_room
+    room = get_room(room_code)
+    
+    if not room:
+        return jsonify({'error': 'Room not found or expired'}), 404
+    
+    if room.get('quizmaster') != username:
+        return jsonify({'error': 'Only the quizmaster who started this quiz can end it'}), 403
+    
+    # End the room - use the same logic as websocket handler
+    from app.utils.scoring import calculate_score
+    from app.utils.stats import record_quiz_run
+    from app import socketio
+    
+    # Calculate final scores
+    scores = calculate_score(room)
+    room['scores'] = scores
+    room['ended'] = True
+    
+    # Record quiz run completion
+    quiz_name = room.get('quiz_name')
+    record_quiz_run(quiz_name, username, room_code, completed=True)
+    
+    # Get final rankings
+    participants = room.get('participants', {})
+    rankings = []
+    for participant_id, participant in participants.items():
+        rankings.append({
+            'id': participant_id,
+            'name': participant.get('name'),
+            'avatar': participant.get('avatar'),
+            'score': scores.get(participant_id, 0)
+        })
+    
+    rankings.sort(key=lambda x: x['score'], reverse=True)
+    for i, ranking in enumerate(rankings):
+        ranking['rank'] = i + 1
+    
+    # Broadcast end to all rooms
+    socketio.emit('quiz_ended', {
+        'scores': scores,
+        'final_rankings': rankings
+    }, room=f'display_{room_code}')
+    
+    socketio.emit('quiz_ended', {
+        'scores': scores,
+        'final_rankings': rankings
+    }, room=f'participant_{room_code}')
+    
+    socketio.emit('quiz_ended', {
+        'scores': scores,
+        'final_rankings': rankings
+    }, room=f'control_{room_code}')
+    
+    # Mark room as ended
+    end_room(room_code)
+    
+    return jsonify({'message': 'Quiz ended successfully'}), 200
 

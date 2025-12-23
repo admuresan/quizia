@@ -136,6 +136,31 @@ def update_room_state(room_code, state_updates):
     
     return True
 
+def get_running_rooms_for_quizmaster(quizmaster_username):
+    """Get all running (non-ended) rooms for a specific quizmaster."""
+    current_time = time.time()
+    running_rooms = []
+    
+    with rooms_lock:
+        for code, room in rooms.items():
+            # Check if room belongs to this quizmaster and is not ended
+            if room.get('quizmaster') == quizmaster_username and not room.get('ended', False):
+                # Check if room is still active (not expired)
+                if current_time - room['last_activity'] <= ROOM_EXPIRATION:
+                    running_rooms.append({
+                        'code': code,
+                        'quiz_name': room.get('quiz_name', 'Unknown'),
+                        'created_at': room.get('created_at', current_time),
+                        'last_activity': room.get('last_activity', current_time),
+                        'current_page': room.get('current_page', 0),
+                        'participant_count': len(room.get('participants', {}))
+                    })
+                else:
+                    # Room expired - mark as ended
+                    room['ended'] = True
+    
+    return running_rooms
+
 def cleanup_expired_rooms():
     """Clean up expired rooms. Should be called periodically."""
     current_time = time.time()

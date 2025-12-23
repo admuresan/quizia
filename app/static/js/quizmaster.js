@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    // Load running quizzes
+    await loadRunningQuizzes();
+    
     // Load quizzes
     await loadQuizzes();
 
@@ -119,7 +122,106 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('[data-tab="media"]').addEventListener('click', async () => {
         await loadMedia();
     });
+    
+    // Load running quizzes when running tab is clicked
+    document.querySelector('[data-tab="running"]').addEventListener('click', async () => {
+        await loadRunningQuizzes();
+    });
+    
+    // Auto-refresh running quizzes every 5 seconds
+    setInterval(async () => {
+        const runningTab = document.getElementById('running-tab');
+        if (runningTab && runningTab.classList.contains('active')) {
+            await loadRunningQuizzes();
+        }
+    }, 5000);
 });
+
+async function loadRunningQuizzes() {
+    try {
+        const response = await fetch('/api/quiz/running');
+        const data = await response.json();
+        
+        const listDiv = document.getElementById('running-quizzes-list');
+        listDiv.innerHTML = '';
+        
+        if (!data.running_quizzes || data.running_quizzes.length === 0) {
+            listDiv.innerHTML = '<p>No running quizzes. Start a quiz to see it here!</p>';
+            return;
+        }
+        
+        data.running_quizzes.forEach(quiz => {
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            
+            // Calculate time running
+            const createdTime = new Date(quiz.created_at * 1000);
+            const now = new Date();
+            const runningTime = Math.floor((now - createdTime) / 1000); // seconds
+            const hours = Math.floor(runningTime / 3600);
+            const minutes = Math.floor((runningTime % 3600) / 60);
+            const seconds = runningTime % 60;
+            let timeString = '';
+            if (hours > 0) {
+                timeString = `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                timeString = `${minutes}m ${seconds}s`;
+            } else {
+                timeString = `${seconds}s`;
+            }
+            
+            item.innerHTML = `
+                <div style="flex: 1;">
+                    <strong>${quiz.quiz_name}</strong>
+                    <div style="color: #666; font-size: 0.9rem; margin-top: 0.25rem;">
+                        Room Code: <strong style="color: #4CAF50; font-size: 1.1em;">${quiz.code}</strong> | 
+                        Running for: ${timeString} | 
+                        Page: ${quiz.current_page + 1} | 
+                        Participants: ${quiz.participant_count}
+                    </div>
+                </div>
+                <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <button class="btn btn-small btn-primary" onclick="goToQuiz('${quiz.code}')">Go to Quiz</button>
+                    <button class="btn btn-small btn-danger" onclick="endRunningQuiz('${quiz.code}', '${quiz.quiz_name}')">End Quiz</button>
+                </div>
+            `;
+            listDiv.appendChild(item);
+        });
+    } catch (error) {
+        console.error('Error loading running quizzes:', error);
+        const listDiv = document.getElementById('running-quizzes-list');
+        listDiv.innerHTML = '<p>Error loading running quizzes. Please refresh the page.</p>';
+    }
+}
+
+async function goToQuiz(roomCode) {
+    // Open display page in new tab and navigate to control page
+    window.open(`/display/${roomCode}`, '_blank');
+    window.location.href = `/control/${roomCode}`;
+}
+
+async function endRunningQuiz(roomCode, quizName) {
+    if (!confirm(`Are you sure you want to end "${quizName}" (Room: ${roomCode})?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/quiz/end/${roomCode}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            alert('Quiz ended successfully');
+            await loadRunningQuizzes();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error ending quiz');
+        console.error('Error ending quiz:', error);
+    }
+}
 
 async function loadQuizzes() {
     try {
