@@ -1,0 +1,104 @@
+we are making a app the allows the user to create quizes and run them
+this app will be hosted as a web app, for now make it a flask served app with a typescrpti ui and front end
+
+**make this very modular so that it is easy to alter and debug later, files should not be larger than 500 lines, functions should be reused as much as possible, commonly used functions should be in untilities folders and imported as necesary**
+
+launch this on localhost:6005
+
+launch the app in dev mode so that updates to the code are automatically reloaded
+
+create a single launch file that will launch the app in dev mode and launch the browser to the app at localhost:6005
+
+remember to make sure that the files are modular and reusable, and that the code is easy to understand and debug
+
+
+details of the app:
+- Real-time synchronization
+    - WebSocket support (or Socket.IO) for quizmaster actions, participant submissions, and status updates
+    - Bidirectional sync for all three views (display, participant, quizmaster)
+- Quiz room/code system
+    - Unique code generation generate a random 4 character alphanumeric code for the quiz room, then check if it is already in use, if it is, generate a new one, do this until a unique code is found
+- Active sessions and code expiration
+    - quizes expire after 3 hours of inactivity
+    - after 3 horus the active quiz will end, but the base quiz will not be deleted, it will be available for the quizmaster to edit and reuse
+
+- Authentication & authorization
+    - when tryign to create an account it is a request o make an account, this request will be shown in the users section of the quizmaster control page, any quizmaster can approve or reject the request, once approved the quizmaster will be able to log in and use the app
+    - quizmasters can also create accounts for other quizmasters, this will be done by the quizmaster creating the account on the users section of the quizmaster control page and then sending the account details to the other quizmaster to log in and use the app
+
+quiz creatiuon is via a drag and drop interface (think similar to powerpoint or keynote)
+the quizmaster can also upload media like pictures and videos on this page, and one of the things that can be added to the page is a media object, also basic shapes like rectangles, circles, triangles, plus arrows, lines, text boxes, etc. 
+
+all answers are marked based only on the quizmaster marking the answer as correct, regardless of the mark, any bonus points are added to the score of the player regardless of the mark
+
+any timers should be accurate to the second
+
+
+
+there will be two main interfaces to this app:
+1) quizmaster:
+    - the quizmaster can create edit, start and end quizes
+    - quizmaster needs an account
+2) participant
+    - participants will not use an ccount to log in, instead they will go to the join as participant option and enter the quiz room code
+    - once there they will see the participant version of whatver question the quiz is on, at the bottom of the they will see how many points they have
+    - when joinign as participants they can set their name and avatar, avatar choices should be a selection of about 20 funny avatars ( make these up yourself and save them as pngs)
+
+quizes:
+the main feature of the app is making and running quizes:
+- a quiz will be made up of:
+    - question pages
+        - each question is made up of three pages:
+            - the display page, this is the page that would be displayed on the common large screen visible to all participants
+                - each display page will show the code for the quiz in the bottom left corner of the page
+                - display pages may have multiple images/ text boxes audio clips that the quizmaster can place on the canvas when creating the quiz (they cna also set a background image and color, a tittle can also be set, both on a given page and on the entire quiz, similarly a geenric background cna be set to the entire quiz)
+                - element can appear on the canvas during the run time either by default when the page is loaded, or via a timer form last event or by a command from the quizmaster control page, they can also be hidden and shown by the quizmaster control page, or in the case of audio/video clips they can be played or paused by the quizmaster control page
+                - some elements can be marked as being a "question" in this case they will have a correcponding answer eleemnts automatically created on the the participant page, and some control elements to allow the quizmaster to control the question
+                    - answer elements can be one of three types:
+                        - text box that the participant can type their answer into
+                        - a stopwatch that starts when the quizmaster sets it to start and stops when the participant submits their answer ( do not display time ont he participant page, untill after they have submitted their answer)
+                            - in this case the quizmaster cna set the timer to start when the question is displayed or when the clip starts playing, or when it ends playing
+                        - radio button that the participant can select an answer from
+                        - checkbox that the participant can select one or more answers from
+                        - an image that the paricipant needs to click somewhere on, when they do on their screen highlight the area they clicked and a radius around it, in a clear but unbtrusive way
+                            - when they submit save the co-ordinates of the clik as the submitted answer
+                            - the radius should be a percentage of the image size, and the center of the radius should be the point the participant clicked on (it should be 10% of the image size)
+                            - on the quizmaster page, the answers for picture elemens will show as highlighted sections on the image the participants saw
+                            - bellow the image each player will have a row with their name, their answer a correct answer checkbox and a bonus points box
+                            - the quizmaster can chose to reveal the answers to the display page by clickign a button on the control page for this kind of question
+            - the participant page, this is the page that would be displayed on the participant's own screen, this will usually have possibel answers to submit and a submit button
+                - participants can submit answers by clicking on the answers or by typing in the answer and clicking submit
+                - when a player submits an answer the quizmaster page will show the answer and the time it was submitted
+                - elements on the participant page are 
+            - the quizmaster page, this is the page the quizmaster's control screel will see, it will have controls to move between questions, show 
+                - this page will show the answers each participant has submitted to questions and allow the quizmaster to mark them as correct or incorrect (make this a checkbox)
+                - when counting scores the quickest player will get 100 points for each corrrect answer and other players will get points based on how long they took to answer the questions, specifically if they were x% slower than the fastest player they will get (1-x)% of the points, if they were within 10% slower that fastest player they will get 90% of the points, etc. so if the fastests correct answer took 10 seconds, that player gets 100 points, if the next correct answer took 11 seconds, that player gets 90 points, if the next correct answer took 12 seconds, that player gets 81 points, etc. ( round this to the nearest whole number), cannot go bellow 1 point for any answer
+                - the quizmaster can allot bonus points to any players answer to a question in a seperate box next to the correct answer checkbox
+
+    - a status page 
+        - this is a page that shows the current rankins of the participants
+        - make it nice and fancy, with a podium at the top for the top 3 and then a list for the rest of the participants with their name, points and rank and avatars, in descending order of points
+        - the status page should update in real time as participants submit answers and the quizmaster marks them as correct or incorrect
+        - the quizmasteer can slot in the status page at multiple points in the quiz when building the quiz, but there is only one status page that will be shows each time the status page is refrenced in the quiz
+    - a final results page
+        - this is a page that shows the final results of the quiz, it will show the winner and the top 3 players with their name, points and rank and avatars
+        - have the winner take most of the screen space with fireworks and confetti and a big banner saying "winner", then on the side the rest of the players listed in descending order of points with their name, points and rank and avatars
+
+once created quizes are saved, each quiz should be it's own file and should be saved in the quizes folder, the file name should be the quiz name with a .json extension
+allow the quizmaster to download the quiz as a json file
+allow the quizmaster to upload a quiz from a json file (validate the json file to make sure it is a valid quiz)
+
+one the quizmaster control page the quizmaster can:
+- create a new quiz
+- edit a quiz
+manage quizes (delete, download, upload)
+- preview a quiz (this should show the quiz as it will appear on the display page, participant page and quizmaster page) each page should eb in a seperate tab of the preview page
+- start a quiz
+- end a quiz
+
+if a participant drops, they can rejoin by seelcting the particpant they were when they go tot join as participant ( on that page there should be 2 options new participant in which case they shoose avatar and name, or rejoin as particpant in which case they select the particpant they were when they left from a list of participants that already joined this quiz session)
+
+when rejoinign they pick up where the quiz is now seeing the same participant page as everyone else
+
+avatars should eb small circular images that are 50px in diameter
+

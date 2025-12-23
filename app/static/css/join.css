@@ -1,0 +1,58 @@
+#join-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+#join-options > div {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+}
+
+.avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.avatar-option {
+    cursor: pointer;
+    padding: 0.5rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 2rem;
+    transition: all 0.3s;
+}
+
+.avatar-option:hover {
+    border-color: #2196F3;
+    background: #e3f2fd;
+}
+
+.avatar-option.selected {
+    border-color: #2196F3;
+    background: #2196F3;
+    color: white;
+}
+
+.participant-option {
+    padding: 1rem;
+    background: #f5f5f5;
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.participant-option:hover {
+    background: #e0e0e0;
+}
+
+.participant-option.selected {
+    background: #2196F3;
+    color: white;
+}
+

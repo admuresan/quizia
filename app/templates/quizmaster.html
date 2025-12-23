@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Quizmaster Dashboard</h1>
+    <div id="user-info"></div>
+    <nav class="tabs">
+        <button class="tab-btn active" data-tab="quizes">Quizzes</button>
+        <button class="tab-btn" data-tab="media">Media</button>
+        <button class="tab-btn" data-tab="users">Users</button>
+    </nav>
+    
+    <div id="quizes-tab" class="tab-content active">
+        <div class="actions">
+            <button id="create-quiz-btn" class="btn btn-primary">Create New Quiz</button>
+            <button id="upload-quiz-btn" class="btn btn-secondary">Upload Quiz</button>
+            <input type="file" id="upload-file" accept=".json" style="display: none;">
+        </div>
+        <div id="quizes-list"></div>
+    </div>
+    
+    <div id="media-tab" class="tab-content">
+        <div class="actions">
+            <button id="upload-media-btn" class="btn btn-primary">Upload Media</button>
+            <input type="file" id="upload-media-file" accept="image/*,video/*,audio/*,.pdf,.svg" style="display: none;" multiple>
+        </div>
+        <div id="media-list"></div>
+    </div>
+    
+    <div id="users-tab" class="tab-content">
+        <div class="actions">
+            <button id="create-user-btn" class="btn btn-primary">Create User</button>
+        </div>
+        <div id="account-requests"></div>
+        <div id="users-list"></div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/quizmaster.js') }}"></script>
+{% endblock %}
+

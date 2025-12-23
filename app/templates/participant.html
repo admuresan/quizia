@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/participant.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="participant-container">
+    <div id="participant-header">
+        <div id="participant-avatar"></div>
+        <div id="participant-name"></div>
+    </div>
+    <div id="participant-content"></div>
+    <div id="participant-score">Score: 0</div>
+</div>
+<script>
+    const roomCode = '{{ room_code }}';
+    const participantId = sessionStorage.getItem('participant_id');
+</script>
+<script src="{{ url_for('static', filename='js/participant.js') }}"></script>
+{% endblock %}
+

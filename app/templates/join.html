@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/join.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Join Quiz</h1>
+    <div id="join-options">
+        <div>
+            <h2>New Participant</h2>
+            <input type="text" id="room-code" placeholder="Enter Room Code" maxlength="4" style="text-transform: uppercase;">
+            <input type="text" id="participant-name" placeholder="Your Name">
+            <div id="avatar-selection"></div>
+            <button id="join-new-btn" class="btn btn-primary">Join</button>
+        </div>
+        <div>
+            <h2>Rejoin as Participant</h2>
+            <input type="text" id="rejoin-room-code" placeholder="Enter Room Code" maxlength="4" style="text-transform: uppercase;">
+            <div id="participants-list"></div>
+            <button id="rejoin-btn" class="btn btn-secondary">Rejoin</button>
+        </div>
+    </div>
+    <div id="message"></div>
+</div>
+<script src="{{ url_for('static', filename='js/join.js') }}"></script>
+{% endblock %}
+

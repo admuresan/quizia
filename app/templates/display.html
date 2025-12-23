@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/display.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="display-container">
+    <div id="display-content"></div>
+    <div id="room-code-display">{{ room_code }}</div>
+</div>
+<script>
+    const roomCode = '{{ room_code }}';
+</script>
+<script src="{{ url_for('static', filename='js/display.js') }}"></script>
+{% endblock %}
+

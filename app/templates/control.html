@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/control.css') }}">
+{% endblock %}
+
+{% block content %}
+<div id="control-container">
+    <div class="control-header">
+        <h2>Quiz Control</h2>
+        <div class="control-actions">
+            <button id="prev-page-btn" class="btn">Previous</button>
+            <button id="next-page-btn" class="btn">Next</button>
+            <button id="end-quiz-btn" class="btn btn-danger">End Quiz</button>
+        </div>
+    </div>
+    <div id="control-main">
+        <div id="control-canvas"></div>
+        <div id="answers-panel"></div>
+    </div>
+</div>
+<script>
+    const roomCode = '{{ room_code }}';
+</script>
+<script src="{{ url_for('static', filename='js/control.js') }}"></script>
+{% endblock %}
+

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/editor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <div class="editor-header">
+        <input type="text" id="quiz-name" placeholder="Quiz Name">
+        <div class="editor-actions">
+            <span id="save-status" style="color: #666; margin-right: 1rem; font-size: 0.9rem;">Saved</span>
+            <button id="preview-btn" class="btn btn-secondary">Preview</button>
+            <button id="back-btn" class="btn">Back</button>
+        </div>
+    </div>
+    <div class="editor-main">
+        <div class="editor-sidebar">
+            <h3>Elements</h3>
+            <div class="element-list">
+                <div class="element-item" data-type="media">Media</div>
+                <div class="element-item" data-type="rectangle">Rectangle</div>
+                <div class="element-item" data-type="circle">Circle</div>
+                <div class="element-item" data-type="triangle">Triangle</div>
+                <div class="element-item" data-type="arrow">Arrow</div>
+                <div class="element-item" data-type="line">Line</div>
+            </div>
+            <h3>Pages</h3>
+            <div id="pages-list"></div>
+            <button id="add-page-btn" class="btn btn-small">Add Page</button>
+            <button id="add-status-page-btn" class="btn btn-small">Add Status Page</button>
+            <button id="add-results-page-btn" class="btn btn-small">Add Results Page</button>
+        </div>
+        <div class="editor-canvas-container">
+            <div class="canvas-tabs">
+                <button class="canvas-tab active" data-view="display">Display</button>
+                <button class="canvas-tab" data-view="participant">Participant</button>
+                <button class="canvas-tab" data-view="control">Control</button>
+            </div>
+            <div id="editor-canvas"></div>
+        </div>
+        <div class="properties-resize-handle"></div>
+        <div class="editor-properties">
+            <h3>Properties</h3>
+            <div id="properties-panel"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Media Selection Modal -->
+<div id="media-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Select Media</h2>
+            <button class="modal-close" id="media-modal-close">&times;</button>
+        </div>
+        <div class="modal-tabs">
+            <button class="modal-tab active" data-tab="images">Images</button>
+            <button class="modal-tab" data-tab="audio">Audio</button>
+            <button class="modal-tab" data-tab="video">Video</button>
+        </div>
+        <div class="modal-body">
+            <div id="media-tab-images" class="modal-tab-content active">
+                <div class="media-section">
+                    <h3>My Media</h3>
+                    <div id="my-images-list" class="media-list"></div>
+                </div>
+                <div class="media-section">
+                    <h3>Public Media</h3>
+                    <div id="public-images-list" class="media-list"></div>
+                </div>
+                <button class="btn btn-primary" id="upload-image-btn">Upload Image</button>
+                <input type="file" id="upload-image-file" accept="image/*" style="display: none;" multiple>
+            </div>
+            <div id="media-tab-audio" class="modal-tab-content">
+                <div class="media-section">
+                    <h3>My Media</h3>
+                    <div id="my-audio-list" class="media-list"></div>
+                </div>
+                <div class="media-section">
+                    <h3>Public Media</h3>
+                    <div id="public-audio-list" class="media-list"></div>
+                </div>
+                <button class="btn btn-primary" id="upload-audio-btn">Upload Audio</button>
+                <input type="file" id="upload-audio-file" accept="audio/*" style="display: none;" multiple>
+            </div>
+            <div id="media-tab-video" class="modal-tab-content">
+                <div class="media-section">
+                    <h3>My Media</h3>
+                    <div id="my-video-list" class="media-list"></div>
+                </div>
+                <div class="media-section">
+                    <h3>Public Media</h3>
+                    <div id="public-video-list" class="media-list"></div>
+                </div>
+                <button class="btn btn-primary" id="upload-video-btn">Upload Video</button>
+                <input type="file" id="upload-video-file" accept="video/*" style="display: none;" multiple>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+{% endblock %}
+

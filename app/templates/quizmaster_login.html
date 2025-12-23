@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <h1>Quizmaster Login</h1>
+    <div id="login-form">
+        <input type="text" id="username" placeholder="Username" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button id="login-btn" class="btn btn-primary">Login</button>
+        <button id="request-account-btn" class="btn btn-secondary">Request Account</button>
+        <div id="message"></div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/quizmaster_login.js') }}"></script>
+{% endblock %}
+

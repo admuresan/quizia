@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/preview.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="preview-container">
+    <h1>Quiz Preview: {{ quiz_name }}</h1>
+    <div class="preview-tabs">
+        <button class="preview-tab active" data-view="display">Display</button>
+        <button class="preview-tab" data-view="participant">Participant</button>
+        <button class="preview-tab" data-view="control">Control</button>
+    </div>
+    <div class="preview-navigation">
+        <button id="prev-page-btn" class="nav-btn">← Previous</button>
+        <span id="page-info" class="page-info">Page 1 of 1</span>
+        <button id="next-page-btn" class="nav-btn">Next →</button>
+    </div>
+    <div id="preview-content"></div>
+</div>
+<script>
+    window.quizName = '{{ quiz_name }}';
+</script>
+<script src="{{ url_for('static', filename='js/preview.js') }}"></script>
+{% endblock %}
+
