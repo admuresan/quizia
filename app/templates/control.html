@@ -8,20 +8,26 @@
 <div id="control-container">
     <div class="control-header">
         <h2>Quiz Control</h2>
+        <div id="page-indicator">Page 1 of 1</div>
         <div class="control-actions">
-            <button id="prev-page-btn" class="btn">Previous</button>
-            <button id="next-page-btn" class="btn">Next</button>
             <button id="end-quiz-btn" class="btn btn-danger">End Quiz</button>
         </div>
     </div>
     <div id="control-main">
-        <div id="control-canvas"></div>
-        <div id="answers-panel"></div>
+        <div id="control-canvas">
+            <button id="prev-page-btn" class="nav-button nav-button-left">← Previous</button>
+            <button id="next-page-btn" class="nav-button nav-button-right">Next →</button>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    const roomCode = '{{ room_code }}';
+    window.roomCode = '{{ room_code }}';
 </script>
+<script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/runtime-element-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/control.js') }}"></script>
 {% endblock %}
 

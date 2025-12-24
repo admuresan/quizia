@@ -9,9 +9,14 @@
     <div id="display-content"></div>
     <div id="room-code-display">{{ room_code }}</div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    const roomCode = '{{ room_code }}';
+    window.roomCode = '{{ room_code }}';
 </script>
+<script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/runtime-element-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/display.js') }}"></script>
 {% endblock %}
 

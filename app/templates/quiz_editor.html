@@ -15,6 +15,37 @@
     </div>
     <div class="editor-main">
         <div class="editor-sidebar">
+            <h3>Screen Size & Layout <span id="view-indicator" class="view-indicator">(Display)</span></h3>
+            <div class="screen-size-controls">
+                <div class="preset-buttons">
+                    <button id="preset-desktop" class="preset-btn active">Desktop</button>
+                    <button id="preset-mobile-portrait" class="preset-btn">Mobile (Portrait)</button>
+                    <button id="preset-mobile-landscape" class="preset-btn">Mobile (Landscape)</button>
+                    <button id="preset-custom" class="preset-btn">Custom</button>
+                </div>
+                <div class="custom-size-inputs" id="custom-size-inputs" style="display: none;">
+                    <div class="size-input-group">
+                        <label>Width (px)</label>
+                        <input type="number" id="canvas-width" min="100" max="5000" value="1920">
+                    </div>
+                    <div class="size-input-group">
+                        <label>Height (px)</label>
+                        <input type="number" id="canvas-height" min="100" max="5000" value="1080">
+                    </div>
+                    <button id="apply-custom-size" class="btn btn-small">Apply</button>
+                </div>
+            </div>
+            <h3>Zoom <span id="zoom-view-indicator" class="view-indicator">(Display)</span></h3>
+            <div class="zoom-controls">
+                <div class="zoom-buttons">
+                    <button id="zoom-out" class="zoom-btn" title="Zoom Out">−</button>
+                    <span id="zoom-level" class="zoom-level">100%</span>
+                    <button id="zoom-in" class="zoom-btn" title="Zoom In">+</button>
+                    <button id="zoom-fit" class="zoom-btn" title="Fit to Screen">Fit</button>
+                    <button id="zoom-reset" class="zoom-btn" title="Reset Zoom">Reset</button>
+                </div>
+                <input type="range" id="zoom-slider" min="25" max="200" value="100" class="zoom-slider">
+            </div>
             <h3>Elements</h3>
             <div class="element-list">
                 <div class="element-item" data-type="media">Media</div>
@@ -37,7 +68,20 @@
                 <button class="canvas-tab" data-view="participant">Participant</button>
                 <button class="canvas-tab" data-view="control">Control</button>
             </div>
-            <div id="editor-canvas"></div>
+            <div class="canvas-scroll-area" id="general-canvas">
+                <div id="displayable-area-wrapper">
+                    <div id="displayable-area"></div>
+                    <!-- Resize handles -->
+                    <div class="resize-handle resize-handle-n" data-direction="n"></div>
+                    <div class="resize-handle resize-handle-s" data-direction="s"></div>
+                    <div class="resize-handle resize-handle-e" data-direction="e"></div>
+                    <div class="resize-handle resize-handle-w" data-direction="w"></div>
+                    <div class="resize-handle resize-handle-ne" data-direction="ne"></div>
+                    <div class="resize-handle resize-handle-nw" data-direction="nw"></div>
+                    <div class="resize-handle resize-handle-se" data-direction="se"></div>
+                    <div class="resize-handle resize-handle-sw" data-direction="sw"></div>
+                </div>
+            </div>
         </div>
         <div class="properties-resize-handle"></div>
         <div class="editor-properties">
@@ -106,6 +150,8 @@
 <script src="{{ url_for('static', filename='js/editor/page-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/element-creator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/media-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/interaction-handlers.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/element-renderer.js') }}"></script>
 <!-- Main editor file -->
 <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 {% endblock %}

@@ -13,10 +13,15 @@
     <div id="participant-content"></div>
     <div id="participant-score">Score: 0</div>
 </div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    const roomCode = '{{ room_code }}';
-    const participantId = sessionStorage.getItem('participant_id');
+    window.roomCode = '{{ room_code }}';
+    window.participantId = sessionStorage.getItem('participant_id');
 </script>
+<script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/runtime-element-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/participant.js') }}"></script>
 {% endblock %}
 

@@ -37,6 +37,7 @@ Thumbs.db
 app/data/
 app/quizes/*.json
 app/uploads/*
+app/rooms/
 !app/quizes/.gitkeep
 !app/uploads/.gitkeep
 

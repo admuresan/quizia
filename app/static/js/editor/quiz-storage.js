@@ -4,9 +4,9 @@
     'use strict';
 
     Editor.QuizStorage = {
-        loadQuiz: async function(name) {
+        loadQuiz: async function(quizId) {
             try {
-                const response = await fetch(`/api/quiz/load/${encodeURIComponent(name)}`);
+                const response = await fetch(`/api/quiz/load/${encodeURIComponent(quizId)}`);
                 const data = await response.json();
                 if (data.quiz) {
                     if (data.quiz.pages) {
@@ -38,6 +38,8 @@
             }
 
             currentQuiz.name = quizName;
+            
+            // Ensure ID is set (use existing ID or generate new one on save will handle it)
             const saveStatus = document.getElementById('save-status');
             
             if (saveStatus) {
@@ -50,13 +52,22 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        name: quizName,
+                        id: currentQuiz.id, // Include ID if it exists (for updates)
                         quiz: currentQuiz
                     })
                 });
 
                 const data = await response.json();
                 if (response.ok) {
+                    // Update currentQuiz with the ID returned from server (for new quizzes)
+                    if (data.id && !currentQuiz.id) {
+                        currentQuiz.id = data.id;
+                        // Update URL to include quiz ID
+                        const url = new URL(window.location.href);
+                        url.searchParams.set('quiz', data.id);
+                        window.history.replaceState({}, '', url);
+                    }
+                    
                     if (saveStatus) {
                         saveStatus.textContent = 'Saved';
                         saveStatus.style.color = '#4CAF50';
@@ -72,12 +83,14 @@
                         saveStatus.textContent = 'Error';
                         saveStatus.style.color = '#f44336';
                     }
+                    console.error('Save error:', data.error);
                 }
             } catch (error) {
                 if (saveStatus) {
                     saveStatus.textContent = 'Error';
                     saveStatus.style.color = '#f44336';
                 }
+                console.error('Save error:', error);
             }
         }
     };

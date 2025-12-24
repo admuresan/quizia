@@ -25,6 +25,36 @@
             };
         },
 
+        createAnswerDisplayElement: function(parentQuestion) {
+            return {
+                id: `element-${Date.now()}-answer-display`,
+                type: 'answer_display',
+                parent_id: parentQuestion.id,
+                view: 'control',
+                answer_type: parentQuestion.answer_type || 'text',
+                x: parentQuestion.x || 50,
+                y: (parentQuestion.y || 50) + (parentQuestion.height || 100) + 20,
+                width: 600,
+                height: 300,
+                options: parentQuestion.options || [],
+                filename: parentQuestion.filename,
+                src: parentQuestion.src
+            };
+        },
+
+        createAppearanceControlElement: function(page) {
+            // Create a single appearance control element for the page
+            return {
+                id: `element-${Date.now()}-appearance-control`,
+                type: 'appearance_control',
+                view: 'control',
+                x: 50,
+                y: 100,
+                width: 400,
+                height: 300
+            };
+        },
+
         createQuestionChildElements: function(parentElement) {
             const childElements = [];
             

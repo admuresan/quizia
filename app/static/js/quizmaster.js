@@ -19,21 +19,59 @@ document.addEventListener('DOMContentLoaded', async () => {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    // Restore saved tab on page load
+    const savedTab = localStorage.getItem('quizmaster_active_tab');
+    if (savedTab) {
+        const savedTabBtn = document.querySelector(`[data-tab="${savedTab}"]`);
+        const savedTabContent = document.getElementById(`${savedTab}-tab`);
+        if (savedTabBtn && savedTabContent) {
+            // Remove active from all tabs
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            // Set active on saved tab
+            savedTabBtn.classList.add('active');
+            savedTabContent.classList.add('active');
+        }
+    }
+    
+    // Function to load data for a specific tab
+    async function loadTabData(tab) {
+        switch(tab) {
+            case 'running':
+                await loadRunningQuizzes();
+                break;
+            case 'quizes':
+                await loadQuizzes();
+                break;
+            case 'media':
+                await loadMedia();
+                break;
+            case 'users':
+                await loadUsers();
+                await loadAccountRequests();
+                break;
+        }
+    }
+    
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             const tab = btn.dataset.tab;
             tabBtns.forEach(b => b.classList.remove('active'));
             tabContents.forEach(c => c.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`${tab}-tab`).classList.add('active');
+            // Save active tab to localStorage
+            localStorage.setItem('quizmaster_active_tab', tab);
+            // Reload data for the active tab
+            await loadTabData(tab);
         });
     });
-
-    // Load running quizzes
-    await loadRunningQuizzes();
     
-    // Load quizzes
-    await loadQuizzes();
+    // Load data for the initial active tab
+    const initialTab = savedTab || 'quizes';
+    await loadTabData(initialTab);
+
+    // Initial data loading handled by loadTabData after tab restoration
 
     // Create quiz button
     document.getElementById('create-quiz-btn').addEventListener('click', () => {
@@ -80,9 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // Load users
-    await loadUsers();
-    await loadAccountRequests();
+    // User data loading handled by loadTabData when users tab is clicked
 
     // Media upload button
     document.getElementById('upload-media-btn').addEventListener('click', () => {
@@ -118,15 +154,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadMedia();
     });
 
-    // Load media when media tab is clicked
-    document.querySelector('[data-tab="media"]').addEventListener('click', async () => {
-        await loadMedia();
-    });
-    
-    // Load running quizzes when running tab is clicked
-    document.querySelector('[data-tab="running"]').addEventListener('click', async () => {
-        await loadRunningQuizzes();
-    });
+    // Tab data loading is now handled in the main tab click handler above
     
     // Auto-refresh running quizzes every 5 seconds
     setInterval(async () => {
@@ -224,6 +252,12 @@ async function endRunningQuiz(roomCode, quizName) {
 }
 
 async function loadQuizzes() {
+    /**
+     * Load quizzes from the backend.
+     * IMPORTANT: Each quiz object includes an 'id' field which MUST be used for all
+     * operations (start, edit, delete, etc.). Never use quiz.name for lookups as
+     * multiple quizzes can have the same name.
+     */
     try {
         const response = await fetch('/api/quiz/list');
         const data = await response.json();
@@ -279,14 +313,14 @@ async function loadQuizzes() {
                     <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
                         ${isOwner ? `<label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
                             <input type="checkbox" ${quiz.public ? 'checked' : ''} 
-                                   onchange="toggleQuizPublic('${quiz.name}', this.checked)"
+                                   onchange="toggleQuizPublic('${quiz.id}', this.checked)"
                                    style="margin-right: 0.5rem;">
                             <span>Public</span>
                         </label>` : ''}
-                        <button class="btn btn-small" onclick="editQuiz('${quiz.name}')">Edit</button>
-                        <button class="btn btn-small" onclick="startQuiz('${quiz.name}')">Start</button>
-                        <button class="btn btn-small" onclick="downloadQuiz('${quiz.name}')">Download</button>
-                        ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.name}')">Delete</button>` : ''}
+                        <button class="btn btn-small" onclick="editQuiz('${quiz.id}')">Edit</button>
+                        <button class="btn btn-small" onclick="startQuiz('${quiz.id}')">Start</button>
+                        <button class="btn btn-small" onclick="downloadQuiz('${quiz.id}')">Download</button>
+                        ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.id}')">Delete</button>` : ''}
                     </div>
                 `;
                 listDiv.appendChild(item);
@@ -304,7 +338,6 @@ async function loadQuizzes() {
             publicQuizzes.forEach(quiz => {
                 const item = document.createElement('div');
                 item.className = 'list-item';
-                const isOwner = quiz.creator === currentUsername;
                 
                 item.innerHTML = `
                     <div style="flex: 1;">
@@ -316,16 +349,9 @@ async function loadQuizzes() {
                         </div>
                     </div>
                     <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
-                        ${isOwner ? `<label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
-                            <input type="checkbox" ${quiz.public ? 'checked' : ''} 
-                                   onchange="toggleQuizPublic('${quiz.name}', this.checked)"
-                                   style="margin-right: 0.5rem;">
-                            <span>Public</span>
-                        </label>` : ''}
-                        <button class="btn btn-small" onclick="editQuiz('${quiz.name}')">Edit</button>
-                        <button class="btn btn-small" onclick="startQuiz('${quiz.name}')">Start</button>
-                        <button class="btn btn-small" onclick="downloadQuiz('${quiz.name}')">Download</button>
-                        ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.name}')">Delete</button>` : ''}
+                        <button class="btn btn-small" onclick="copyQuiz('${quiz.id}')">Copy</button>
+                        <button class="btn btn-small" onclick="startQuiz('${quiz.id}')">Start</button>
+                        <button class="btn btn-small" onclick="downloadQuiz('${quiz.id}')">Download</button>
                     </div>
                 `;
                 listDiv.appendChild(item);
@@ -341,50 +367,88 @@ async function loadQuizzes() {
     }
 }
 
-async function editQuiz(name) {
-    window.location.href = `/quizmaster/create?quiz=${encodeURIComponent(name)}`;
+async function editQuiz(quizId) {
+    window.location.href = `/quizmaster/create?quiz=${encodeURIComponent(quizId)}`;
 }
 
-async function startQuiz(name) {
+async function startQuiz(quizId) {
+    /**
+     * Start a quiz session.
+     * @param {string} quizId - The unique quiz ID (from quiz.id field, NOT quiz.name)
+     *                          Multiple quizzes can have the same name, so ID is required.
+     */
     // Connect to WebSocket and start quiz
     const socket = io();
     
     socket.on('connect', () => {
-        socket.emit('quizmaster_start_quiz', { quiz_name: name });
+        socket.emit('quizmaster_start_quiz', { quiz_id: quizId });
     });
     
     socket.on('quiz_started', (data) => {
-        // Open display, control, and redirect to control page
+        // Open display page in new tab
         window.open(`/display/${data.room_code}`, '_blank');
-        window.location.href = `/control/${data.room_code}`;
+        
+        // Open control page in new window
+        window.open(`/control/${data.room_code}`, '_blank', 'width=1400,height=900');
     });
     
     socket.on('error', (data) => {
         alert('Error: ' + data.message);
+        socket.disconnect();
     });
+    
+    // Clean up socket after a timeout if no response
+    setTimeout(() => {
+        if (socket.connected) {
+            socket.disconnect();
+        }
+    }, 10000);
 }
 
-async function downloadQuiz(name) {
-    window.location.href = `/api/quiz/download/${encodeURIComponent(name)}`;
+async function downloadQuiz(quizId) {
+    window.location.href = `/api/quiz/download/${encodeURIComponent(quizId)}`;
 }
 
-async function deleteQuiz(name) {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-
+async function deleteQuiz(quizId) {
+    // Get quiz name for confirmation
     try {
-        const response = await fetch(`/api/quiz/delete/${encodeURIComponent(name)}`, {
+        const response = await fetch(`/api/quiz/load/${encodeURIComponent(quizId)}`);
+        const data = await response.json();
+        const quizName = data.quiz ? data.quiz.name : 'this quiz';
+        
+        if (!confirm(`Are you sure you want to delete "${quizName}"?`)) return;
+
+        const deleteResponse = await fetch(`/api/quiz/delete/${encodeURIComponent(quizId)}`, {
             method: 'DELETE'
+        });
+
+        const deleteData = await deleteResponse.json();
+        if (deleteResponse.ok) {
+            alert('Quiz deleted');
+            await loadQuizzes();
+        } else {
+            alert('Error: ' + deleteData.error);
+        }
+    } catch (error) {
+        alert('Error deleting quiz');
+    }
+}
+
+async function copyQuiz(quizId) {
+    try {
+        const response = await fetch(`/api/quiz/copy/${encodeURIComponent(quizId)}`, {
+            method: 'POST'
         });
 
         const data = await response.json();
         if (response.ok) {
-            alert('Quiz deleted');
+            alert(`Quiz "${data.name}" copied successfully! You can now edit it in My Quizzes.`);
             await loadQuizzes();
         } else {
             alert('Error: ' + data.error);
         }
     } catch (error) {
-        alert('Error deleting quiz');
+        alert('Error copying quiz');
     }
 }
 
@@ -513,9 +577,9 @@ async function createUser(username, password) {
     }
 }
 
-async function toggleQuizPublic(quizName, isPublic) {
+async function toggleQuizPublic(quizId, isPublic) {
     try {
-        const response = await fetch(`/api/quiz/toggle-public/${encodeURIComponent(quizName)}`, {
+        const response = await fetch(`/api/quiz/toggle-public/${encodeURIComponent(quizId)}`, {
             method: 'POST'
         });
 

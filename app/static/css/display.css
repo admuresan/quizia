@@ -2,15 +2,16 @@
     width: 100vw;
     height: 100vh;
     position: relative;
-    background: #000;
-    overflow: hidden;
+    background: transparent;
+    overflow: auto;
 }
 
 #display-content {
     width: 100%;
     height: 100%;
     position: relative;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    overflow: hidden;
 }
 
 #room-code-display {
@@ -47,10 +48,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 2rem;
+    padding-top: 5rem;
 }
 
 .podium {

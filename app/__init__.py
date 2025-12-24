@@ -29,6 +29,13 @@ def create_app():
     # Initialize Socket.IO with threading mode (better for Windows)
     socketio.init_app(app, async_mode='threading', cors_allowed_origins="*")
     
+    # Restore rooms from disk on startup (only in main process, not on reloads)
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        from app.utils.room_manager import restore_rooms
+        restored = restore_rooms()
+        if restored > 0:
+            print(f"Restored {restored} room(s) from disk")
+    
     # Register blueprints
     from app.routes import main, auth, quiz, websocket, media
     app.register_blueprint(main.bp)

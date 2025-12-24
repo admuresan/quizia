@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
     });
 
-    rejoinBtn.addEventListener('click', async () => {
+    rejoinBtn.addEventListener('click', () => {
         const roomCode = rejoinRoomCodeInput.value.trim().toUpperCase();
         const selectedParticipant = document.querySelector('.participant-option.selected');
 
@@ -63,9 +63,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const participantId = selectedParticipant.dataset.participantId;
-        window.location.href = `/participant/${roomCode}?rejoin=${participantId}`;
+        // Rejoin using name+avatar combo (the system will look it up)
+        const name = selectedParticipant.dataset.name;
+        const avatar = selectedParticipant.dataset.avatar;
+        window.location.href = `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
     });
+
+    // Show error message if redirected from participant page
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const room = urlParams.get('room');
+    if (error) {
+        showMessage(decodeURIComponent(error), 'error');
+        if (room) {
+            roomCodeInput.value = decodeURIComponent(room);
+        }
+    }
 
     function showMessage(text, type) {
         messageDiv.textContent = text;
@@ -99,19 +112,70 @@ function loadAvatars() {
         option.style.fontSize = '2rem';
         option.innerHTML = `<div class="avatar-preview">${avatar}</div>`;
         option.addEventListener('click', () => {
-            document.querySelectorAll('.avatar-option').forEach(o => o.classList.remove('selected'));
+            document.querySelectorAll('.avatar-option').forEach(o => {
+                o.classList.remove('selected');
+                o.style.borderColor = '';
+                o.style.backgroundColor = '';
+            });
             option.classList.add('selected');
-            option.style.borderColor = '#2196F3';
-            option.style.backgroundColor = '#e3f2fd';
         });
         grid.appendChild(option);
     });
 }
 
 async function loadParticipants(roomCode) {
-    // This would typically fetch from the server
-    // For now, we'll handle this via WebSocket when joining
     const container = document.getElementById('participants-list');
-    container.innerHTML = '<p>Enter room code to see participants</p>';
+    container.innerHTML = '<p>Loading participants...</p>';
+    
+    try {
+        const response = await fetch(`/api/participants/${roomCode}`);
+        if (!response.ok) {
+            if (response.status === 404) {
+                container.innerHTML = '<p style="color: #999;">No participants found or room not found</p>';
+            } else {
+                container.innerHTML = '<p style="color: #f44336;">Error loading participants</p>';
+            }
+            return;
+        }
+        
+        const data = await response.json();
+        const participants = data.participants || [];
+        
+        if (participants.length === 0) {
+            container.innerHTML = '<p style="color: #999;">No participants have joined yet</p>';
+            return;
+        }
+        
+        container.innerHTML = '<h3>Select Your Profile</h3>';
+        participants.forEach(participant => {
+            const option = document.createElement('div');
+            option.className = 'participant-option';
+            option.dataset.participantId = participant.participant_id;
+            option.dataset.name = participant.name;
+            option.dataset.avatar = participant.avatar;
+            
+            // Avatar utilities are now in avatar-utils.js (getAvatarEmoji function)
+            const avatarEmoji = getAvatarEmoji(participant.avatar);
+            
+            option.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span style="font-size: 2rem;">${avatarEmoji}</span>
+                    <span style="font-weight: 500;">${participant.name}</span>
+                </div>
+            `;
+            
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.participant-option').forEach(o => {
+                    o.classList.remove('selected');
+                });
+                option.classList.add('selected');
+            });
+            
+            container.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error loading participants:', error);
+        container.innerHTML = '<p style="color: #f44336;">Error loading participants</p>';
+    }
 }
 

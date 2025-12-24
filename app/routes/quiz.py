@@ -7,17 +7,25 @@ from app.utils.quiz_storage import (
     load_quiz,
     list_quizes,
     delete_quiz,
-    validate_quiz_json
+    validate_quiz_json,
+    generate_quiz_id,
+    copy_quiz
 )
 from app.utils.room_manager import get_running_rooms_for_quizmaster, end_room
 from pathlib import Path
 import json
+import time
 
 bp = Blueprint('quiz', __name__, url_prefix='/api/quiz')
 
 @bp.route('/list', methods=['GET'])
 def list_quizes_route():
-    """List quizzes for current quizmaster (their own + public ones)."""
+    """
+    List quizzes for current quizmaster (their own + public ones).
+    
+    Returns quiz objects with 'id' field. The 'id' must be used for all subsequent
+    API calls (load, start, delete, etc.). Never use quiz name for lookups.
+    """
     if not session.get('is_quizmaster'):
         return jsonify({'error': 'Unauthorized'}), 401
     
@@ -33,40 +41,49 @@ def save_quiz_route():
     
     data = request.json
     quiz_data = data.get('quiz')
-    quiz_name = data.get('name')
+    quiz_id = data.get('id')
     
-    if not quiz_data or not quiz_name:
-        return jsonify({'error': 'Quiz data and name required'}), 400
+    if not quiz_data:
+        return jsonify({'error': 'Quiz data required'}), 400
     
     username = session.get('username')
     
-    # Check if quiz exists and user is creator
-    existing_quiz = load_quiz(quiz_name)
-    if existing_quiz and existing_quiz.get('creator') != username:
-        return jsonify({'error': 'Only the creator can edit this quiz'}), 403
+    # If quiz_id is provided, check if quiz exists and user is creator
+    if quiz_id:
+        existing_quiz = load_quiz(quiz_id)
+        if existing_quiz and existing_quiz.get('creator') != username:
+            return jsonify({'error': 'Only the creator can edit this quiz'}), 403
+        # Preserve creator and public status from existing quiz
+        if existing_quiz:
+            quiz_data['creator'] = existing_quiz.get('creator')
+            quiz_data['public'] = existing_quiz.get('public', False)
+    else:
+        # New quiz - generate ID and set creator
+        quiz_id = generate_quiz_id()
+        quiz_data['creator'] = username
+        quiz_data['public'] = quiz_data.get('public', False)
     
-    # Track creator
-    quiz_data['creator'] = username
-    # Preserve public status if quiz exists, otherwise default to False
-    if existing_quiz and 'public' in existing_quiz:
-        quiz_data['public'] = existing_quiz.get('public', False)
-    elif 'public' not in quiz_data:
-        quiz_data['public'] = False
+    # Ensure name is set
+    if 'name' not in quiz_data:
+        quiz_data['name'] = 'Untitled Quiz'
     
-    result = save_quiz(quiz_name, quiz_data)
+    # Set ID in quiz data
+    quiz_data['id'] = quiz_id
+    
+    result = save_quiz(quiz_id, quiz_data)
     if result['success']:
-        return jsonify({'message': 'Quiz saved'}), 200
+        return jsonify({'message': 'Quiz saved', 'id': quiz_id}), 200
     else:
         return jsonify({'error': result['error']}), 400
 
-@bp.route('/load/<quiz_name>', methods=['GET'])
-def load_quiz_route(quiz_name):
+@bp.route('/load/<quiz_id>', methods=['GET'])
+def load_quiz_route(quiz_id):
     """Load a quiz (quizmaster only, must have access)."""
     if not session.get('is_quizmaster'):
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session.get('username')
-    quiz = load_quiz(quiz_name)
+    quiz = load_quiz(quiz_id)
     
     if not quiz:
         return jsonify({'error': 'Quiz not found'}), 404
@@ -80,14 +97,14 @@ def load_quiz_route(quiz_name):
     
     return jsonify({'quiz': quiz}), 200
 
-@bp.route('/delete/<quiz_name>', methods=['DELETE'])
-def delete_quiz_route(quiz_name):
+@bp.route('/delete/<quiz_id>', methods=['DELETE'])
+def delete_quiz_route(quiz_id):
     """Delete a quiz (quizmaster only, must be creator)."""
     if not session.get('is_quizmaster'):
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session.get('username')
-    quiz = load_quiz(quiz_name)
+    quiz = load_quiz(quiz_id)
     
     if not quiz:
         return jsonify({'error': 'Quiz not found'}), 404
@@ -95,20 +112,20 @@ def delete_quiz_route(quiz_name):
     if quiz.get('creator') != username:
         return jsonify({'error': 'Only the creator can delete this quiz'}), 403
     
-    result = delete_quiz(quiz_name)
+    result = delete_quiz(quiz_id)
     if result['success']:
         return jsonify({'message': 'Quiz deleted'}), 200
     else:
         return jsonify({'error': result['error']}), 400
 
-@bp.route('/download/<quiz_name>', methods=['GET'])
-def download_quiz(quiz_name):
+@bp.route('/download/<quiz_id>', methods=['GET'])
+def download_quiz(quiz_id):
     """Download quiz as JSON file (quizmaster only, must have access)."""
     if not session.get('is_quizmaster'):
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session.get('username')
-    quiz = load_quiz(quiz_name)
+    quiz = load_quiz(quiz_id)
     
     if not quiz:
         return jsonify({'error': 'Quiz not found'}), 404
@@ -122,9 +139,15 @@ def download_quiz(quiz_name):
     
     from app import create_app
     app = create_app()
-    quiz_file = app.config['QUIZES_FOLDER'] / f'{quiz_name}.json'
+    quiz_file = app.config['QUIZES_FOLDER'] / f'{quiz_id}.json'
     
-    return send_file(quiz_file, as_attachment=True, download_name=f'{quiz_name}.json')
+    # Use quiz name for download filename
+    quiz_name = quiz.get('name', 'quiz')
+    # Sanitize filename
+    safe_name = "".join(c for c in quiz_name if c.isalnum() or c in (' ', '-', '_')).strip()
+    safe_name = safe_name.replace(' ', '_')
+    
+    return send_file(quiz_file, as_attachment=True, download_name=f'{safe_name}.json')
 
 @bp.route('/upload', methods=['POST'])
 def upload_quiz():
@@ -148,16 +171,19 @@ def upload_quiz():
         if not validation_result['valid']:
             return jsonify({'error': f'Invalid quiz: {validation_result["error"]}'}), 400
         
-        quiz_name = quiz_data.get('name', file.filename.replace('.json', ''))
+        # Generate new ID for uploaded quiz (always creates new quiz)
+        quiz_id = generate_quiz_id()
+        quiz_data['id'] = quiz_id
         # Track creator for uploaded quizzes
         quiz_data['creator'] = session.get('username')
         # Preserve public status if it exists, otherwise default to False
         if 'public' not in quiz_data:
             quiz_data['public'] = False
-        result = save_quiz(quiz_name, quiz_data)
+        
+        result = save_quiz(quiz_id, quiz_data)
         
         if result['success']:
-            return jsonify({'message': 'Quiz uploaded', 'name': quiz_name}), 200
+            return jsonify({'message': 'Quiz uploaded', 'id': quiz_id, 'name': quiz_data.get('name')}), 200
         else:
             return jsonify({'error': result['error']}), 400
     except json.JSONDecodeError:
@@ -165,14 +191,14 @@ def upload_quiz():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@bp.route('/toggle-public/<quiz_name>', methods=['POST'])
-def toggle_quiz_public(quiz_name):
+@bp.route('/toggle-public/<quiz_id>', methods=['POST'])
+def toggle_quiz_public(quiz_id):
     """Toggle public status of a quiz (quizmaster only, must be creator)."""
     if not session.get('is_quizmaster'):
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session.get('username')
-    quiz = load_quiz(quiz_name)
+    quiz = load_quiz(quiz_id)
     
     if not quiz:
         return jsonify({'error': 'Quiz not found'}), 404
@@ -183,10 +209,38 @@ def toggle_quiz_public(quiz_name):
     
     # Toggle public status
     quiz['public'] = not quiz.get('public', False)
-    result = save_quiz(quiz_name, quiz)
+    result = save_quiz(quiz_id, quiz)
     
     if result['success']:
         return jsonify({'message': 'Public status updated', 'public': quiz['public']}), 200
+    else:
+        return jsonify({'error': result['error']}), 400
+
+@bp.route('/copy/<quiz_id>', methods=['POST'])
+def copy_quiz_route(quiz_id):
+    """Copy a public quiz to create a new editable quiz (quizmaster only)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    original_quiz = load_quiz(quiz_id)
+    
+    if not original_quiz:
+        return jsonify({'error': 'Quiz not found'}), 404
+    
+    # Only allow copying public quizzes
+    if not original_quiz.get('public', False):
+        return jsonify({'error': 'Only public quizzes can be copied'}), 403
+    
+    # Create copy
+    result = copy_quiz(quiz_id, username)
+    
+    if result['success']:
+        return jsonify({
+            'message': 'Quiz copied successfully',
+            'id': result['id'],
+            'name': result.get('name', original_quiz.get('name'))
+        }), 200
     else:
         return jsonify({'error': result['error']}), 400
 
@@ -228,10 +282,16 @@ def end_running_quiz(room_code):
     scores = calculate_score(room)
     room['scores'] = scores
     room['ended'] = True
+    room['last_activity'] = time.time()
+    
+    # Save final state before ending
+    from app.utils.room_manager import save_room_state_now
+    save_room_state_now(room_code)
     
     # Record quiz run completion
-    quiz_name = room.get('quiz_name')
-    record_quiz_run(quiz_name, username, room_code, completed=True)
+    quiz_id = room.get('quiz_id')
+    quiz_name = room.get('quiz_name', 'Unknown')
+    record_quiz_run(quiz_id, username, room_code, completed=True)
     
     # Get final rankings
     participants = room.get('participants', {})
@@ -264,7 +324,13 @@ def end_running_quiz(room_code):
         'final_rankings': rankings
     }, room=f'control_{room_code}')
     
-    # Mark room as ended
+    # Disconnect all clients from the rooms
+    from flask_socketio import close_room
+    close_room(f'display_{room_code}')
+    close_room(f'participant_{room_code}')
+    close_room(f'control_{room_code}')
+    
+    # Mark room as ended and remove it
     end_room(room_code)
     
     return jsonify({'message': 'Quiz ended successfully'}), 200

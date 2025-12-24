@@ -69,7 +69,7 @@ def get_quizmaster_stats(username):
     all_quizes = list_quizes()
     quizzes_created = 0
     for quiz in all_quizes:
-        quiz_data = load_quiz(quiz['name'])
+        quiz_data = load_quiz(quiz.get('id', quiz.get('name')))  # Support both ID and legacy name
         if quiz_data and quiz_data.get('creator') == username:
             quizzes_created += 1
     
