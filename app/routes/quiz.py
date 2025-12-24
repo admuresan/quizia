@@ -284,9 +284,7 @@ def end_running_quiz(room_code):
     room['ended'] = True
     room['last_activity'] = time.time()
     
-    # Save final state before ending
-    from app.utils.room_manager import save_room_state_now
-    save_room_state_now(room_code)
+    # Don't save state - we're about to delete the room file
     
     # Record quiz run completion
     quiz_id = room.get('quiz_id')

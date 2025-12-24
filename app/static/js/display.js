@@ -4,6 +4,7 @@ let currentPageIndex = 0; // Track current page index to stay in sync
 let currentPage = null;
 let quiz = null;
 let participants = {};
+let scores = {}; // Store scores from room file
 
 // Avatar utilities are now in avatar-utils.js (getAvatarEmoji function)
 
@@ -27,6 +28,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.current_page !== undefined) {
             currentPageIndex = data.current_page;
         }
+        // Update participants and scores
+        if (data.participants) {
+            participants = data.participants;
+        }
+        if (data.scores) {
+            scores = data.scores;
+        }
         console.log('Quiz object:', quiz);
         console.log('Page object:', data.page);
         console.log('Current page index:', currentPageIndex);
@@ -40,6 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Always use server's page_index to stay in sync
         if (data.page_index !== undefined) {
             currentPageIndex = data.page_index;
+        }
+        // Update participants and scores if provided
+        if (data.participants) {
+            participants = data.participants;
+        }
+        if (data.scores) {
+            scores = data.scores;
         }
         console.log('Page changed to index:', currentPageIndex);
         renderPage(currentPageIndex, data.page);
@@ -63,6 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         const el = page.elements.find(e => e.id === elementId);
                         if (el) {
                             el.appearance_visible = visible;
+                            // If this is a question and it's being shown, notify server for timing
+                            if (visible && el.is_question) {
+                                notifyQuestionVisible(elementId);
+                            }
                         }
                     }
                 });
@@ -79,8 +98,31 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('score_updated', (data) => {
+        if (data.scores) {
+            scores = data.scores;
+        }
         if (currentPage && currentPage.type === 'status') {
-            updateStatusPage(data.scores);
+            updateStatusPage(scores);
+        }
+    });
+
+    socket.on('final_scores_finalized', (data) => {
+        if (data.final_rankings) {
+            const content = document.getElementById('results-content');
+            if (content) {
+                populateFinalResults(content, data.final_rankings);
+            } else if (currentPage && currentPage.type === 'results') {
+                // If we're on results page but content doesn't exist yet, render it
+                const container = document.getElementById('display-content');
+                renderFinalResultsPage(container, currentPage, quiz);
+                const newContent = document.getElementById('results-content');
+                if (newContent) {
+                    populateFinalResults(newContent, data.final_rankings);
+                }
+            }
+        }
+        if (data.scores) {
+            scores = data.scores;
         }
     });
 
@@ -100,6 +142,16 @@ document.addEventListener('DOMContentLoaded', () => {
         showQuizNotRunning();
     });
 });
+
+// Helper function to notify server when a question becomes visible
+function notifyQuestionVisible(elementId) {
+    if (socket && window.roomCode && elementId) {
+        socket.emit('question_visible', {
+            room_code: window.roomCode,
+            question_id: elementId
+        });
+    }
+}
 
 function renderPage(pageIndex, page) {
     const container = document.getElementById('display-content');
@@ -204,23 +256,10 @@ function renderPage(pageIndex, page) {
                 // Handle initial visibility based on appearance mode
                 const appearanceMode = element.appearance_mode || 'on_load';
                 if (appearanceMode === 'control') {
-                    // Control mode: on display page, elements should be visible by default when quiz starts
-                    // The appearance_visible property tracks runtime state (changed by quizmaster controls)
-                    // But when rendering initially, default to visible unless element.visible is false
-                    if (element.visible === false) {
-                        // Element is explicitly marked as not visible
-                        if (el) {
-                            el.style.display = 'none';
-                        }
-                    } else {
-                        // On display page, start with elements visible by default
-                        // appearance_visible will be updated by quizmaster controls
-                        if (el) {
-                            // Default to visible, but respect appearance_visible if it's been set during runtime
-                            // For initial render, show the element
-                            el.style.display = 'block';
-                            element.appearance_visible = true; // Set to visible for display page
-                        }
+                    // Control mode: elements should be hidden by default and only shown when toggled on from control page
+                    if (el) {
+                        el.style.display = 'none';
+                        element.appearance_visible = false; // Start as hidden
                     }
                 } else if (appearanceMode === 'global_delay') {
                     // Global delay: show after X seconds
@@ -239,6 +278,10 @@ function renderPage(pageIndex, page) {
                                     element_id: element.id,
                                     visible: true
                                 });
+                            }
+                            // If this is a question, notify server for timing
+                            if (element.is_question) {
+                                notifyQuestionVisible(element.id);
                             }
                         }
                     }, delay);
@@ -259,6 +302,10 @@ function renderPage(pageIndex, page) {
                     element.appearance_visible = true;
                     if (el) {
                         el.style.display = 'block';
+                        // If this is a question, notify server
+                        if (element.is_question) {
+                            notifyQuestionVisible(element.id);
+                        }
                     }
                 }
             } catch (error) {
@@ -286,9 +333,14 @@ function renderPage(pageIndex, page) {
                             // Notify control page
                             if (socket) {
                                 socket.emit('element_appearance_changed', {
+                                    room_code: window.roomCode,
                                     element_id: element.id,
                                     visible: true
                                 });
+                            }
+                            // If this is a question, notify server for timing
+                            if (element.is_question) {
+                                notifyQuestionVisible(element.id);
                             }
                         }
                     });
@@ -308,17 +360,34 @@ function renderPage(pageIndex, page) {
                                     el.style.display = 'block';
                                     element.appearance_visible = true;
                                     // Notify control page
-                                    if (socket) {
+                                    if (socket && window.roomCode) {
                                         socket.emit('element_appearance_changed', {
+                                            room_code: window.roomCode,
                                             element_id: element.id,
                                             visible: true
                                         });
+                                    }
+                                    // If this is a question, notify server for timing
+                                    if (element.is_question) {
+                                        notifyQuestionVisible(element.id);
                                     }
                                 }
                             }, delay);
                         }
                     });
                     observer.observe(prevEl, { attributes: true, attributeFilter: ['style'] });
+                }
+            }
+        });
+        
+        // After rendering, check for any questions that are already visible (on_load mode)
+        // and notify server for timing
+        orderedElements.forEach((element) => {
+            if (element.is_question) {
+                const el = document.getElementById(`element-${element.id}`);
+                if (el && el.style.display !== 'none' && element.appearance_visible) {
+                    // Question is already visible, notify server
+                    notifyQuestionVisible(element.id);
                 }
             }
         });
@@ -350,6 +419,17 @@ function handleElementControl(elementId, action) {
     switch (action) {
         case 'show':
             element.style.display = 'block';
+            // If this is a question, notify server for timing
+            if (quiz && quiz.pages) {
+                quiz.pages.forEach(page => {
+                    if (page.elements) {
+                        const el = page.elements.find(e => e.id === elementId);
+                        if (el && el.is_question) {
+                            notifyQuestionVisible(elementId);
+                        }
+                    }
+                });
+            }
             break;
         case 'hide':
             element.style.display = 'none';
@@ -406,18 +486,25 @@ function renderStatusPage(container, page, quiz) {
     content.id = 'rankings-content';
     content.style.cssText = 'width: 100%; max-width: 1200px;';
     container.appendChild(content);
+    
+    // Populate status page with current scores
+    updateStatusPage(scores);
 }
 
-function updateStatusPage(scores) {
+function updateStatusPage(currentScores) {
     const content = document.getElementById('rankings-content');
     if (!content) return;
 
-    // Get participants with scores
-    const rankings = Object.entries(scores).map(([id, score]) => ({
+    // Use provided scores or fall back to stored scores
+    const scoresToUse = currentScores || scores;
+
+    // Get participants with scores - if scores aren't available yet, show all participants with 0
+    const allParticipantIds = Object.keys(participants || {});
+    const rankings = allParticipantIds.map(id => ({
         id,
         name: participants[id]?.name || 'Unknown',
-        avatar: participants[id]?.avatar, // Keep as code, will convert when displaying
-        score
+        avatar: participants[id]?.avatar,
+        score: scoresToUse[id] || 0
     })).sort((a, b) => b.score - a.score);
 
     // Top 3 podium

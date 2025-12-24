@@ -295,586 +295,87 @@ RuntimeRenderer.ElementRenderer = (function() {
     
     function renderAnswerInput(el, element, options) {
         const answerType = element.answer_type || 'text';
-        const options_list = element.options || [];
         const questionId = element.parent_id;
         const question = options.question || null; // Get question element from options for image_click
-        const onSubmitCallback = options.onSubmit || options.submitAnswerCallback || null;
+        const submittedAnswer = options.submittedAnswer || null;
         
-        el.style.backgroundColor = 'transparent';
-        el.style.border = 'none';
-        el.style.display = 'flex';
-        el.style.flexDirection = 'column';
-        el.style.gap = '0.5rem';
-        el.style.padding = '0.5rem';
+        // Use new modular question type participant views
+        const renderOptions = Object.assign({}, options, { question: question });
         
-        if (answerType === 'text') {
-            console.log('Rendering text answer input for question:', questionId);
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'answer-text-input';
-            input.placeholder = 'Type your answer...';
-            input.dataset.questionId = questionId;
-            input.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #2196F3; border-radius: 4px; font-size: 0.9rem;';
-            el.appendChild(input);
-            
-            const submitBtn = document.createElement('button');
-            submitBtn.textContent = 'Submit';
-            submitBtn.className = 'submit-answer-btn';
-            submitBtn.dataset.questionId = questionId;
-            submitBtn.dataset.answerType = 'text';
-            submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-            el.appendChild(submitBtn);
-            console.log('Text answer input rendered, el.children.length:', el.children.length);
-        } else if (answerType === 'radio') {
-            const optionsDiv = document.createElement('div');
-            optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-            options_list.forEach((option, index) => {
-                const label = document.createElement('label');
-                label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
-                const radio = document.createElement('input');
-                radio.type = 'radio';
-                radio.name = `answer-${questionId}`;
-                radio.value = option;
-                label.appendChild(radio);
-                label.appendChild(document.createTextNode(option));
-                optionsDiv.appendChild(label);
-            });
-            el.appendChild(optionsDiv);
-            
-            const submitBtn = document.createElement('button');
-            submitBtn.textContent = 'Submit';
-            submitBtn.className = 'submit-answer-btn';
-            submitBtn.dataset.questionId = questionId;
-            submitBtn.dataset.answerType = 'radio';
-            submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-            el.appendChild(submitBtn);
-        } else if (answerType === 'checkbox') {
-            const checkboxesDiv = document.createElement('div');
-            checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-            options_list.forEach(option => {
-                const label = document.createElement('label');
-                label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.value = option;
-                label.appendChild(checkbox);
-                label.appendChild(document.createTextNode(option));
-                checkboxesDiv.appendChild(label);
-            });
-            el.appendChild(checkboxesDiv);
-            
-            const submitBtn = document.createElement('button');
-            submitBtn.textContent = 'Submit';
-            submitBtn.className = 'submit-answer-btn';
-            submitBtn.dataset.questionId = questionId;
-            submitBtn.dataset.answerType = 'checkbox';
-            submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-            el.appendChild(submitBtn);
-        } else if (answerType === 'image_click') {
-            // Image click input - render interactive image
-            const question = options.question || null;
-            console.log('Rendering image_click answer input:', { question, element, options });
-            // Get image source from question element (for image questions)
-            let imageSrc = null;
-            if (question) {
-                imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
-            }
-            // Fallback to element's own src if question doesn't have one
-            if (!imageSrc) {
-                imageSrc = element.image_src || element.src;
-            }
-            console.log('Image source determined:', imageSrc);
-            
-            if (imageSrc) {
-                const imageContainer = document.createElement('div');
-                imageContainer.className = 'image-answer-container';
-                imageContainer.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
-                
-                let clickIndicator = null;
-                let clickCoords = null;
-                let isSubmitted = false;
-                
-                const img = document.createElement('img');
-                img.src = imageSrc;
-                img.style.cssText = 'max-width: 100%; height: auto; cursor: crosshair; border: 2px solid #2196F3; border-radius: 4px;';
-                img.alt = 'Click to answer';
-                
-                const submitBtn = document.createElement('button');
-                submitBtn.textContent = 'Submit';
-                submitBtn.className = 'submit-answer-btn';
-                submitBtn.dataset.questionId = questionId;
-                submitBtn.dataset.answerType = 'image_click';
-                submitBtn.disabled = true;
-                submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 1rem;';
-                
-                img.onclick = (e) => {
-                    if (isSubmitted) return;
-                    
-                    const rect = img.getBoundingClientRect();
-                    const x = ((e.clientX - rect.left) / rect.width) * 100;
-                    const y = ((e.clientY - rect.top) / rect.height) * 100;
-                    clickCoords = { x, y };
-                    
-                    // Remove previous indicator
-                    if (clickIndicator) {
-                        clickIndicator.remove();
-                    }
-                    
-                    // Create click indicator (circle with 10% radius)
-                    clickIndicator = document.createElement('div');
-                    const radius = Math.min(rect.width, rect.height) * 0.1;
-                    clickIndicator.style.cssText = `position: absolute; width: ${radius * 2}px; height: ${radius * 2}px; border: 3px solid #FF5722; border-radius: 50%; background: rgba(255, 87, 34, 0.2); pointer-events: none; left: ${e.clientX - rect.left - radius}px; top: ${e.clientY - rect.top - radius}px;`;
-                    imageContainer.appendChild(clickIndicator);
-                    
-                    submitBtn.disabled = false;
-                };
-                
-                submitBtn.onclick = () => {
-                    if (clickCoords && !isSubmitted) {
-                        isSubmitted = true;
-                        submitBtn.disabled = true;
-                        if (options.submitAnswerCallback) {
-                            options.submitAnswerCallback(questionId, 'image_click', submitBtn, clickCoords);
-                        }
-                    }
-                };
-                
-                imageContainer.appendChild(img);
-                el.appendChild(imageContainer);
-                el.appendChild(submitBtn);
-                console.log('Image click input rendered, children count:', el.children.length);
-            } else {
-                console.warn('No image source found for image_click answer input');
-                el.textContent = 'Image not available';
-            }
-        } else if (answerType === 'stopwatch') {
-            // Stopwatch - render timer controls
-            const stopwatchContainer = document.createElement('div');
-            stopwatchContainer.className = 'stopwatch-container';
-            stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 1rem;';
-            
-            const timerDisplay = document.createElement('div');
-            timerDisplay.className = 'timer-display';
-            timerDisplay.style.cssText = 'font-size: 2rem; font-weight: bold; display: none;';
-            timerDisplay.textContent = '0:00';
-            stopwatchContainer.appendChild(timerDisplay);
-            
-            const controlsDiv = document.createElement('div');
-            controlsDiv.style.cssText = 'display: flex; gap: 1rem;';
-            
-            const startBtn = document.createElement('button');
-            startBtn.textContent = 'Start';
-            startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-            
-            const stopBtn = document.createElement('button');
-            stopBtn.textContent = 'Stop';
-            stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-            stopBtn.disabled = true;
-            
-            let startTime = null;
-            let elapsedTime = 0;
-            let intervalId = null;
-            let isSubmitted = false;
-            
-            startBtn.onclick = () => {
-                if (isSubmitted) return;
-                startTime = Date.now() - elapsedTime;
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                timerDisplay.style.display = 'none'; // Hide timer while running
-                
-                intervalId = setInterval(() => {
-                    elapsedTime = Date.now() - startTime;
-                    // Don't update display text while running - only show time after stopping
-                }, 100);
-            };
-            
-            stopBtn.onclick = () => {
-                if (intervalId) {
-                    clearInterval(intervalId);
-                    intervalId = null;
-                }
-                if (startTime) {
-                    elapsedTime = Date.now() - startTime;
-                }
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                
-                // Show the final time only after stopping
-                const seconds = Math.floor(elapsedTime / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const secs = seconds % 60;
-                timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
-                timerDisplay.style.display = 'block';
-                
-                if (elapsedTime > 0 && !isSubmitted) {
-                    isSubmitted = true;
-                    if (options.submitAnswerCallback) {
-                        options.submitAnswerCallback(questionId, 'stopwatch', stopBtn, elapsedTime);
-                    }
-                }
-            };
-            
-            controlsDiv.appendChild(startBtn);
-            controlsDiv.appendChild(stopBtn);
-            stopwatchContainer.appendChild(controlsDiv);
-            el.appendChild(stopwatchContainer);
+        // Route to appropriate question type participant view renderer
+        if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ParticipantView) {
+            QuestionTypes.Text.ParticipantView.render(el, element, renderOptions);
+        } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ParticipantView) {
+            QuestionTypes.Radio.ParticipantView.render(el, element, renderOptions);
+        } else if (answerType === 'checkbox' && QuestionTypes.Checkbox && QuestionTypes.Checkbox.ParticipantView) {
+            QuestionTypes.Checkbox.ParticipantView.render(el, element, renderOptions);
+        } else if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ParticipantView) {
+            QuestionTypes.ImageClick.ParticipantView.render(el, element, renderOptions);
+        } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ParticipantView) {
+            QuestionTypes.Stopwatch.ParticipantView.render(el, element, renderOptions);
+        } else {
+            // Unknown question type - show error message
+            console.error('Question type', answerType, 'participant view not found');
+            el.textContent = `Answer input type "${answerType}" not supported`;
+            el.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
         }
     }
     
     function renderAnswerDisplay(el, element, options) {
-        const answerType = element.answer_type || 'text';
+        // Get answer_type from options first (control.js does fallback logic), then element, then default to text
+        // options.answerType is determined with fallback: answer_display -> answer_input -> question
+        const answerType = options.answerType || element.answer_type || 'text';
+        
+        // Debug logging
+        console.log('[DEBUG runtime-element-renderer] renderAnswerDisplay', {
+            elementId: element.id,
+            elementAnswerType: element.answer_type,
+            optionsAnswerType: options.answerType,
+            finalAnswerType: answerType,
+            parentId: element.parent_id
+        });
+        
+        // For image_click questions, enable scrolling while maintaining fixed size
+        if (answerType === 'image_click') {
+            el.style.overflowY = 'auto';
+            el.style.overflowX = 'hidden';
+            // Keep the fixed height from element.height (set earlier in renderElement)
+        }
+        
         const questionId = element.parent_id;
         const questionTitle = options.questionTitle || 'Question';
         const answers = options.answers || {}; // { participant_id: { answer, submission_time, correct, bonus_points } }
         const participants = options.participants || {}; // { participant_id: { name, avatar } }
         const onMarkAnswer = options.onMarkAnswer || null;
-        
-        el.style.backgroundColor = 'white';
-        el.style.border = '2px solid #2196F3';
-        el.style.borderRadius = '8px';
-        el.style.display = 'flex';
-        el.style.flexDirection = 'column';
-        el.style.padding = '1rem';
-        el.style.overflow = 'auto';
-        el.style.fontSize = '0.9rem';
-        el.style.color = '#333';
-        
-        const titleHeader = document.createElement('div');
-        titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3;';
-        titleHeader.textContent = questionTitle;
-        el.appendChild(titleHeader);
-        
-        // Render answers based on type
-        if (answerType === 'image_click') {
-            renderImageClickAnswers(el, element, answers, participants, questionId, onMarkAnswer, options);
-        } else {
-            renderTextAnswers(el, answerType, answers, participants, questionId, onMarkAnswer);
-        }
-    }
-    
-    function renderTextAnswers(el, answerType, answers, participants, questionId, onMarkAnswer) {
-        const answersList = document.createElement('div');
-        answersList.id = `answers-list-${questionId}`;
-        
-        // Avatar utilities are now in avatar-utils.js (getAvatarEmoji function)
-        
-        // Show ALL participants, even if they haven't submitted yet
-        const allParticipantIds = Object.keys(participants || {});
-        
-        // Debug: Log participant IDs
-        console.log(`[DEBUG renderTextAnswers] Participant IDs for question ${questionId}:`, allParticipantIds);
-        console.log(`[DEBUG renderTextAnswers] Participants object:`, participants);
-        
-        allParticipantIds.forEach((participantId) => {
-            const answerData = answers[participantId]; // May be undefined if not submitted yet
-            const participant = participants[participantId] || {};
-            const answerRow = document.createElement('div');
-            answerRow.className = 'answer-row';
-            answerRow.id = `answer-${participantId}-${questionId}`;
-            answerRow.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; padding: 0.5rem; background: #f5f5f5; border-radius: 4px;';
-            
-            const avatar = document.createElement('div');
-            const avatarEmoji = getAvatarEmoji(participant.avatar);
-            avatar.textContent = avatarEmoji;
-            avatar.style.cssText = 'font-size: 1.5rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;';
-            answerRow.appendChild(avatar);
-            
-            const info = document.createElement('div');
-            info.style.cssText = 'flex: 1; min-width: 0;';
-            
-            const name = document.createElement('div');
-            name.style.cssText = 'font-weight: 500; font-size: 0.95rem; margin-bottom: 0.25rem;';
-            name.textContent = participant.name || 'Unknown';
-            info.appendChild(name);
-            
-            // Show submission time only if answer was submitted
-            if (answerData && answerData.submission_time !== undefined) {
-                const time = document.createElement('div');
-                time.style.cssText = 'color: #666; font-size: 0.85rem; margin-bottom: 0.25rem;';
-                time.textContent = `Submitted: ${typeof answerData.submission_time === 'number' ? answerData.submission_time.toFixed(2) : answerData.submission_time}s`;
-                info.appendChild(time);
-            } else {
-                const waiting = document.createElement('div');
-                waiting.style.cssText = 'color: #999; font-size: 0.85rem; font-style: italic; margin-bottom: 0.25rem;';
-                waiting.textContent = 'Waiting for answer...';
-                info.appendChild(waiting);
-            }
-            
-            // Show answer content only if answer was submitted
-            if (answerData && answerData.answer !== undefined) {
-                const answerContent = document.createElement('div');
-                answerContent.style.cssText = 'padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.25rem;';
-                if (answerType === 'checkbox' && Array.isArray(answerData.answer)) {
-                    answerContent.textContent = answerData.answer.join(', ');
-                } else if (answerType === 'stopwatch') {
-                    const seconds = Math.floor(answerData.answer / 1000);
-                    const minutes = Math.floor(seconds / 60);
-                    const secs = seconds % 60;
-                    answerContent.textContent = `${minutes}:${secs.toString().padStart(2, '0')} (${answerData.answer / 1000}s)`;
-                } else {
-                    answerContent.textContent = String(answerData.answer || '');
-                }
-                info.appendChild(answerContent);
-            }
-            
-            answerRow.appendChild(info);
-            
-            const correctCheck = document.createElement('input');
-            correctCheck.type = 'checkbox';
-            correctCheck.className = 'correct-checkbox';
-            correctCheck.dataset.participantId = participantId;
-            correctCheck.dataset.questionId = questionId;
-            correctCheck.checked = (answerData && answerData.correct) || false;
-            correctCheck.disabled = !answerData; // Disable if no answer submitted yet
-            correctCheck.style.cssText = 'cursor: pointer;';
-            if (!answerData) {
-                correctCheck.style.opacity = '0.5';
-            }
-            answerRow.appendChild(correctCheck);
-            
-            const correctLabel = document.createElement('label');
-            correctLabel.textContent = 'Correct';
-            correctLabel.style.cssText = 'font-size: 0.85rem; cursor: pointer;';
-            correctLabel.htmlFor = correctCheck.id = `correct-${participantId}-${questionId}`;
-            answerRow.appendChild(correctLabel);
-            
-            const bonusInput = document.createElement('input');
-            bonusInput.type = 'number';
-            bonusInput.className = 'bonus-points-input';
-            bonusInput.dataset.participantId = participantId;
-            bonusInput.dataset.questionId = questionId;
-            bonusInput.placeholder = 'Bonus';
-            bonusInput.min = '0';
-            bonusInput.value = (answerData && answerData.bonus_points) || 0;
-            bonusInput.disabled = !answerData; // Disable if no answer submitted yet
-            bonusInput.style.cssText = 'width: 70px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;';
-            if (!answerData) {
-                bonusInput.style.opacity = '0.5';
-            }
-            answerRow.appendChild(bonusInput);
-            
-            const saveBtn = document.createElement('button');
-            saveBtn.textContent = 'Save';
-            saveBtn.className = 'save-answer-btn';
-            saveBtn.dataset.participantId = participantId;
-            saveBtn.dataset.questionId = questionId;
-            saveBtn.style.cssText = 'padding: 0.25rem 0.5rem; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;';
-            if (onMarkAnswer) {
-                saveBtn.onclick = () => {
-                    onMarkAnswer(participantId, questionId, correctCheck.checked, parseInt(bonusInput.value) || 0);
-                };
-            }
-            answerRow.appendChild(saveBtn);
-            
-            answersList.appendChild(answerRow);
-        });
-        
-        // Only show "no answers" message if there are no participants at all
-        if (allParticipantIds.length === 0) {
-            const noAnswers = document.createElement('div');
-            noAnswers.style.cssText = 'color: #666; font-style: italic; padding: 1rem; text-align: center;';
-            noAnswers.textContent = 'No participants yet';
-            answersList.appendChild(noAnswers);
-        }
-        
-        el.appendChild(answersList);
-    }
-    
-    function renderImageClickAnswers(el, element, answers, participants, questionId, onMarkAnswer, options) {
-        // Get image source from parent question
         const imageSrc = options.imageSrc || '';
         
-        const imageContainer = document.createElement('div');
-        imageContainer.style.cssText = 'position: relative; margin-bottom: 1rem; border: 2px solid #ddd; border-radius: 4px; overflow: visible; background: #f0f0f0; min-height: 200px; display: flex; justify-content: center; align-items: flex-start;';
+        // Use new modular question type renderers
+        const renderOptions = {
+            questionId: questionId,
+            questionTitle: questionTitle,
+            answers: answers,
+            participants: participants,
+            onMarkAnswer: onMarkAnswer,
+            imageSrc: imageSrc
+        };
         
-        if (imageSrc) {
-            // Create wrapper that will match image dimensions
-            const imageWrapper = document.createElement('div');
-            imageWrapper.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
-            imageWrapper.id = `image-wrapper-${questionId}`;
-            
-            const img = document.createElement('img');
-            img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
-            img.style.cssText = 'width: 100%; height: auto; display: block; max-height: 400px; object-fit: contain;';
-            img.id = `image-click-display-${questionId}`;
-            
-            // Add highlighted circles for each participant's click after image loads
-            // We need to wait for image to load to get accurate dimensions
-            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00'];
-            const participantIndexMap = {}; // Map participant IDs to their color index
-            const allParticipantIds = Object.keys(participants || {});
-            allParticipantIds.forEach((pid, idx) => {
-                participantIndexMap[pid] = idx;
-            });
-            
-            const updateHighlights = () => {
-                // Remove any existing highlights
-                const existingHighlights = imageWrapper.querySelectorAll('.click-highlight');
-                existingHighlights.forEach(h => h.remove());
-                
-                // Get image dimensions
-                const rect = img.getBoundingClientRect();
-                const imgWidth = rect.width;
-                const imgHeight = rect.height;
-                const minDim = Math.min(imgWidth, imgHeight);
-                const radiusPx = minDim * 0.1; // 10% of minimum dimension (matches participant view)
-                
-                // Add highlights for each submitted answer
-                Object.entries(answers || {}).forEach(([participantId, answerData]) => {
-                    if (answerData && answerData.answer && typeof answerData.answer === 'object' && answerData.answer.x !== undefined && answerData.answer.y !== undefined) {
-                        const highlight = document.createElement('div');
-                        highlight.className = 'click-highlight';
-                        const colorIndex = participantIndexMap[participantId] !== undefined ? participantIndexMap[participantId] : 0;
-                        const color = colors[colorIndex % colors.length];
-                        
-                        // Calculate position: x and y are percentages (0-100), position relative to image wrapper
-                        const leftPercent = answerData.answer.x;
-                        const topPercent = answerData.answer.y;
-                        
-                        // Convert hex color to rgba for background
-                        const r = parseInt(color.slice(1,3), 16);
-                        const g = parseInt(color.slice(3,5), 16);
-                        const b = parseInt(color.slice(5,7), 16);
-                        
-                        highlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 3px solid ${color}; background: rgba(${r}, ${g}, ${b}, 0.2); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 8px ${color}80;`;
-                        highlight.dataset.participantId = participantId;
-                        imageWrapper.appendChild(highlight);
-                    }
-                });
-            };
-            
-            img.onload = updateHighlights;
-            
-            // Handle window resize to update highlight positions
-            // Use a debounced resize handler
-            let resizeTimeout;
-            const resizeHandler = () => {
-                clearTimeout(resizeTimeout);
-                resizeTimeout = setTimeout(updateHighlights, 100);
-            };
-            
-            // Store resize handler reference on the wrapper so we can clean it up if needed
-            imageWrapper._resizeHandler = resizeHandler;
-            window.addEventListener('resize', resizeHandler);
-            
-            imageWrapper.appendChild(img);
-            imageContainer.appendChild(imageWrapper);
-            
-            // If image already loaded, trigger onload manually
-            if (img.complete) {
-                img.onload();
-            }
+        // Route to appropriate question type renderer
+        if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlView) {
+            QuestionTypes.ImageClick.ControlView.render(el, renderOptions);
+        } else if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlView) {
+            QuestionTypes.Text.ControlView.render(el, renderOptions);
+        } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ControlView) {
+            QuestionTypes.Radio.ControlView.render(el, renderOptions);
+        } else if (answerType === 'checkbox' && QuestionTypes.Checkbox && QuestionTypes.Checkbox.ControlView) {
+            QuestionTypes.Checkbox.ControlView.render(el, renderOptions);
+        } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ControlView) {
+            QuestionTypes.Stopwatch.ControlView.render(el, renderOptions);
         } else {
-            const placeholder = document.createElement('div');
-            placeholder.style.cssText = 'width: 100%; height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;';
-            placeholder.textContent = 'Image preview';
-            imageContainer.appendChild(placeholder);
+            // Unknown question type - show error message
+            console.error('Question type', answerType, 'control view not found');
+            el.textContent = `Answer display type "${answerType}" not supported`;
+            el.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
         }
-        
-        el.appendChild(imageContainer);
-        
-        // Legend with participant names and marking controls
-        const legend = document.createElement('div');
-        legend.id = `answers-list-${questionId}`;
-        legend.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-        
-        const colors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00'];
-        // Show ALL participants, even if they haven't submitted yet
-        const allParticipantIds = Object.keys(participants || {});
-        
-        // Debug: Log participant IDs
-        console.log(`[DEBUG renderImageClickAnswers] Participant IDs for question ${questionId}:`, allParticipantIds);
-        console.log(`[DEBUG renderImageClickAnswers] Participants object:`, participants);
-        
-        allParticipantIds.forEach((participantId, index) => {
-            const answerData = answers[participantId]; // May be undefined if not submitted yet
-            const participant = participants[participantId] || {};
-            const color = colors[index % colors.length];
-            
-            const legendRow = document.createElement('div');
-            legendRow.className = 'answer-row';
-            legendRow.id = `answer-${participantId}-${questionId}`;
-            legendRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;';
-            
-            const colorDot = document.createElement('div');
-            colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0;`;
-            legendRow.appendChild(colorDot);
-            
-            const nameLabel = document.createElement('div');
-            nameLabel.style.cssText = 'min-width: 120px; font-weight: 500; font-size: 0.95rem;';
-            nameLabel.textContent = participant.name || 'Unknown';
-            legendRow.appendChild(nameLabel);
-            
-            const answerInfo = document.createElement('div');
-            answerInfo.style.cssText = 'flex: 1; font-size: 0.85rem; color: #666;';
-            if (answerData && answerData.answer && typeof answerData.answer === 'object') {
-                answerInfo.textContent = `(${answerData.answer.x.toFixed(1)}%, ${answerData.answer.y.toFixed(1)}%)`;
-            } else {
-                answerInfo.textContent = 'Waiting for click...';
-                answerInfo.style.fontStyle = 'italic';
-                answerInfo.style.color = '#999';
-            }
-            legendRow.appendChild(answerInfo);
-            
-            const correctCheck = document.createElement('input');
-            correctCheck.type = 'checkbox';
-            correctCheck.className = 'correct-checkbox';
-            correctCheck.dataset.participantId = participantId;
-            correctCheck.dataset.questionId = questionId;
-            correctCheck.checked = (answerData && answerData.correct) || false;
-            correctCheck.disabled = !answerData; // Disable if no answer submitted yet
-            correctCheck.style.cssText = 'cursor: pointer;';
-            if (!answerData) {
-                correctCheck.style.opacity = '0.5';
-            }
-            legendRow.appendChild(correctCheck);
-            
-            const correctLabel = document.createElement('label');
-            correctLabel.textContent = 'Correct';
-            correctLabel.style.cssText = 'font-size: 0.85rem; cursor: pointer;';
-            correctLabel.htmlFor = correctCheck.id = `correct-${participantId}-${questionId}`;
-            legendRow.appendChild(correctLabel);
-            
-            const bonusInput = document.createElement('input');
-            bonusInput.type = 'number';
-            bonusInput.className = 'bonus-points-input';
-            bonusInput.dataset.participantId = participantId;
-            bonusInput.dataset.questionId = questionId;
-            bonusInput.placeholder = '0';
-            bonusInput.min = '0';
-            bonusInput.value = (answerData && answerData.bonus_points) || 0;
-            bonusInput.disabled = !answerData; // Disable if no answer submitted yet
-            if (!answerData) {
-                bonusInput.style.opacity = '0.5';
-            }
-            bonusInput.style.cssText = 'width: 70px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;';
-            legendRow.appendChild(bonusInput);
-            
-            const saveBtn = document.createElement('button');
-            saveBtn.textContent = 'Save';
-            saveBtn.className = 'save-answer-btn';
-            saveBtn.dataset.participantId = participantId;
-            saveBtn.dataset.questionId = questionId;
-            saveBtn.style.cssText = 'padding: 0.25rem 0.5rem; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;';
-            if (onMarkAnswer) {
-                saveBtn.onclick = () => {
-                    onMarkAnswer(participantId, questionId, correctCheck.checked, parseInt(bonusInput.value) || 0);
-                };
-            }
-            legendRow.appendChild(saveBtn);
-            
-            legend.appendChild(legendRow);
-        });
-        
-        if (Object.keys(answers).length === 0) {
-            const noAnswers = document.createElement('div');
-            noAnswers.style.cssText = 'color: #666; font-style: italic; padding: 1rem; text-align: center;';
-            noAnswers.textContent = 'No answers submitted yet';
-            legend.appendChild(noAnswers);
-        }
-        
-        el.appendChild(legend);
     }
     
     function renderAppearanceControl(el, element, options) {
@@ -906,26 +407,41 @@ RuntimeRenderer.ElementRenderer = (function() {
             return;
         }
         
+        // Get all display elements (not just those in appearance_order)
+        const allDisplayElements = page.elements.filter(el => 
+            el && (!el.view || el.view === 'display') && 
+            el.type !== 'navigation_control' && 
+            el.type !== 'audio_control' && 
+            el.type !== 'answer_input' && 
+            el.type !== 'answer_display' &&
+            el.type !== 'appearance_control'
+        );
+        
         // Initialize appearance_order if it doesn't exist
         if (!page.appearance_order) {
-            const displayElements = page.elements.filter(el => 
-                (!el.view || el.view === 'display') && 
-                el.type !== 'navigation_control' && 
-                el.type !== 'audio_control' && 
-                el.type !== 'answer_input' && 
-                el.type !== 'answer_display'
-            );
-            page.appearance_order = displayElements.map(el => el.id);
+            page.appearance_order = allDisplayElements.map(el => el.id);
         }
         
-        // Get elements in appearance order
-        const orderedElements = (page.appearance_order || [])
-            .map(id => page.elements.find(el => el.id === id))
-            .filter(el => el && (!el.view || el.view === 'display') && 
-                    el.type !== 'navigation_control' && 
-                    el.type !== 'audio_control' && 
-                    el.type !== 'answer_input' && 
-                    el.type !== 'answer_display');
+        // Order elements according to appearance_order, but include any elements not in the order array
+        const orderedIds = page.appearance_order || [];
+        const orderedElements = [];
+        const addedIds = new Set();
+        
+        // First add elements in appearance_order
+        orderedIds.forEach(id => {
+            const el = allDisplayElements.find(e => e.id === id);
+            if (el) {
+                orderedElements.push(el);
+                addedIds.add(id);
+            }
+        });
+        
+        // Then add any remaining elements not in appearance_order
+        allDisplayElements.forEach(el => {
+            if (!addedIds.has(el.id)) {
+                orderedElements.push(el);
+            }
+        });
         
         // Generate unique names for elements (fallback if no custom name)
         const typeCounts = {};
@@ -939,90 +455,90 @@ RuntimeRenderer.ElementRenderer = (function() {
         const controlsList = document.createElement('div');
         controlsList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
         
+        // Show ALL display elements, not just those with appearance_mode === 'control'
         orderedElements.forEach(element => {
-            const appearanceMode = element.appearance_mode || 'on_load';
-            const isControlMode = appearanceMode === 'control';
+            const controlItem = document.createElement('div');
+            controlItem.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px;';
+            controlItem.dataset.elementId = element.id;
             
-            // Only show control mode elements
-            if (isControlMode) {
-                const controlItem = document.createElement('div');
-                controlItem.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px;';
-                controlItem.dataset.elementId = element.id;
-                
-                const nameLabel = document.createElement('span');
-                // Use custom appearance_name if available, otherwise fallback to generated name
-                nameLabel.textContent = element.appearance_name || elementNames[element.id] || element.type || 'element';
-                nameLabel.style.cssText = 'flex: 1; font-weight: 500; font-size: 0.9rem;';
-                controlItem.appendChild(nameLabel);
-                
-                // Create toggle switch container
-                const toggleContainer = document.createElement('div');
-                toggleContainer.style.cssText = 'position: relative; width: 50px; height: 26px; cursor: pointer; flex-shrink: 0;';
-                
-                // Toggle track (background)
-                const toggleTrack = document.createElement('div');
-                toggleTrack.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 13px; transition: background-color 0.3s ease;';
-                toggleContainer.appendChild(toggleTrack);
-                
-                // Toggle ball (slider)
-                const toggleBall = document.createElement('div');
-                toggleBall.style.cssText = 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
-                toggleContainer.appendChild(toggleBall);
-                
-                // Function to update toggle state
-                const updateToggleState = (isOn) => {
-                    element.appearance_visible = isOn;
-                    if (isOn) {
-                        toggleTrack.style.backgroundColor = '#2196F3'; // Blue when on
-                        toggleBall.style.transform = 'translateX(24px)'; // Move to right
-                    } else {
-                        toggleTrack.style.backgroundColor = '#ccc'; // Grey when off
-                        toggleBall.style.transform = 'translateX(0)'; // Move to left
-                    }
-                };
-                
-                // Initialize toggle state
-                const initialVisible = element.appearance_visible || false;
-                updateToggleState(initialVisible);
-                
-                // Function to check if element is visible on display screen
-                const checkElementVisibility = () => {
-                    // Try to find the element on the display screen
-                    // We'll use a polling approach or listen to events
-                    // For now, we'll check the element's appearance_visible property
-                    // and also listen to socket events
-                    return element.appearance_visible || false;
-                };
-                
-                // Click handler
-                toggleContainer.onclick = (e) => {
-                    e.stopPropagation();
-                    const currentState = element.appearance_visible || false;
-                    const newState = !currentState;
-                    updateToggleState(newState);
-                    
-                    // Emit socket event to show/hide element on display screen
-                    if (socket && roomCode) {
-                        socket.emit('quizmaster_control_element_appearance', {
-                            room_code: roomCode,
-                            element_id: element.id,
-                            visible: newState
-                        });
-                    }
-                };
-                
-                // Store update function on element for external updates
-                element._updateAppearanceToggle = updateToggleState;
-                
-                controlItem.appendChild(toggleContainer);
-                controlsList.appendChild(controlItem);
+            const nameLabel = document.createElement('span');
+            // Use custom appearance_name if available, otherwise fallback to generated name
+            nameLabel.textContent = element.appearance_name || elementNames[element.id] || element.type || 'element';
+            nameLabel.style.cssText = 'flex: 1; font-weight: 500; font-size: 0.9rem;';
+            controlItem.appendChild(nameLabel);
+            
+            // Create toggle switch container
+            const toggleContainer = document.createElement('div');
+            toggleContainer.style.cssText = 'position: relative; width: 50px; height: 26px; cursor: pointer; flex-shrink: 0;';
+            
+            // Toggle track (background)
+            const toggleTrack = document.createElement('div');
+            toggleTrack.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 13px; transition: background-color 0.3s ease;';
+            toggleContainer.appendChild(toggleTrack);
+            
+            // Toggle ball (slider)
+            const toggleBall = document.createElement('div');
+            toggleBall.style.cssText = 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
+            toggleContainer.appendChild(toggleBall);
+            
+            // Function to update toggle state
+            const updateToggleState = (isOn) => {
+                element.appearance_visible = isOn;
+                if (isOn) {
+                    toggleTrack.style.backgroundColor = '#2196F3'; // Blue when on
+                    toggleBall.style.transform = 'translateX(24px)'; // Move to right
+                } else {
+                    toggleTrack.style.backgroundColor = '#ccc'; // Grey when off
+                    toggleBall.style.transform = 'translateX(0)'; // Move to left
+                }
+            };
+            
+            // Initialize toggle state based on appearance_mode
+            // Control mode elements start hidden (false), others start visible (true)
+            const appearanceMode = element.appearance_mode || 'on_load';
+            let initialVisible;
+            if (element.appearance_visible !== undefined) {
+                initialVisible = element.appearance_visible;
+            } else {
+                // Default: control mode starts hidden, others start visible
+                initialVisible = appearanceMode === 'control' ? false : true;
             }
+            updateToggleState(initialVisible);
+            
+            // Click handler
+            toggleContainer.onclick = (e) => {
+                e.stopPropagation();
+                // Get current state - use appearance_visible if set, otherwise infer from mode
+                let currentState;
+                if (element.appearance_visible !== undefined) {
+                    currentState = element.appearance_visible;
+                } else {
+                    currentState = appearanceMode === 'control' ? false : true;
+                }
+                const newState = !currentState;
+                updateToggleState(newState);
+                
+                // Emit socket event to show/hide element on display screen
+                if (socket && roomCode) {
+                    socket.emit('quizmaster_control_element_appearance', {
+                        room_code: roomCode,
+                        element_id: element.id,
+                        visible: newState
+                    });
+                }
+            };
+            
+            // Store update function on element for external updates
+            element._updateAppearanceToggle = updateToggleState;
+            
+            controlItem.appendChild(toggleContainer);
+            controlsList.appendChild(controlItem);
         });
         
         if (controlsList.children.length === 0) {
             const noControls = document.createElement('p');
             noControls.style.cssText = 'color: #666; font-style: italic; font-size: 0.9rem; padding: 0.5rem;';
-            noControls.textContent = 'No elements with control mode';
+            noControls.textContent = 'No display elements available';
             controlsList.appendChild(noControls);
         }
         

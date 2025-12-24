@@ -157,7 +157,8 @@ def handle_quizmaster_join_control(data):
         'current_page': current_page_index,  # Always send to keep views in sync
         'page': current_page,
         'scores': room.get('scores', {}),
-        'participants': participants_dict
+        'participants': participants_dict,
+        'answers': room.get('answers', {})  # Send all submitted answers
     })
 
 @socketio.on('participant_join')
@@ -250,6 +251,13 @@ def handle_participant_join(data):
     participant_name = participant.get('name') if participant else name
     participant_avatar = participant.get('avatar') if participant else avatar
     
+    # Get this participant's submitted answers
+    participant_answers = {}
+    room_answers = room.get('answers', {})
+    for question_id, question_answers in room_answers.items():
+        if participant_id in question_answers:
+            participant_answers[question_id] = question_answers[participant_id]
+    
     # Send current state - always include current_page to ensure synchronization
     emit('joined_room', {
         'room_code': room_code,
@@ -259,7 +267,8 @@ def handle_participant_join(data):
         'current_page': current_page_index,  # Always send to keep views in sync
         'page': current_page,
         'quiz': quiz,
-        'state': room.get('state', {})
+        'state': room.get('state', {}),
+        'submitted_answers': participant_answers  # Send this participant's submitted answers
     })
     
     # Notify others
@@ -304,13 +313,20 @@ def handle_display_join(data):
     if current_page:
         print(f"[DEBUG] Current page type: {current_page.get('type')}, elements: {len(current_page.get('elements', []))}")
     
+    # Get participants and scores for status page
+    participants_dict = {pid: {'name': p.get('name'), 'avatar': p.get('avatar')}
+                          for pid, p in room.get('participants', {}).items()}
+    scores = room.get('scores', {})
+    
     # Send current state
     emit('display_state', {
         'room_code': room_code,
         'current_page': current_page_index,
         'page': current_page,
         'quiz': quiz,
-        'state': room.get('state', {})
+        'state': room.get('state', {}),
+        'participants': participants_dict,
+        'scores': scores
     })
 
 @socketio.on('quizmaster_navigate')
@@ -348,17 +364,27 @@ def handle_navigate(data):
     
     room['current_page'] = new_index
     room['page_start_time'] = time.time()
+    # Reset question start times when page changes
+    if 'question_start_times' not in room:
+        room['question_start_times'] = {}
     room['last_activity'] = time.time()
     # Save room state when page changes
     save_room_state_now(room_code)
     
     current_page = pages[new_index] if new_index < len(pages) else None
     
+    # Get participants and scores for status page
+    participants_dict = {pid: {'name': p.get('name'), 'avatar': p.get('avatar')}
+                          for pid, p in room.get('participants', {}).items()}
+    room_scores = room.get('scores', {})
+    
     # Broadcast to all views
     emit('page_changed', {
         'page_index': new_index,
         'page': current_page,
-        'quiz': quiz
+        'quiz': quiz,
+        'participants': participants_dict,
+        'scores': room_scores
     }, room=f'display_{room_code}')
     
     emit('page_changed', {
@@ -376,8 +402,32 @@ def handle_navigate(data):
     # Also send quiz_state to control to ensure it has all data
     emit('quiz_state', {
         'quiz': room.get('quiz'),
-        'current_page': new_index
+        'current_page': new_index,
+        'answers': room.get('answers', {})  # Include answers
     }, room=f'control_{room_code}')
+
+@socketio.on('question_visible')
+def handle_question_visible(data):
+    """Display page notifies that a question has become visible."""
+    room_code = data.get('room_code')
+    question_id = data.get('question_id')
+    
+    if not all([room_code, question_id]):
+        return
+    
+    room = get_room(room_code)
+    if not room:
+        return
+    
+    # Initialize question_start_times if it doesn't exist
+    if 'question_start_times' not in room:
+        room['question_start_times'] = {}
+    
+    # Only set the start time if it hasn't been set yet (first time question becomes visible)
+    if question_id not in room['question_start_times']:
+        room['question_start_times'][question_id] = time.time()
+        room['last_activity'] = time.time()
+        save_room_state_now(room_code)
 
 @socketio.on('participant_submit_answer')
 def handle_submit_answer(data):
@@ -397,9 +447,16 @@ def handle_submit_answer(data):
         emit('error', {'message': 'Room not found'})
         return
     
-    # Record submission time
-    page_start_time = room.get('page_start_time', time.time())
-    submission_time = time.time() - page_start_time
+    # Record submission time - use question-specific start time if available,
+    # otherwise fall back to page_start_time
+    question_start_times = room.get('question_start_times', {})
+    if question_id in question_start_times:
+        question_start_time = question_start_times[question_id]
+    else:
+        # Fallback to page_start_time if question hasn't been marked as visible yet
+        question_start_time = room.get('page_start_time', time.time())
+    
+    submission_time = time.time() - question_start_time
     
     # Store answer
     if 'answers' not in room:
@@ -479,14 +536,14 @@ def handle_mark_answer(data):
     room['answers'][question_id][participant_id]['correct'] = correct
     room['answers'][question_id][participant_id]['bonus_points'] = bonus_points
     
-    # Recalculate scores
+    # Recalculate scores for all participants
     scores = calculate_score(room)
     room['scores'] = scores
     room['last_activity'] = time.time()
     
-    # Update participant score
-    if participant_id in room.get('participants', {}):
-        room['participants'][participant_id]['score'] = scores.get(participant_id, 0)
+    # Update all participant scores in the participants dictionary
+    for pid, participant in room.get('participants', {}).items():
+        participant['score'] = scores.get(pid, 0)
     
     # Save room state when scores are updated
     save_room_state_now(room_code)
@@ -566,6 +623,13 @@ def handle_control_element_appearance(data):
         'element_id': element_id,
         'visible': visible
     }, room=f'control_{room_code}')
+    
+    # Broadcast to participant room so answer elements can be hidden/shown
+    # When a question element is hidden on display, its answer should be hidden on participant page
+    emit('element_appearance_control', {
+        'element_id': element_id,
+        'visible': visible
+    }, room=f'participant_{room_code}')
 
 @socketio.on('element_appearance_changed')
 def handle_element_appearance_changed(data):
@@ -592,6 +656,12 @@ def handle_element_appearance_changed(data):
         'element_id': element_id,
         'visible': visible
     }, room=f'control_{room_code}')
+    
+    # Broadcast to participant room so answer elements appear when questions appear on display
+    emit('element_appearance_changed', {
+        'element_id': element_id,
+        'visible': visible
+    }, room=f'participant_{room_code}')
 
 @socketio.on('quizmaster_end_quiz')
 def handle_end_quiz(data):
@@ -612,8 +682,7 @@ def handle_end_quiz(data):
         room['scores'] = scores
         room['ended'] = True
         room['last_activity'] = time.time()
-        # Save final state before ending
-        save_room_state_now(room_code)
+        # Don't save state - we're about to delete the room file
         
         # Record quiz run completion
         from app.utils.stats import record_quiz_run
@@ -644,6 +713,61 @@ def handle_end_quiz(data):
     
     # End and remove the room
     end_room(room_code)
+
+@socketio.on('quizmaster_finalize_scores')
+def handle_finalize_scores(data):
+    """Quizmaster finalizes scores on results page."""
+    room_code = data.get('room_code')
+    if not room_code:
+        emit('error', {'message': 'Room code required'})
+        return
+    
+    # Check authorization
+    if not check_quizmaster_access(room_code):
+        return
+    
+    # Calculate final scores
+    room = get_room(room_code)
+    if not room:
+        emit('error', {'message': 'Room not found'})
+        return
+    
+    scores = calculate_score(room)
+    room['scores'] = scores
+    room['last_activity'] = time.time()
+    
+    # Update all participant scores in the participants dictionary
+    for pid, participant in room.get('participants', {}).items():
+        participant['score'] = scores.get(pid, 0)
+    
+    # Save room state when scores are finalized
+    save_room_state_now(room_code)
+    
+    # Get final rankings
+    final_rankings = get_final_rankings(room)
+    
+    # Get winner (first in rankings)
+    winner_id = final_rankings[0]['id'] if final_rankings else None
+    
+    # Broadcast final scores to display page
+    emit('final_scores_finalized', {
+        'final_rankings': final_rankings,
+        'scores': scores
+    }, room=f'display_{room_code}')
+    
+    # Broadcast to control page
+    emit('final_scores_finalized', {
+        'final_rankings': final_rankings,
+        'scores': scores
+    }, room=f'control_{room_code}')
+    
+    # Broadcast winner event to participants
+    if winner_id:
+        emit('winner_announced', {
+            'winner_id': winner_id,
+            'final_rankings': final_rankings,
+            'scores': scores
+        }, room=f'participant_{room_code}')
 
 def get_final_rankings(room):
     """Get final rankings sorted by score."""

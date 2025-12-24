@@ -104,6 +104,7 @@ def create_room(quiz_id, quiz_name, quiz_data, quizmaster_username):
         'last_activity': time.time(),
         'current_page': 0,
         'page_start_time': time.time(),
+        'question_start_times': {},  # Track when each question becomes visible
         'participants': {},
         'answers': {},
         'scores': {},

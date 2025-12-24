@@ -463,8 +463,8 @@ Editor.ElementRenderer = (function() {
                     el.style.borderRadius = '4px';
                     el.style.padding = '1rem';
                 }
-                break;
             }
+            break;
             case 'appearance_control':
                 // Appearance control element - shows toggles for control mode elements
                 el.style.backgroundColor = '#f9f9f9';
@@ -607,27 +607,76 @@ Editor.ElementRenderer = (function() {
                 const pageIndexForDisplay = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
                 const pageForDisplay = quizForDisplay && quizForDisplay.pages ? quizForDisplay.pages[pageIndexForDisplay] : null;
                 const parentQuestion = pageForDisplay && pageForDisplay.elements ? pageForDisplay.elements.find(e => e.id === element.parent_id) : null;
-                const answerType = element.answer_type || (parentQuestion ? parentQuestion.answer_type : 'text');
+                
+                // Get answer_type from answer_display element, fallback to answer_input, then to parent question
+                let answerType = element.answer_type;
+                if (!answerType && pageForDisplay && pageForDisplay.elements) {
+                    // Try to get it from the associated answer_input element
+                    const answerInput = pageForDisplay.elements.find(el => 
+                        el.type === 'answer_input' && 
+                        el.parent_id === element.parent_id && 
+                        el.view === 'participant'
+                    );
+                    if (answerInput && answerInput.answer_type) {
+                        answerType = answerInput.answer_type;
+                    }
+                }
+                // Final fallback to parent question's answer_type
+                if (!answerType && parentQuestion && parentQuestion.answer_type) {
+                    answerType = parentQuestion.answer_type;
+                }
+                // Default to 'text' if still not found
+                if (!answerType) {
+                    answerType = 'text';
+                }
+                
                 const questionTitle = parentQuestion ? (parentQuestion.question_title || 'Question') : 'Question';
                 
-                el.style.backgroundColor = 'white';
-                el.style.border = '2px solid #2196F3';
-                el.style.borderRadius = '8px';
-                el.style.display = 'flex';
-                el.style.flexDirection = 'column';
-                el.style.padding = '1rem';
-                el.style.overflow = 'auto';
-                el.style.fontSize = '0.9rem';
-                el.style.color = '#333';
+                console.log('[DEBUG editor answer_display]', {
+                    elementId: element.id,
+                    elementAnswerType: element.answer_type,
+                    finalAnswerType: answerType,
+                    parentQuestionId: element.parent_id,
+                    parentQuestionAnswerType: parentQuestion ? parentQuestion.answer_type : null
+                });
+                
+                // For image_click questions, allow overflow scrolling and make container flexible (matching runtime)
+                if (answerType === 'image_click') {
+                    el.style.overflowY = 'auto';
+                    el.style.overflowX = 'hidden';
+                    el.style.minHeight = `${element.height}px`;
+                    el.style.height = 'auto';
+                    el.style.maxHeight = '100%';
+                }
+                
+                // Clear innerHTML - ControlView.render() will handle all styling and content
                 el.innerHTML = '';
                 
-                // Question title header
-                const titleHeader = document.createElement('div');
-                titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3;';
-                titleHeader.textContent = questionTitle;
-                el.appendChild(titleHeader);
+                // Use control_mockup files for preview (which will call ControlView.render that handles all styling)
+                const mockOptions = {
+                    questionId: element.parent_id || 'mock-question',
+                    questionTitle: questionTitle,
+                    imageSrc: parentQuestion && (parentQuestion.src || (parentQuestion.filename ? '/api/media/serve/' + parentQuestion.filename : null)) || ''
+                };
                 
-                // Render mockup based on answer type
+                // Route to appropriate control mockup renderer
+                if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlMockup) {
+                    QuestionTypes.Text.ControlMockup.render(el, mockOptions);
+                } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ControlMockup) {
+                    QuestionTypes.Radio.ControlMockup.render(el, mockOptions);
+                } else if (answerType === 'checkbox' && QuestionTypes.Checkbox && QuestionTypes.Checkbox.ControlMockup) {
+                    QuestionTypes.Checkbox.ControlMockup.render(el, mockOptions);
+                } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ControlMockup) {
+                    QuestionTypes.Stopwatch.ControlMockup.render(el, mockOptions);
+                } else if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlMockup) {
+                    QuestionTypes.ImageClick.ControlMockup.render(el, mockOptions);
+                } else {
+                    console.warn('Control mockup not found for answer type:', answerType);
+                    el.textContent = `Preview not available for ${answerType}`;
+                }
+                
+                // Old inline rendering code removed - now using control_mockup files
+                if (false) { // Disabled - kept for reference
                 if (answerType === 'text' || answerType === 'radio') {
                     // Text box or multiple choice: List of participant names with text boxes/options and marking controls
                     const mockParticipants = ['Participant 1', 'Participant 2'];
@@ -748,7 +797,7 @@ Editor.ElementRenderer = (function() {
                 } else if (answerType === 'image_click') {
                     // Image click: Show image with highlighted areas (different colors per participant) and legend
                     const imageContainer = document.createElement('div');
-                    imageContainer.style.cssText = 'position: relative; margin-bottom: 1rem; border: 2px solid #ddd; border-radius: 4px; overflow: hidden; background: #f0f0f0; min-height: 200px;';
+                    imageContainer.style.cssText = 'position: relative; margin-bottom: 1.5rem; border: 2px solid #ddd; border-radius: 4px; overflow: visible; background: #f0f0f0; min-height: 200px; display: flex; justify-content: center; align-items: flex-start; padding: 0.5rem;';
                     
                     // Get image from parent question element
                     let imageSrc = null;
@@ -762,19 +811,56 @@ Editor.ElementRenderer = (function() {
                         }
                     }
                     
-                    // Show image if available
+                    // Define mock participants with their colors and click positions
+                    const colors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00'];
+                    const mockParticipantsData = [
+                        { name: 'Participant 1', color: colors[0], x: 30, y: 40 },
+                        { name: 'Participant 2', color: colors[1], x: 60, y: 50 }
+                    ];
+                    
+                    // Create wrapper for image and highlights
                     if (imageSrc) {
+                        const imageWrapper = document.createElement('div');
+                        imageWrapper.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
+                        
                         const img = document.createElement('img');
                         img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
-                        img.style.cssText = 'width: 100%; height: auto; display: block; max-height: 400px; object-fit: contain;';
+                        img.style.cssText = 'width: 100%; height: auto; display: block; max-width: 800px; object-fit: contain;';
+                        
+                        // Add highlights after image loads (using same 10% radius as runtime)
+                        img.onload = () => {
+                            const rect = img.getBoundingClientRect();
+                            const imgWidth = rect.width;
+                            const imgHeight = rect.height;
+                            const minDim = Math.min(imgWidth, imgHeight);
+                            const radiusPx = minDim * 0.1; // 10% radius = 20% diameter (matches runtime)
+                            
+                            mockParticipantsData.forEach((participant) => {
+                                const highlight = document.createElement('div');
+                                const r = parseInt(participant.color.slice(1,3), 16);
+                                const g = parseInt(participant.color.slice(3,5), 16);
+                                const b = parseInt(participant.color.slice(5,7), 16);
+                                
+                                highlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 3px solid ${participant.color}; background: rgba(${r}, ${g}, ${b}, 0.2); left: ${participant.x}%; top: ${participant.y}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 8px ${participant.color}80;`;
+                                imageWrapper.appendChild(highlight);
+                            });
+                        };
+                        
                         img.onerror = () => {
                             const placeholder = document.createElement('div');
                             placeholder.style.cssText = 'width: 100%; height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;';
                             placeholder.textContent = 'Image preview';
-                            imageContainer.innerHTML = '';
-                            imageContainer.appendChild(placeholder);
+                            imageWrapper.innerHTML = '';
+                            imageWrapper.appendChild(placeholder);
                         };
-                        imageContainer.appendChild(img);
+                        
+                        imageWrapper.appendChild(img);
+                        imageContainer.appendChild(imageWrapper);
+                        
+                        // Trigger onload if image already loaded
+                        if (img.complete) {
+                            img.onload();
+                        }
                     } else {
                         const placeholder = document.createElement('div');
                         placeholder.style.cssText = 'width: 100%; height: 200px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999;';
@@ -782,74 +868,60 @@ Editor.ElementRenderer = (function() {
                         imageContainer.appendChild(placeholder);
                     }
                     
-                    // Define mock participants with their colors and click positions
-                    const mockParticipantsData = [
-                        { name: 'Participant 1', color: '#FF0000', x: 30, y: 40 },
-                        { name: 'Participant 2', color: '#00FF00', x: 60, y: 50 }
-                    ];
-                    
-                    // Add highlighted radius circles on the image (if image exists)
-                    if (imageSrc) {
-                        mockParticipantsData.forEach((participant) => {
-                            // Create a radius circle to show the click area
-                            const highlight = document.createElement('div');
-                            const radius = 25; // Radius in percentage
-                            highlight.style.cssText = `position: absolute; width: ${radius * 2}%; height: ${radius * 2}%; border-radius: 50%; border: 3px solid ${participant.color}; background: ${participant.color}40; left: ${participant.x}%; top: ${participant.y}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 8px ${participant.color}80;`;
-                            imageContainer.appendChild(highlight);
-                        });
-                    }
-                    
                     el.appendChild(imageContainer);
                     
                     // Legend at the bottom: participant names with color indicators, Correct checkbox, and Bonus points
                     const legend = document.createElement('div');
-                    legend.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;';
+                    legend.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem;';
                     
-                    const legendTitle = document.createElement('div');
-                    legendTitle.style.cssText = 'font-weight: bold; font-size: 0.9rem; color: #666; margin-bottom: 0.25rem;';
-                    legendTitle.textContent = 'Participant Answers:';
-                    legend.appendChild(legendTitle);
+                    const legendHeader = document.createElement('div');
+                    legendHeader.style.cssText = 'font-weight: bold; font-size: 1rem; color: #333; padding-bottom: 0.5rem; border-bottom: 1px solid #ddd;';
+                    legendHeader.textContent = 'Participants';
+                    legend.appendChild(legendHeader);
                     
-                    const mockParticipants = mockParticipantsData;
-                    
-                    mockParticipants.forEach((participant) => {
+                    mockParticipantsData.forEach((participant) => {
                         const legendRow = document.createElement('div');
-                        legendRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;';
+                        legendRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;';
                         
                         // Color indicator dot/circle
                         const colorDot = document.createElement('div');
-                        colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${participant.color}; border: 2px solid ${participant.color}; flex-shrink: 0;`;
+                        colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${participant.color}; border: 2px solid ${participant.color}; flex-shrink: 0; box-shadow: 0 0 4px ${participant.color}80;`;
                         legendRow.appendChild(colorDot);
                         
                         // Participant name
                         const nameLabel = document.createElement('div');
-                        nameLabel.style.cssText = 'min-width: 120px; font-weight: 500; font-size: 0.95rem;';
+                        nameLabel.style.cssText = 'min-width: 150px; font-weight: 500; font-size: 0.95rem; color: #333;';
                         nameLabel.textContent = participant.name;
                         legendRow.appendChild(nameLabel);
                         
-                        // Correct checkbox
-                        const correctCheckContainer = document.createElement('label');
-                        correctCheckContainer.style.cssText = 'display: flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; cursor: not-allowed;';
+                        // Coordinates display
+                        const coordInfo = document.createElement('div');
+                        coordInfo.style.cssText = 'flex: 1; font-size: 0.85rem; color: #666;';
+                        coordInfo.textContent = `(${participant.x.toFixed(1)}%, ${participant.y.toFixed(1)}%)`;
+                        legendRow.appendChild(coordInfo);
                         
+                        // Marking controls
+                        const markingControls = document.createElement('div');
+                        markingControls.style.cssText = 'display: flex; align-items: center; gap: 0.75rem;';
+                        
+                        // Correct checkbox
                         const correctCheck = document.createElement('input');
                         correctCheck.type = 'checkbox';
                         correctCheck.disabled = true;
-                        correctCheck.style.cssText = 'cursor: not-allowed;';
-                        correctCheckContainer.appendChild(correctCheck);
+                        correctCheck.style.cssText = 'cursor: not-allowed; width: 18px; height: 18px;';
+                        markingControls.appendChild(correctCheck);
                         
-                        const correctLabel = document.createElement('span');
+                        const correctLabel = document.createElement('label');
                         correctLabel.textContent = 'Correct';
-                        correctCheckContainer.appendChild(correctLabel);
-                        legendRow.appendChild(correctCheckContainer);
+                        correctLabel.style.cssText = 'font-size: 0.9rem; cursor: not-allowed; color: #333;';
+                        correctLabel.htmlFor = correctCheck.id = `correct-${participant.name.replace(/\s+/g, '-')}`;
+                        markingControls.appendChild(correctLabel);
                         
                         // Bonus points input
-                        const bonusContainer = document.createElement('div');
-                        bonusContainer.style.cssText = 'display: flex; align-items: center; gap: 0.25rem;';
-                        
                         const bonusLabel = document.createElement('label');
                         bonusLabel.textContent = 'Bonus:';
-                        bonusLabel.style.cssText = 'font-size: 0.85rem;';
-                        bonusContainer.appendChild(bonusLabel);
+                        bonusLabel.style.cssText = 'font-size: 0.9rem; color: #333;';
+                        markingControls.appendChild(bonusLabel);
                         
                         const bonusInput = document.createElement('input');
                         bonusInput.type = 'number';
@@ -857,10 +929,17 @@ Editor.ElementRenderer = (function() {
                         bonusInput.min = '0';
                         bonusInput.value = '0';
                         bonusInput.disabled = true;
-                        bonusInput.style.cssText = 'width: 70px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px; cursor: not-allowed; font-size: 0.85rem;';
-                        bonusContainer.appendChild(bonusInput);
-                        legendRow.appendChild(bonusContainer);
+                        bonusInput.style.cssText = 'width: 70px; padding: 0.35rem; border: 1px solid #ddd; border-radius: 4px; cursor: not-allowed; font-size: 0.85rem;';
+                        markingControls.appendChild(bonusInput);
                         
+                        // Save button (disabled in editor)
+                        const saveBtn = document.createElement('button');
+                        saveBtn.textContent = 'Save';
+                        saveBtn.disabled = true;
+                        saveBtn.style.cssText = 'padding: 0.35rem 0.75rem; background: #ccc; color: #666; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.85rem; font-weight: 500;';
+                        markingControls.appendChild(saveBtn);
+                        
+                        legendRow.appendChild(markingControls);
                         legend.appendChild(legendRow);
                     });
                     
@@ -869,6 +948,7 @@ Editor.ElementRenderer = (function() {
                     // Default fallback
                     el.textContent = `Answer Display (${answerType})`;
                 }
+                } // End of if (false) block
                 
                 // Make answer_display elements clickable and selectable
                 el.addEventListener('click', (e) => {

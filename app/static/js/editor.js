@@ -1915,12 +1915,16 @@ function renderGeneralProperties(container) {
                 delete selectedElement.options;
             }
             
-            // Update child answer_input elements
+            // Update child answer_input and answer_display elements
             if (page.elements) {
                 page.elements.forEach(el => {
-                    if (el.parent_id === selectedElement.id && el.type === 'answer_input') {
-                        el.answer_type = selectedElement.answer_type;
-                        el.options = selectedElement.options;
+                    if (el.parent_id === selectedElement.id) {
+                        if (el.type === 'answer_input') {
+                            el.answer_type = selectedElement.answer_type;
+                            el.options = selectedElement.options;
+                        } else if (el.type === 'answer_display') {
+                            el.answer_type = selectedElement.answer_type;
+                        }
                     }
                 });
             }

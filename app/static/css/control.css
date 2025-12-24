@@ -86,4 +86,36 @@
     right: 20px !important;
 }
 
+.finalize-scores-button {
+    position: absolute !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 10000 !important;
+    padding: 1rem 2rem !important;
+    font-size: 1.2rem !important;
+    font-weight: bold !important;
+    color: white !important;
+    background: #4CAF50 !important;
+    border: 2px solid #45a049 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+    transition: all 0.2s ease !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.finalize-scores-button:hover {
+    background: #45a049 !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4) !important;
+    transform: translateX(-50%) translateY(-2px) !important;
+}
+
+.finalize-scores-button:active {
+    transform: translateX(-50%) translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3) !important;
+}
+
 

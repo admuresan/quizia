@@ -28,6 +28,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.participants) {
             participants = data.participants;
         }
+        // Load all submitted answers from server
+        if (data.answers) {
+            answers = data.answers;
+        }
         console.log('Joined control - current page index:', currentPageIndex);
         updateNavigationButtons();
         loadPage();
@@ -40,6 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Always use server's current_page to stay in sync
         if (data.current_page !== undefined) {
             currentPageIndex = data.current_page;
+        }
+        // Update answers if provided
+        if (data.answers) {
+            answers = data.answers;
         }
         console.log('Quiz state updated - current page index:', currentPageIndex);
         loadPage();
@@ -266,7 +274,7 @@ function loadPage() {
     if (page.type === 'status' || page.type === 'results') {
         // Clear canvas content but preserve navigation buttons
         const navButtons = Array.from(canvas.children).filter(
-            child => child.id === 'prev-page-btn' || child.id === 'next-page-btn'
+            child => child.id === 'prev-page-btn' || child.id === 'next-page-btn' || child.id === 'finalize-scores-btn'
         );
         canvas.innerHTML = '';
         // Re-add navigation buttons first
@@ -278,9 +286,37 @@ function loadPage() {
         statusMsg.textContent = 'Status/Results page - view on display screen';
         canvas.appendChild(statusMsg);
         
+        // Add Finalize Scores button for results page
+        if (page.type === 'results') {
+            let finalizeBtn = document.getElementById('finalize-scores-btn');
+            if (!finalizeBtn) {
+                finalizeBtn = document.createElement('button');
+                finalizeBtn.id = 'finalize-scores-btn';
+                finalizeBtn.textContent = 'Finalize Scores';
+                finalizeBtn.className = 'finalize-scores-button';
+                finalizeBtn.style.cssText = 'position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; padding: 1rem 2rem; font-size: 1.2rem; font-weight: bold; color: white; background: #4CAF50; border: 2px solid #45a049; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3);';
+                finalizeBtn.addEventListener('click', () => {
+                    socket.emit('quizmaster_finalize_scores', { room_code: window.roomCode });
+                });
+                canvas.appendChild(finalizeBtn);
+            }
+        } else {
+            // Remove button if not on results page
+            const existingBtn = document.getElementById('finalize-scores-btn');
+            if (existingBtn) {
+                existingBtn.remove();
+            }
+        }
+        
         // Navigation buttons are preserved and visible, update their state
         updateNavigationButtons();
         return;
+    }
+    
+    // Remove finalize button if not on results page
+    const existingBtn = document.getElementById('finalize-scores-btn');
+    if (existingBtn) {
+        existingBtn.remove();
     }
     
     // Render control view elements - ONLY control-specific elements
@@ -322,10 +358,30 @@ function loadPage() {
                 // Get answers for this question
                 const questionAnswers = answers[question.id] || {};
                 
-                // Get image source if image_click question
+                // Get answer_type - prioritize question element's answer_type as source of truth
+                // Fallback to answer_input element, then to answer_display element
+                // This handles legacy quizzes where answer_display.answer_type might be incorrect
+                let answerType = question.answer_type;
+                if (!answerType) {
+                    // Try to get it from the associated answer_input element
+                    const answerInput = page.elements.find(el => 
+                        el.type === 'answer_input' && 
+                        el.parent_id === question.id && 
+                        el.view === 'participant'
+                    );
+                    if (answerInput && answerInput.answer_type) {
+                        answerType = answerInput.answer_type;
+                    } else if (answerDisplay.answer_type) {
+                        // Last fallback to answer_display element's answer_type
+                        answerType = answerDisplay.answer_type;
+                    }
+                }
+                
+                // Get image source if image_click question (image is stored in the question element)
                 let imageSrc = null;
-                if (question.answer_type === 'image_click') {
+                if (answerType === 'image_click') {
                     imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
+                    console.log('[DEBUG control.js] Image source:', imageSrc);
                 }
                 
                 RuntimeRenderer.ElementRenderer.renderElement(canvas, answerDisplay, {
@@ -334,6 +390,7 @@ function loadPage() {
                     participants: participants,
                     questionTitle: question.question_title || 'Question',
                     imageSrc: imageSrc,
+                    answerType: answerType, // Pass answerType to renderer
                     onMarkAnswer: saveAnswerMark
                 });
             }
@@ -351,7 +408,7 @@ function loadPage() {
                 quiz: quiz,
                 page: page,
                 socket: socket,
-                roomCode: roomCode
+                roomCode: window.roomCode
             });
         }
     }
@@ -383,8 +440,28 @@ function updateAnswerDisplay(questionId) {
         const canvas = document.getElementById('control-canvas');
         const questionAnswers = answers[questionId] || {};
         
+        // Get answer_type - prioritize question element's answer_type as source of truth
+        // Fallback to answer_input element, then to answer_display element
+        // This handles legacy quizzes where answer_display.answer_type might be incorrect
+        let answerType = question.answer_type;
+        if (!answerType) {
+            // Try to get it from the associated answer_input element
+            const answerInput = page.elements.find(el => 
+                el.type === 'answer_input' && 
+                el.parent_id === questionId && 
+                el.view === 'participant'
+            );
+            if (answerInput && answerInput.answer_type) {
+                answerType = answerInput.answer_type;
+            } else if (answerDisplay.answer_type) {
+                // Last fallback to answer_display element's answer_type
+                answerType = answerDisplay.answer_type;
+            }
+        }
+        
+        // Get image source if image_click question (image is stored in the question element)
         let imageSrc = null;
-        if (question.answer_type === 'image_click') {
+        if (answerType === 'image_click') {
             imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
         }
         
@@ -394,6 +471,7 @@ function updateAnswerDisplay(questionId) {
             participants: participants,
             questionTitle: question.question_title || 'Question',
             imageSrc: imageSrc,
+            answerType: answerType, // Pass answerType to renderer
             onMarkAnswer: saveAnswerMark
         });
     }
@@ -419,7 +497,7 @@ function updateNavigationButtons() {
 
 function saveAnswerMark(participantId, questionId, correct, bonusPoints) {
     socket.emit('quizmaster_mark_answer', {
-        room_code: roomCode,
+        room_code: window.roomCode,
         participant_id: participantId,
         question_id: questionId,
         correct: correct,

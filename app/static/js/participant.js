@@ -8,6 +8,7 @@ let currentScore = 0;
 let participantName = null;
 let participantAvatar = null;
 let quiz = null;
+let submittedAnswers = {}; // Track submitted answers: { question_id: { answer, submission_time, ... } }
 
 // Avatar utilities are now in avatar-utils.js (getAvatarEmoji function)
 
@@ -85,6 +86,11 @@ document.addEventListener('DOMContentLoaded', () => {
             quiz = data.quiz;
         }
         
+        // Load submitted answers from room file (stored on server)
+        if (data.submitted_answers) {
+            submittedAnswers = data.submitted_answers;
+        }
+        
         // Always use server's current_page to stay in sync
         if (data.current_page !== undefined) {
             currentPageIndex = data.current_page;
@@ -135,6 +141,18 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('quiz_ended', (data) => {
         renderFinalResults(data.final_rankings);
     });
+
+    socket.on('winner_announced', (data) => {
+        if (data.winner_id === participantId) {
+            // Show trophy and confetti for the winner
+            showWinnerCelebration();
+        }
+        // Update scores if provided
+        if (data.scores && data.scores[participantId] !== undefined) {
+            currentScore = data.scores[participantId];
+            updateParticipantHeader();
+        }
+    });
     
     // Handle answer submission
     document.addEventListener('click', (e) => {
@@ -142,6 +160,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const questionId = e.target.dataset.questionId;
             const answerType = e.target.dataset.answerType;
             submitAnswer(questionId, answerType, e.target);
+        }
+    });
+    
+    // Listen for element appearance control (show/hide elements via control page)
+    // When a question element is hidden on display page, hide its answer on participant page
+    socket.on('element_appearance_control', (data) => {
+        if (data.element_id && data.visible !== undefined) {
+            // Find the question container by element_id
+            const questionContainer = document.getElementById(`question-${data.element_id}`);
+            if (questionContainer) {
+                // This is a question element - show or hide its answer container
+                if (data.visible) {
+                    questionContainer.style.display = 'block';
+                    questionContainer.style.visibility = 'visible';
+                } else {
+                    questionContainer.style.display = 'none';
+                    questionContainer.style.visibility = 'hidden';
+                }
+            }
+        }
+    });
+    
+    // Listen for element appearance changes from display page (delays, after_previous, etc.)
+    // When a question element appears on display page, show its answer on participant page
+    socket.on('element_appearance_changed', (data) => {
+        if (data.element_id && data.visible !== undefined && data.visible) {
+            // Find the question container by element_id
+            const questionContainer = document.getElementById(`question-${data.element_id}`);
+            if (questionContainer) {
+                // Question element appeared on display page - show its answer container
+                questionContainer.style.display = 'block';
+                questionContainer.style.visibility = 'visible';
+            }
         }
     });
 });
@@ -207,17 +258,12 @@ function renderPage(pageIndex, page) {
         .map(id => questionElements.find(el => el.id === id))
         .filter(el => el);
     
-    // Track which elements have appeared
-    const appearedElements = new Set();
-    let pageLoadTime = Date.now();
-    
     // Function to show a question and its answer box
     const showQuestion = (questionId) => {
         const questionContainer = document.getElementById(`question-${questionId}`);
         if (questionContainer) {
             questionContainer.style.display = 'block';
             questionContainer.style.visibility = 'visible';
-            appearedElements.add(questionId);
         }
     };
     
@@ -266,12 +312,16 @@ function renderPage(pageIndex, page) {
         
         if (answerInput) {
             console.log(`Found answer_input for question ${question.id}:`, answerInput);
+            // Check if this question was already answered
+            const submittedAnswer = submittedAnswers[question.id];
+            
             // Render the answer input inside the question container
             const renderedEl = RuntimeRenderer.ElementRenderer.renderElement(questionContainer, answerInput, {
                 mode: 'participant',
                 insideContainer: true,
                 question: question, // Pass question for context
-                submitAnswerCallback: submitAnswer // Pass callback for submission
+                submitAnswerCallback: submitAnswer, // Pass callback for submission
+                submittedAnswer: submittedAnswer // Pass submitted answer if exists
             });
             
             console.log('Rendered element:', renderedEl, 'Has parent:', renderedEl?.parentElement, 'Children:', renderedEl?.children);
@@ -301,93 +351,44 @@ function renderPage(pageIndex, page) {
                 console.warn(`No submit buttons found for answer_input of question ${question.id}`);
             }
         } else {
-            console.warn(`No answer_input found for question ${question.id}, using fallback`);
-            // Fallback: render answer input based on question type directly
-            renderAnswerInputFallback(questionContainer, question);
+            console.warn(`No answer_input found for question ${question.id}`);
+            questionContainer.textContent = 'Answer input not available';
         }
         
         container.appendChild(questionContainer);
         
-        // On participant page, questions should be visible by default
-        // appearance_mode 'control' is for display page visibility control
-        // Participants need to see questions to answer them
+        // Check initial visibility state - only show if element is already visible on display page
+        // This ensures participant page matches display page visibility
         const appearanceMode = question.appearance_mode || 'on_load';
-        if (appearanceMode === 'on_load' || appearanceMode === 'control') {
-            // Show questions by default on participant page
+        
+        // Check if element is already visible:
+        // 1. If appearance_visible is explicitly set, use that (for elements that have already appeared)
+        // 2. Otherwise, only show if it's on_load mode (immediate visibility)
+        // 3. Control mode elements always start hidden (handled via element_appearance_control events)
+        let isVisible = false;
+        if (appearanceMode === 'control') {
+            // Control mode elements start hidden, shown only via element_appearance_control events
+            isVisible = false;
+        } else if (question.appearance_visible !== undefined) {
+            // Use the stored visibility state (from server/display page)
+            isVisible = question.appearance_visible;
+        } else if (appearanceMode === 'on_load') {
+            // On_load elements are visible immediately
+            isVisible = true;
+        }
+        // All other modes (delays, after_previous) start hidden
+        
+        if (isVisible) {
+            // Element is already visible - show immediately
             showQuestion(question.id);
         } else {
-            // For other modes (delays, etc.), hide initially and show via appearance logic
+            // Element is not visible yet - hide and wait for appearance event from display page
             hideQuestion(question.id);
         }
     });
     
-    // Process appearance logic for questions
-    orderedQuestions.forEach((question, index) => {
-        const appearanceMode = question.appearance_mode || 'on_load';
-        
-        if (appearanceMode === 'on_load') {
-            // Already shown above
-            showQuestion(question.id);
-        } else if (appearanceMode === 'global_delay') {
-            // Show after X seconds from page load
-            const delay = (question.appearance_delay || 0) * 1000;
-            setTimeout(() => {
-                showQuestion(question.id);
-            }, delay);
-        } else if (appearanceMode === 'after_previous') {
-            // Show when previous element appears
-            if (index === 0) {
-                // First element - show immediately
-                showQuestion(question.id);
-            } else {
-                // Wait for previous element to appear
-                const checkPrevious = setInterval(() => {
-                    const prevElement = orderedQuestions[index - 1];
-                    if (prevElement && appearedElements.has(prevElement.id)) {
-                        clearInterval(checkPrevious);
-                        showQuestion(question.id);
-                    }
-                }, 50);
-            }
-        } else if (appearanceMode === 'local_delay') {
-            // Show X seconds after previous element appears
-            if (index === 0) {
-                // First element - show after delay from page load
-                const delay = (question.appearance_delay || 0) * 1000;
-                setTimeout(() => {
-                    showQuestion(question.id);
-                }, delay);
-            } else {
-                // Wait for previous element, then add delay
-                const checkPrevious = setInterval(() => {
-                    const prevElement = orderedQuestions[index - 1];
-                    if (prevElement && appearedElements.has(prevElement.id)) {
-                        clearInterval(checkPrevious);
-                        const delay = (question.appearance_delay || 0) * 1000;
-                        setTimeout(() => {
-                            showQuestion(question.id);
-                        }, delay);
-                    }
-                }, 50);
-            }
-        }
-        // control mode is handled via socket events from control screen
-    });
-    
-    // Listen for control mode toggles
-    socket.on('element_appearance_control', (data) => {
-        if (data.element_id && data.visible !== undefined) {
-            // Check if this is a question element
-            const question = orderedQuestions.find(q => q.id === data.element_id);
-            if (question) {
-                if (data.visible) {
-                    showQuestion(data.element_id);
-                } else {
-                    hideQuestion(data.element_id);
-                }
-            }
-        }
-    });
+    // Listen for control mode toggles - moved outside renderPage to work across page changes
+    // This handler will be set up once in DOMContentLoaded, not inside renderPage
     
     // If no questions, show message
     if (questionElements.length === 0) {
@@ -395,135 +396,6 @@ function renderPage(pageIndex, page) {
     }
 }
 
-function renderAnswerInputFallback(container, question) {
-    const answerType = question.answer_type || 'text';
-    
-    if (answerType === 'image_click') {
-        // Get image source from question element
-        const imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : question.image_src);
-        if (imageSrc) {
-            const imageContainer = document.createElement('div');
-            imageContainer.className = 'image-answer-container';
-            imageContainer.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
-            
-            let clickIndicator = null;
-            let clickCoords = null;
-            let isSubmitted = false;
-            
-            const img = document.createElement('img');
-            img.src = imageSrc;
-            img.className = 'image-answer-image';
-            img.style.cssText = 'max-width: 100%; height: auto; display: block; cursor: crosshair;';
-            
-            const submitBtn = document.createElement('button');
-            submitBtn.textContent = 'Submit';
-            submitBtn.className = 'submit-answer-btn';
-            submitBtn.dataset.questionId = question.id;
-            submitBtn.dataset.answerType = 'image_click';
-            submitBtn.disabled = true;
-            submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 1rem;';
-            
-            img.onclick = (e) => {
-                if (isSubmitted) return;
-                
-                const rect = img.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 100;
-                const y = ((e.clientY - rect.top) / rect.height) * 100;
-                clickCoords = { x, y };
-                
-                if (clickIndicator) {
-                    clickIndicator.remove();
-                }
-                
-                clickIndicator = document.createElement('div');
-                const radiusPercent = 5; // 5% radius = 10% diameter
-                clickIndicator.style.cssText = `position: absolute; border-radius: 50%; background: rgba(33, 150, 243, 0.3); border: 2px solid rgba(33, 150, 243, 0.8); pointer-events: none; left: ${x - radiusPercent}%; top: ${y - radiusPercent}%; width: ${radiusPercent * 2}%; height: ${radiusPercent * 2}%;`;
-                imageContainer.appendChild(clickIndicator);
-                
-                submitBtn.disabled = false;
-            };
-            
-            submitBtn.onclick = () => {
-                if (clickCoords && !isSubmitted) {
-                    isSubmitted = true;
-                    submitBtn.disabled = true;
-                    img.style.cursor = 'default';
-                    img.style.opacity = '0.7';
-                    submitAnswer(question.id, 'image_click', submitBtn, clickCoords);
-                }
-            };
-            
-            imageContainer.appendChild(img);
-            container.appendChild(imageContainer);
-            container.appendChild(submitBtn);
-        }
-    } else if (answerType === 'stopwatch') {
-        const stopwatchContainer = document.createElement('div');
-        stopwatchContainer.className = 'stopwatch-container';
-        stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 1rem;';
-        
-        const timerDisplay = document.createElement('div');
-        timerDisplay.className = 'timer-display';
-        timerDisplay.style.cssText = 'font-size: 2rem; font-weight: bold; display: none;';
-        timerDisplay.textContent = '0:00';
-        stopwatchContainer.appendChild(timerDisplay);
-        
-        const controlsDiv = document.createElement('div');
-        controlsDiv.style.cssText = 'display: flex; gap: 1rem;';
-        
-        const startBtn = document.createElement('button');
-        startBtn.textContent = 'Start';
-        startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-        
-        const stopBtn = document.createElement('button');
-        stopBtn.textContent = 'Stop';
-        stopBtn.disabled = true;
-        stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500; opacity: 0.5;';
-        
-        let startTime = null;
-        let intervalId = null;
-        let elapsedTime = 0;
-        
-        startBtn.onclick = () => {
-            startTime = Date.now();
-            startBtn.disabled = true;
-            startBtn.style.opacity = '0.5';
-            stopBtn.disabled = false;
-            stopBtn.style.opacity = '1';
-            stopBtn.style.cursor = 'pointer';
-            timerDisplay.style.display = 'none';
-            
-            intervalId = setInterval(() => {
-                elapsedTime = Date.now() - startTime;
-            }, 10);
-        };
-        
-        stopBtn.onclick = () => {
-            if (startTime) {
-                elapsedTime = Date.now() - startTime;
-                clearInterval(intervalId);
-                
-                const seconds = Math.floor(elapsedTime / 1000);
-                const minutes = Math.floor(seconds / 60);
-                const secs = seconds % 60;
-                timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
-                timerDisplay.style.display = 'block';
-                
-                startBtn.disabled = true;
-                stopBtn.disabled = true;
-                startBtn.style.opacity = '0.5';
-                stopBtn.style.opacity = '0.5';
-                
-                submitAnswer(question.id, 'stopwatch', stopBtn, elapsedTime);
-            }
-        };
-        
-        controlsDiv.appendChild(startBtn);
-        controlsDiv.appendChild(stopBtn);
-        stopwatchContainer.appendChild(controlsDiv);
-        container.appendChild(stopwatchContainer);
-    }
-}
 
 function submitAnswer(questionId, answerType, buttonElement, customAnswer = null) {
     if (!participantId) return;
@@ -681,4 +553,114 @@ function renderFinalResults(rankings) {
     
     resultsDiv.appendChild(rankingsList);
     container.appendChild(resultsDiv);
+}
+
+function showWinnerCelebration() {
+    // Create overlay for winner celebration
+    const overlay = document.createElement('div');
+    overlay.id = 'winner-celebration-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; animation: fadeIn 0.5s ease-in;';
+    
+    // Add fadeIn animation if not already in style
+    if (!document.getElementById('winner-celebration-styles')) {
+        const style = document.createElement('style');
+        style.id = 'winner-celebration-styles';
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes bounce {
+                0%, 100% { transform: translateY(0) scale(1); }
+                50% { transform: translateY(-20px) scale(1.1); }
+            }
+            .winner-trophy {
+                animation: bounce 1s ease-in-out infinite;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Trophy emoji
+    const trophy = document.createElement('div');
+    trophy.textContent = '🏆';
+    trophy.className = 'winner-trophy';
+    trophy.style.cssText = 'font-size: 10rem; margin-bottom: 2rem;';
+    overlay.appendChild(trophy);
+    
+    // Winner message
+    const message = document.createElement('div');
+    message.textContent = 'YOU WON!';
+    message.style.cssText = 'font-size: 4rem; font-weight: bold; color: gold; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); margin-bottom: 1rem;';
+    overlay.appendChild(message);
+    
+    // Subtitle
+    const subtitle = document.createElement('div');
+    subtitle.textContent = 'Congratulations! You are the champion!';
+    subtitle.style.cssText = 'font-size: 1.5rem; color: white; margin-bottom: 2rem;';
+    overlay.appendChild(subtitle);
+    
+    // Close button (optional, could auto-hide after a few seconds)
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Continue';
+    closeBtn.style.cssText = 'padding: 1rem 2rem; font-size: 1.2rem; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;';
+    closeBtn.onclick = () => {
+        overlay.remove();
+    };
+    overlay.appendChild(closeBtn);
+    
+    document.body.appendChild(overlay);
+    
+    // Trigger confetti
+    if (typeof confetti !== 'undefined') {
+        // Multiple bursts of confetti
+        const duration = 5000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10001 };
+        
+        function randomInRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+        
+        const interval = setInterval(function() {
+            const timeLeft = animationEnd - Date.now();
+            
+            if (timeLeft <= 0) {
+                return clearInterval(interval);
+            }
+            
+            const particleCount = 50 * (timeLeft / duration);
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+            });
+            confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+            });
+        }, 250);
+        
+        // Also trigger a big burst at the start
+        confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            zIndex: 10001
+        });
+    }
+    
+    // Auto-hide after 10 seconds
+    setTimeout(() => {
+        if (overlay.parentElement) {
+            overlay.style.opacity = '0';
+            overlay.style.transition = 'opacity 1s ease-out';
+            setTimeout(() => {
+                if (overlay.parentElement) {
+                    overlay.remove();
+                }
+            }, 1000);
+        }
+    }, 10000);
 }
