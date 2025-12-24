@@ -482,6 +482,20 @@
     z-index: 100; /* Ensure elements appear above the displayable area background */
 }
 
+/* Answer elements should never overflow their container - content should be scrollable */
+.canvas-element[class*="answer"] {
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Ensure answer input and display elements respect boundaries */
+#displayable-area .canvas-element[data-type="answer_input"],
+#displayable-area .canvas-element[data-type="answer_display"] {
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
 .canvas-element.selected {
     border-color: #2196F3;
 }

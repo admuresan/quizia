@@ -266,7 +266,9 @@ Editor.ElementRenderer = (function() {
                 el.style.flexDirection = 'column';
                 el.style.gap = '0.5rem';
                 el.style.padding = '0.5rem';
-                el.style.overflow = 'visible';
+                el.style.overflowY = 'auto';
+                el.style.overflowX = 'hidden';
+                el.style.boxSizing = 'border-box';
                 
                 const quizForInput = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
                 const pageIndexForInput = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
@@ -294,11 +296,11 @@ Editor.ElementRenderer = (function() {
                     el.appendChild(submitBtn);
                 } else if (answerType === 'radio') {
                     const optionsDiv = document.createElement('div');
-                    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
+                    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; overflow-y: auto; overflow-x: hidden;';
                     
                     (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option, index) => {
                         const label = document.createElement('label');
-                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
+                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem; word-wrap: break-word; overflow-wrap: break-word;';
                         const radio = document.createElement('input');
                         radio.type = 'radio';
                         radio.name = `answer-${element.id}`;
@@ -320,11 +322,11 @@ Editor.ElementRenderer = (function() {
                     el.appendChild(submitBtn);
                 } else if (answerType === 'checkbox') {
                     const checkboxesDiv = document.createElement('div');
-                    checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
+                    checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; overflow-y: auto; overflow-x: hidden;';
                     
                     (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option) => {
                         const label = document.createElement('label');
-                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem;';
+                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem; word-wrap: break-word; overflow-wrap: break-word;';
                         const checkbox = document.createElement('input');
                         checkbox.type = 'checkbox';
                         checkbox.value = option;
@@ -608,8 +610,13 @@ Editor.ElementRenderer = (function() {
                 const pageForDisplay = quizForDisplay && quizForDisplay.pages ? quizForDisplay.pages[pageIndexForDisplay] : null;
                 const parentQuestion = pageForDisplay && pageForDisplay.elements ? pageForDisplay.elements.find(e => e.id === element.parent_id) : null;
                 
-                // Get answer_type from answer_display element, fallback to answer_input, then to parent question
-                let answerType = element.answer_type;
+                // Get answer_type - prioritize question element's answer_type as source of truth (matching runtime)
+                // Fallback to answer_input element, then to answer_display element
+                // This handles legacy quizzes where answer_display.answer_type might be incorrect
+                let answerType = null;
+                if (parentQuestion && parentQuestion.answer_type) {
+                    answerType = parentQuestion.answer_type;
+                }
                 if (!answerType && pageForDisplay && pageForDisplay.elements) {
                     // Try to get it from the associated answer_input element
                     const answerInput = pageForDisplay.elements.find(el => 
@@ -621,13 +628,18 @@ Editor.ElementRenderer = (function() {
                         answerType = answerInput.answer_type;
                     }
                 }
-                // Final fallback to parent question's answer_type
-                if (!answerType && parentQuestion && parentQuestion.answer_type) {
-                    answerType = parentQuestion.answer_type;
+                // Last fallback to answer_display element's answer_type
+                if (!answerType && element.answer_type) {
+                    answerType = element.answer_type;
                 }
                 // Default to 'text' if still not found
                 if (!answerType) {
                     answerType = 'text';
+                }
+                
+                // Normalize 'image' to 'image_click' for consistency
+                if (answerType === 'image') {
+                    answerType = 'image_click';
                 }
                 
                 const questionTitle = parentQuestion ? (parentQuestion.question_title || 'Question') : 'Question';
@@ -640,14 +652,11 @@ Editor.ElementRenderer = (function() {
                     parentQuestionAnswerType: parentQuestion ? parentQuestion.answer_type : null
                 });
                 
-                // For image_click questions, allow overflow scrolling and make container flexible (matching runtime)
-                if (answerType === 'image_click') {
-                    el.style.overflowY = 'auto';
-                    el.style.overflowX = 'hidden';
-                    el.style.minHeight = `${element.height}px`;
-                    el.style.height = 'auto';
-                    el.style.maxHeight = '100%';
-                }
+                // Ensure content doesn't overflow the container - allow scrolling for all answer types
+                el.style.overflowY = 'auto';
+                el.style.overflowX = 'hidden';
+                el.style.boxSizing = 'border-box';
+                // Keep the fixed width/height from element (set earlier in renderElementOnCanvas)
                 
                 // Clear innerHTML - ControlView.render() will handle all styling and content
                 el.innerHTML = '';
@@ -660,7 +669,10 @@ Editor.ElementRenderer = (function() {
                 };
                 
                 // Route to appropriate control mockup renderer
-                if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlMockup) {
+                // Check image_click first (before text) to ensure it's matched correctly
+                if ((answerType === 'image_click' || answerType === 'image') && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlMockup) {
+                    QuestionTypes.ImageClick.ControlMockup.render(el, mockOptions);
+                } else if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlMockup) {
                     QuestionTypes.Text.ControlMockup.render(el, mockOptions);
                 } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ControlMockup) {
                     QuestionTypes.Radio.ControlMockup.render(el, mockOptions);
@@ -668,8 +680,6 @@ Editor.ElementRenderer = (function() {
                     QuestionTypes.Checkbox.ControlMockup.render(el, mockOptions);
                 } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ControlMockup) {
                     QuestionTypes.Stopwatch.ControlMockup.render(el, mockOptions);
-                } else if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlMockup) {
-                    QuestionTypes.ImageClick.ControlMockup.render(el, mockOptions);
                 } else {
                     console.warn('Control mockup not found for answer type:', answerType);
                     el.textContent = `Preview not available for ${answerType}`;
