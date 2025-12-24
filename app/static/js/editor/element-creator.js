@@ -26,12 +26,14 @@
         },
 
         createAnswerDisplayElement: function(parentQuestion) {
+            // Always use parent question's answer_type to ensure they match
+            const answerType = parentQuestion.answer_type || 'text';
             return {
                 id: `element-${Date.now()}-answer-display`,
                 type: 'answer_display',
                 parent_id: parentQuestion.id,
                 view: 'control',
-                answer_type: parentQuestion.answer_type || 'text',
+                answer_type: answerType, // Must match parent question's answer_type
                 x: parentQuestion.x || 50,
                 y: (parentQuestion.y || 50) + (parentQuestion.height || 100) + 20,
                 width: 600,

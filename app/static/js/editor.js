@@ -836,6 +836,20 @@ function renderCanvas() {
                     autosaveQuiz();
                 }
             } else {
+                // Ensure existing answer_display has matching answer_type
+                if (existingDisplay.answer_type !== question.answer_type) {
+                    existingDisplay.answer_type = question.answer_type || 'text';
+                    // Also update answer_input if it exists
+                    const answerInput = page.elements.find(el => 
+                        el.type === 'answer_input' && 
+                        el.parent_id === question.id && 
+                        el.view === 'participant'
+                    );
+                    if (answerInput && answerInput.answer_type !== question.answer_type) {
+                        answerInput.answer_type = question.answer_type || 'text';
+                    }
+                    autosaveQuiz(); // Save the fix
+                }
                 // Add existing display to render list if not already there
                 if (!elementsToRender.find(el => el.id === existingDisplay.id)) {
                     elementsToRender.push(existingDisplay);
