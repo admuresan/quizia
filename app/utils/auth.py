@@ -23,8 +23,25 @@ def _ensure_data_dir():
 def _load_auth():
     """Load authentication data."""
     _ensure_data_dir()
-    with open(AUTH_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        # Check if file exists and has content
+        if AUTH_FILE.exists() and AUTH_FILE.stat().st_size > 0:
+            with open(AUTH_FILE, 'r') as f:
+                data = json.load(f)
+                # Ensure it has the expected structure
+                if 'users' not in data:
+                    data = {'users': {}}
+                return data
+        else:
+            # File doesn't exist or is empty, create default
+            default_data = {'users': {}}
+            _save_auth(default_data)
+            return default_data
+    except (json.JSONDecodeError, IOError, OSError) as e:
+        # File is corrupted or can't be read, recreate it
+        default_data = {'users': {}}
+        _save_auth(default_data)
+        return default_data
 
 def _save_auth(data):
     """Save authentication data."""
@@ -35,8 +52,25 @@ def _save_auth(data):
 def _load_requests():
     """Load account requests."""
     _ensure_data_dir()
-    with open(REQUESTS_FILE, 'r') as f:
-        return json.load(f)
+    try:
+        # Check if file exists and has content
+        if REQUESTS_FILE.exists() and REQUESTS_FILE.stat().st_size > 0:
+            with open(REQUESTS_FILE, 'r') as f:
+                data = json.load(f)
+                # Ensure it has the expected structure
+                if 'requests' not in data:
+                    data = {'requests': []}
+                return data
+        else:
+            # File doesn't exist or is empty, create default
+            default_data = {'requests': []}
+            _save_requests(default_data)
+            return default_data
+    except (json.JSONDecodeError, IOError, OSError) as e:
+        # File is corrupted or can't be read, recreate it
+        default_data = {'requests': []}
+        _save_requests(default_data)
+        return default_data
 
 def _save_requests(data):
     """Save account requests."""

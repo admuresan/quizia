@@ -110,34 +110,104 @@
             if (type === 'media') {
                 if (callbacks.openMediaModal) {
                     callbacks.openMediaModal((selectedMedia) => {
-                        const element = {
-                            id: `element-${Date.now()}`,
-                            type: selectedMedia.media_type,
-                            media_type: selectedMedia.media_type,
-                            view: 'display',
-                            x: x,
-                            y: y,
-                            width: 200,
-                            height: 150,
-                            visible: true,
-                            is_question: false,
-                            answer_type: 'text',
-                            src: selectedMedia.url,
-                            filename: selectedMedia.filename
-                        };
+                        // For images, load the image to get natural dimensions
+                        if (selectedMedia.media_type === 'image') {
+                            const img = new Image();
+                            img.onload = () => {
+                                const element = {
+                                    id: `element-${Date.now()}`,
+                                    type: selectedMedia.media_type,
+                                    media_type: selectedMedia.media_type,
+                                    view: 'display',
+                                    x: x,
+                                    y: y,
+                                    width: img.naturalWidth,
+                                    height: img.naturalHeight,
+                                    visible: true,
+                                    is_question: false,
+                                    answer_type: 'text',
+                                    src: selectedMedia.url,
+                                    filename: selectedMedia.filename
+                                };
 
-                        if (!page.elements) {
-                            page.elements = [];
-                        }
-                        page.elements.push(element);
-                        
-                        const controlElement = this.createMediaControlElement(element);
-                        if (controlElement) {
-                            page.elements.push(controlElement);
-                        }
-                        
-                        if (callbacks.onElementAdded) {
-                            callbacks.onElementAdded(element);
+                                if (!page.elements) {
+                                    page.elements = [];
+                                }
+                                page.elements.push(element);
+                                
+                                const controlElement = this.createMediaControlElement(element);
+                                if (controlElement) {
+                                    page.elements.push(controlElement);
+                                }
+                                
+                                if (callbacks.onElementAdded) {
+                                    callbacks.onElementAdded(element);
+                                }
+                            };
+                            img.onerror = () => {
+                                // Fallback to default size if image fails to load
+                                const element = {
+                                    id: `element-${Date.now()}`,
+                                    type: selectedMedia.media_type,
+                                    media_type: selectedMedia.media_type,
+                                    view: 'display',
+                                    x: x,
+                                    y: y,
+                                    width: 200,
+                                    height: 150,
+                                    visible: true,
+                                    is_question: false,
+                                    answer_type: 'text',
+                                    src: selectedMedia.url,
+                                    filename: selectedMedia.filename
+                                };
+
+                                if (!page.elements) {
+                                    page.elements = [];
+                                }
+                                page.elements.push(element);
+                                
+                                const controlElement = this.createMediaControlElement(element);
+                                if (controlElement) {
+                                    page.elements.push(controlElement);
+                                }
+                                
+                                if (callbacks.onElementAdded) {
+                                    callbacks.onElementAdded(element);
+                                }
+                            };
+                            img.src = selectedMedia.url;
+                        } else {
+                            // For non-image media, use default size
+                            const element = {
+                                id: `element-${Date.now()}`,
+                                type: selectedMedia.media_type,
+                                media_type: selectedMedia.media_type,
+                                view: 'display',
+                                x: x,
+                                y: y,
+                                width: 200,
+                                height: 150,
+                                visible: true,
+                                is_question: false,
+                                answer_type: 'text',
+                                src: selectedMedia.url,
+                                filename: selectedMedia.filename
+                            };
+
+                            if (!page.elements) {
+                                page.elements = [];
+                            }
+                            page.elements.push(element);
+                            
+                            const controlElement = this.createMediaControlElement(element);
+                            if (controlElement) {
+                                page.elements.push(controlElement);
+                            }
+                            
+                            if (callbacks.onElementAdded) {
+                                callbacks.onElementAdded(element);
+                            }
                         }
                     });
                 }

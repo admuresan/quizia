@@ -3,7 +3,7 @@ quizia/
 venv/
 env/
 ENV/
-
+ssh/*
 # Python
 __pycache__/
 *.py[cod]

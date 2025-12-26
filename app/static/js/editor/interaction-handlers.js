@@ -67,29 +67,79 @@ Editor.InteractionHandlers = (function() {
     function addResizeHandles(element, elementData) {
         if (!element.classList.contains('selected')) return;
         
-        const handles = ['nw', 'ne', 'sw', 'se'];
-        handles.forEach(pos => {
+        // Corner handles
+        const cornerHandles = ['nw', 'ne', 'sw', 'se'];
+        // Edge handles
+        const edgeHandles = ['n', 's', 'e', 'w'];
+        const allHandles = [...cornerHandles, ...edgeHandles];
+        
+        allHandles.forEach(pos => {
             const handle = document.createElement('div');
             handle.className = `resize-handle resize-${pos}`;
-            handle.style.cssText = `
-                position: absolute;
-                width: 10px;
-                height: 10px;
-                background: #2196F3;
-                border: 2px solid white;
-                border-radius: 50%;
-                cursor: ${pos === 'nw' || pos === 'se' ? 'nwse-resize' : 'nesw-resize'};
-                z-index: 1000;
-            `;
             
-            const positions = {
-                nw: { top: '-5px', left: '-5px' },
-                ne: { top: '-5px', right: '-5px' },
-                sw: { bottom: '-5px', left: '-5px' },
-                se: { bottom: '-5px', right: '-5px' }
-            };
+            // Determine if it's a corner or edge handle
+            const isCorner = cornerHandles.includes(pos);
+            const isEdge = edgeHandles.includes(pos);
             
-            Object.assign(handle.style, positions[pos]);
+            if (isCorner) {
+                // Corner handles - small circular
+                handle.style.cssText = `
+                    position: absolute;
+                    width: 10px;
+                    height: 10px;
+                    background: #2196F3;
+                    border: 2px solid white;
+                    border-radius: 50%;
+                    cursor: ${pos === 'nw' || pos === 'se' ? 'nwse-resize' : 'nesw-resize'};
+                    z-index: 1000;
+                `;
+                
+                const positions = {
+                    nw: { top: '-5px', left: '-5px' },
+                    ne: { top: '-5px', right: '-5px' },
+                    sw: { bottom: '-5px', left: '-5px' },
+                    se: { bottom: '-5px', right: '-5px' }
+                };
+                
+                Object.assign(handle.style, positions[pos]);
+            } else if (isEdge) {
+                // Edge handles - rectangular bars
+                const isVertical = pos === 'n' || pos === 's';
+                const isHorizontal = pos === 'e' || pos === 'w';
+                
+                handle.style.cssText = `
+                    position: absolute;
+                    background: #2196F3;
+                    border: 2px solid white;
+                    z-index: 1000;
+                `;
+                
+                if (isVertical) {
+                    // North/South handles - horizontal bar
+                    handle.style.width = '60px';
+                    handle.style.height = '8px';
+                    handle.style.cursor = 'ns-resize';
+                    handle.style.left = '50%';
+                    handle.style.transform = 'translateX(-50%)';
+                    if (pos === 'n') {
+                        handle.style.top = '-4px';
+                    } else {
+                        handle.style.bottom = '-4px';
+                    }
+                } else {
+                    // East/West handles - vertical bar
+                    handle.style.width = '8px';
+                    handle.style.height = '60px';
+                    handle.style.cursor = 'ew-resize';
+                    handle.style.top = '50%';
+                    handle.style.transform = 'translateY(-50%)';
+                    if (pos === 'e') {
+                        handle.style.right = '-4px';
+                    } else {
+                        handle.style.left = '-4px';
+                    }
+                }
+            }
             
             let isResizing = false;
             let startX, startY, startWidth, startHeight, startLeft, startTop;
@@ -110,21 +160,39 @@ Editor.InteractionHandlers = (function() {
                 const dx = e.clientX - startX;
                 const dy = e.clientY - startY;
                 
-                if (pos.includes('e')) {
-                    elementData.width = Math.max(20, startWidth + dx);
-                }
-                if (pos.includes('w')) {
-                    const newWidth = Math.max(20, startWidth - dx);
-                    elementData.x = startLeft + (startWidth - newWidth);
-                    elementData.width = newWidth;
-                }
-                if (pos.includes('s')) {
-                    elementData.height = Math.max(20, startHeight + dy);
-                }
-                if (pos.includes('n')) {
-                    const newHeight = Math.max(20, startHeight - dy);
-                    elementData.y = startTop + (startHeight - newHeight);
-                    elementData.height = newHeight;
+                // Handle corner resizing (both dimensions)
+                if (isCorner) {
+                    if (pos.includes('e')) {
+                        elementData.width = Math.max(20, startWidth + dx);
+                    }
+                    if (pos.includes('w')) {
+                        const newWidth = Math.max(20, startWidth - dx);
+                        elementData.x = startLeft + (startWidth - newWidth);
+                        elementData.width = newWidth;
+                    }
+                    if (pos.includes('s')) {
+                        elementData.height = Math.max(20, startHeight + dy);
+                    }
+                    if (pos.includes('n')) {
+                        const newHeight = Math.max(20, startHeight - dy);
+                        elementData.y = startTop + (startHeight - newHeight);
+                        elementData.height = newHeight;
+                    }
+                } else if (isEdge) {
+                    // Handle edge-only resizing (single dimension)
+                    if (pos === 'e') {
+                        elementData.width = Math.max(20, startWidth + dx);
+                    } else if (pos === 'w') {
+                        const newWidth = Math.max(20, startWidth - dx);
+                        elementData.x = startLeft + (startWidth - newWidth);
+                        elementData.width = newWidth;
+                    } else if (pos === 's') {
+                        elementData.height = Math.max(20, startHeight + dy);
+                    } else if (pos === 'n') {
+                        const newHeight = Math.max(20, startHeight - dy);
+                        elementData.y = startTop + (startHeight - newHeight);
+                        elementData.height = newHeight;
+                    }
                 }
                 
                 if (updateDisplayCallback) {
