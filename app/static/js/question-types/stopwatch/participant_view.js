@@ -8,15 +8,29 @@ QuestionTypes.Stopwatch = QuestionTypes.Stopwatch || {};
 QuestionTypes.Stopwatch.ParticipantView = (function() {
     function render(container, element, options) {
         const questionId = element.parent_id;
+        const questionTitle = options.questionTitle || '';
         const submittedAnswer = options.submittedAnswer || null;
         const submitAnswerCallback = options.submitAnswerCallback || null;
         
-        container.style.backgroundColor = 'transparent';
-        container.style.border = 'none';
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '0.5rem';
-        container.style.padding = '0.5rem';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.overflow = 'hidden';
+        container.style.boxSizing = 'border-box';
+        
+        // Title header at top (matching control view aesthetic)
+        if (questionTitle) {
+            const titleHeader = document.createElement('div');
+            titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0;';
+            titleHeader.textContent = questionTitle;
+            container.appendChild(titleHeader);
+        }
+        
+        // Content area (scrollable if needed)
+        const contentArea = document.createElement('div');
+        contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
         
         const stopwatchContainer = document.createElement('div');
         stopwatchContainer.className = 'stopwatch-container';
@@ -61,6 +75,8 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             if (isSubmitted) return;
             startTime = Date.now() - elapsedTime;
             startBtn.disabled = true;
+            startBtn.textContent = 'Timing...';
+            startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
             stopBtn.disabled = false;
             timerDisplay.style.display = 'none'; // Hide timer while running
             
@@ -78,8 +94,8 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             if (startTime) {
                 elapsedTime = Date.now() - startTime;
             }
-            startBtn.disabled = false;
             stopBtn.disabled = true;
+            stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
             
             // Show the final time only after stopping
             const seconds = Math.floor(elapsedTime / 1000);
@@ -97,14 +113,16 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         controlsDiv.appendChild(startBtn);
         controlsDiv.appendChild(stopBtn);
         stopwatchContainer.appendChild(controlsDiv);
-        container.appendChild(stopwatchContainer);
+        contentArea.appendChild(stopwatchContainer);
         
         if (submittedAnswer) {
             const submittedMsg = document.createElement('div');
             submittedMsg.textContent = 'Answer already submitted';
             submittedMsg.style.cssText = 'color: #666; font-size: 0.85rem; font-style: italic;';
-            container.appendChild(submittedMsg);
+            contentArea.appendChild(submittedMsg);
         }
+        
+        container.appendChild(contentArea);
     }
     
     return { render: render };

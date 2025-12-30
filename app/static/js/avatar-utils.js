@@ -26,3 +26,4 @@ if (typeof window !== 'undefined') {
     window.avatarMap = avatarMap; // Also export map in case needed
 }
 
+

@@ -1,72 +1,37 @@
 // Shared element renderer for runtime (display, participant, control pages)
-// Positioning and sizing are handled in ONE place only: applyElementPosition()
+// Based on editor element renderer but without editing capabilities
 
 var RuntimeRenderer = RuntimeRenderer || {};
 
 RuntimeRenderer.ElementRenderer = (function() {
     /**
-     * Apply positioning and sizing to an element - THE ONLY PLACE THIS HAPPENS
-     * @param {HTMLElement} el - The DOM element to position
-     * @param {Object} element - The element data with x, y, width, height
-     * @param {boolean} insideContainer - Whether element is inside a container (participant view question containers)
-     */
-    function applyElementPosition(el, element, insideContainer) {
-        if (insideContainer) {
-            // Inside container: use relative positioning, fill container
-            el.style.position = 'relative';
-            el.style.width = '100%';
-            el.style.height = 'auto';
-            el.style.left = 'auto';
-            el.style.top = 'auto';
-        } else {
-            // Direct on canvas: use absolute positioning with exact coordinates
-            // Coordinates are absolute pixel values from top-left corner of canvas (0,0 = top-left)
-            // Ensure we have valid numeric values
-            const x = typeof element.x === 'number' ? element.x : (parseFloat(element.x) || 0);
-            const y = typeof element.y === 'number' ? element.y : (parseFloat(element.y) || 0);
-            const width = typeof element.width === 'number' ? element.width : (parseFloat(element.width) || 100);
-            const height = typeof element.height === 'number' ? element.height : (parseFloat(element.height) || 100);
-            
-            // Debug logging for positioning issues
-            if (!element.x && !element.y && !element.width && !element.height) {
-                console.warn('[RuntimeRenderer] Element missing coordinates:', element.id, element.type, element);
-            }
-            
-            el.style.position = 'absolute';
-            el.style.left = `${x}px`;
-            el.style.top = `${y}px`;
-            el.style.width = `${width}px`;
-            el.style.height = `${height}px`;
-        }
-    }
-    
-    /**
      * Render an element on a canvas (display/control/participant view)
      * @param {HTMLElement} container - The container to render into
-     * @param {Object} element - The element data (must have x, y, width, height properties)
-     * @param {Object} options - Rendering options (insideContainer, mode, etc.)
+     * @param {Object} element - The element data
+     * @param {Object} options - Rendering options (insideContainer, runtime mode)
      */
     function renderElement(container, element, options = {}) {
-        if (!element || !element.id) {
-            console.error('[RuntimeRenderer] Invalid element:', element);
-            return null;
-        }
-        
         const insideContainer = options.insideContainer || false;
         const mode = options.mode || 'display'; // 'display', 'participant', 'control'
         
-        // Create the element container
         const el = document.createElement('div');
         el.className = 'runtime-element';
         el.id = `element-${element.id}`;
         
-        // APPLY POSITIONING - THE ONLY PLACE THIS HAPPENS
-        applyElementPosition(el, element, insideContainer);
+        // Positioning
+        if (!insideContainer) {
+            el.style.position = 'absolute';
+            el.style.left = `${element.x}px`;
+            el.style.top = `${element.y}px`;
+            el.style.width = `${element.width}px`;
+            el.style.height = `${element.height}px`;
+        } else {
+            el.style.position = 'relative';
+            el.style.width = '100%';
+            el.style.height = 'auto';
+        }
         
-        // Set box-sizing for consistent sizing
-        el.style.boxSizing = 'border-box';
-        
-        // Render content based on element type
+        // Render based on element type (check both type and media_type for media elements)
         const elementType = element.type || element.media_type;
         
         switch (elementType) {
@@ -121,22 +86,23 @@ RuntimeRenderer.ElementRenderer = (function() {
                 }
                 break;
             default:
-                console.warn('[RuntimeRenderer] Unknown element type:', elementType, element);
+                console.warn('Unknown element type:', element.type, element);
                 break;
         }
         
-        // Apply rotation (except for line which handles it internally)
-        if (elementType !== 'line' && element.rotation) {
+        // Apply rotation
+        const finalElementType = element.type || element.media_type;
+        if (finalElementType !== 'line' && element.rotation) {
             el.style.transform = `rotate(${element.rotation}deg)`;
             el.style.transformOrigin = 'center center';
         }
         
-        // Apply visibility (only hide if explicitly false)
+        // Apply visibility - but don't override if it's undefined (default to visible)
+        // Only hide if explicitly set to false
         if (element.visible === false) {
             el.style.display = 'none';
         }
         
-        // Append to container if not inside a container
         if (!insideContainer) {
             container.appendChild(el);
         }
@@ -144,11 +110,9 @@ RuntimeRenderer.ElementRenderer = (function() {
         return el;
     }
     
-    // ==================== CONTENT RENDERING FUNCTIONS ====================
-    // These functions only handle content, NOT positioning/sizing
-    
     function renderImage(el, element) {
         const img = document.createElement('img');
+        // Try multiple ways to get the image source (new format uses media_url, old format uses src)
         let imageSrc = element.media_url || 
                       element.src || 
                       (element.file_name ? '/api/media/serve/' + element.file_name : '') ||
@@ -156,7 +120,7 @@ RuntimeRenderer.ElementRenderer = (function() {
                       (element.image_src || '');
         
         if (!imageSrc) {
-            console.warn('[RuntimeRenderer] Image element has no source:', element);
+            console.warn('Image element has no source:', element);
             el.textContent = 'Image (no source)';
             el.style.display = 'flex';
             el.style.alignItems = 'center';
@@ -171,7 +135,7 @@ RuntimeRenderer.ElementRenderer = (function() {
         img.style.height = '100%';
         img.style.objectFit = 'contain';
         img.onerror = () => {
-            console.error('[RuntimeRenderer] Failed to load image:', imageSrc, element);
+            console.error('Failed to load image:', imageSrc, element);
             el.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #999; border: 2px dashed #ccc;">Image failed to load</div>';
         };
         el.appendChild(img);
@@ -180,8 +144,9 @@ RuntimeRenderer.ElementRenderer = (function() {
     
     function renderVideo(el, element) {
         const video = document.createElement('video');
+        // New format uses media_url, old format uses src
         video.src = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
-        video.controls = false;
+        video.controls = false; // Control via quizmaster only
         video.style.width = '100%';
         video.style.height = '100%';
         video.style.objectFit = 'contain';
@@ -197,6 +162,7 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.appendChild(audioIcon);
         
         const audioElement = document.createElement('audio');
+        // New format uses media_url, old format uses src
         audioElement.src = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
         audioElement.style.display = 'none';
         audioElement.id = `audio-${element.id}`;
@@ -253,8 +219,6 @@ RuntimeRenderer.ElementRenderer = (function() {
     }
     
     function renderLine(el, element) {
-        // Line elements need special handling for rotation
-        // Width and height are set by applyElementPosition, but line overrides width
         el.style.width = `${Math.max(element.width, element.height)}px`;
         el.style.height = `${element.border_width || 2}px`;
         el.style.backgroundColor = element.fill_color || element.border_color || '#999';
@@ -266,6 +230,7 @@ RuntimeRenderer.ElementRenderer = (function() {
     }
     
     function renderText(el, element) {
+        // Text elements can have html or text property
         if (element.html) {
             el.innerHTML = element.html;
         } else if (element.text) {
@@ -306,6 +271,7 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.style.gap = '0.5rem';
         
         const filenameLabel = document.createElement('div');
+        // New format uses file_name, old format uses filename
         let filename = element.file_name || element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
         if (filename && typeof filename === 'string') {
             filename = filename.split('/').pop().split('\\').pop();
@@ -337,6 +303,8 @@ RuntimeRenderer.ElementRenderer = (function() {
         
         el.appendChild(controlsContainer);
         
+        // Hidden media element for playback
+        // New format uses media_url, old format uses src
         const mediaSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
         
         if (element.media_type === 'video') {
@@ -355,18 +323,28 @@ RuntimeRenderer.ElementRenderer = (function() {
     }
     
     function renderAnswerInput(el, element, options) {
+        // Renders answer input elements for participant view
+        // Uses question-type definitions from question-types folder
+        // All answer input rendering should go through these modular renderers
+        
+        // Get question_type from question_config or fallback to old answer_type
         const answerType = (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
         const questionId = element.parent_id;
-        const question = options.question || null;
+        const question = options.question || null; // Get question element from options for image_click
         const submittedAnswer = options.submittedAnswer || null;
         
+        // Create white container for answer elements with border matching control view
         const container = document.createElement('div');
         container.style.cssText = 'background-color: white; padding: 1rem; border: 2px solid #2196F3; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column;';
         el.appendChild(container);
         
+        // Get question title from question element (new format: in question_config)
         const questionTitle = question && question.question_config ? (question.question_config.question_title || '') : '';
+        
+        // Use new modular question type participant views from question-types folder
         const renderOptions = Object.assign({}, options, { question: question, questionTitle: questionTitle });
         
+        // Route to appropriate question type participant view renderer (from question-types folder)
         if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ParticipantView) {
             QuestionTypes.Text.ParticipantView.render(container, element, renderOptions);
         } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ParticipantView) {
@@ -378,48 +356,43 @@ RuntimeRenderer.ElementRenderer = (function() {
         } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ParticipantView) {
             QuestionTypes.Stopwatch.ParticipantView.render(container, element, renderOptions);
         } else {
-            console.error('[RuntimeRenderer] Question type', answerType, 'participant view not found');
+            // Unknown question type - show error message
+            console.error('Question type', answerType, 'participant view not found');
             container.textContent = `Answer input type "${answerType}" not supported`;
             container.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
         }
     }
     
     function renderAnswerDisplay(el, element, options) {
-        // Get answerType from options first, then element, with normalization
-        let answerType = options.answerType || (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
+        // Renders answer display elements for control view
+        // Uses question-type definitions from question-types folder
+        // All answer display rendering should go through these modular renderers
         
-        // Normalize 'image' to 'image_click' for consistency
-        if (answerType === 'image') {
-            answerType = 'image_click';
-        }
+        // Get question_type from question_config or fallback to old answer_type
+        // options.answerType is determined with fallback: answer_display -> answer_input -> question
+        const answerType = options.answerType || (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
         
-        console.log('[RuntimeRenderer] renderAnswerDisplay called:', {
-            answerType: answerType,
-            elementId: element.id,
-            elementType: element.type,
-            optionsAnswerType: options.answerType,
-            elementQuestionConfig: element.question_config,
-            willUseImageClick: (answerType === 'image_click' || answerType === 'image')
-        });
-        
-        // Create inner container - width/height are already set by applyElementPosition
+        // Create white container for answer elements
         const container = document.createElement('div');
         container.style.cssText = 'background-color: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: 100%; box-sizing: border-box;';
         
+        // For image_click questions, enable scrolling while maintaining fixed size
         if (answerType === 'image_click') {
             container.style.overflowY = 'auto';
             container.style.overflowX = 'hidden';
+            // Keep the fixed height from element.height (set earlier in renderElement)
         }
         
         el.appendChild(container);
         
         const questionId = element.parent_id;
         const questionTitle = options.questionTitle || 'Question';
-        const answers = options.answers || {};
-        const participants = options.participants || {};
+        const answers = options.answers || {}; // { participant_id: { answer, submission_time, correct, bonus_points } }
+        const participants = options.participants || {}; // { participant_id: { name, avatar } }
         const onMarkAnswer = options.onMarkAnswer || null;
         const imageSrc = options.imageSrc || '';
         
+        // Use new modular question type renderers from question-types folder
         const renderOptions = {
             questionId: questionId,
             questionTitle: questionTitle,
@@ -428,15 +401,13 @@ RuntimeRenderer.ElementRenderer = (function() {
             onMarkAnswer: onMarkAnswer,
             imageSrc: imageSrc,
             answerType: answerType,
-            question: options.question || null
+            question: options.question || null // Pass question element to access correct_answer
         };
         
-        // Check for image_click or image type (both should use image_click control view)
-        if ((answerType === 'image_click' || answerType === 'image') && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlView) {
-            console.log('[RuntimeRenderer] Using ImageClick.ControlView for answerType:', answerType);
+        // Route to appropriate question type control view renderer (from question-types folder)
+        if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlView) {
             QuestionTypes.ImageClick.ControlView.render(container, renderOptions);
         } else if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlView) {
-            console.log('[RuntimeRenderer] Using Text.ControlView for answerType:', answerType);
             QuestionTypes.Text.ControlView.render(container, renderOptions);
         } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ControlView) {
             QuestionTypes.Radio.ControlView.render(container, renderOptions);
@@ -445,17 +416,20 @@ RuntimeRenderer.ElementRenderer = (function() {
         } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ControlView) {
             QuestionTypes.Stopwatch.ControlView.render(container, renderOptions);
         } else {
-            console.error('[RuntimeRenderer] Question type', answerType, 'control view not found');
+            // Unknown question type - show error message
+            console.error('Question type', answerType, 'control view not found');
             container.textContent = `Answer display type "${answerType}" not supported`;
             container.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
         }
     }
     
     function renderAppearanceControl(el, element, options) {
+        // Use the dedicated appearance control renderer (shared with editor)
         if (Editor && Editor.AppearanceControlRenderer && Editor.AppearanceControlRenderer.render) {
             Editor.AppearanceControlRenderer.render(el, element, {
                 getCurrentQuiz: () => options.quiz || null,
                 getCurrentPageIndex: () => {
+                    // Try to get page index from quiz
                     if (options.quiz && options.page) {
                         const index = options.quiz.pages.findIndex(p => p === options.page);
                         return index >= 0 ? index : 0;
@@ -463,11 +437,12 @@ RuntimeRenderer.ElementRenderer = (function() {
                     return 0;
                 },
                 getCurrentView: () => 'control',
-                isRuntime: true,
+                isRuntime: true, // Runtime mode - toggles are functional
                 socket: options.socket || null,
                 roomCode: options.roomCode || null
             });
         } else {
+            // Fallback if renderer not available
             el.innerHTML = '<p style="padding: 1rem; color: #666;">Appearance control renderer not available</p>';
         }
     }

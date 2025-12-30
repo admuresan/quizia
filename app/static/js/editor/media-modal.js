@@ -46,21 +46,60 @@
                     
                     uploadFile.addEventListener('change', async (e) => {
                         const files = Array.from(e.target.files);
+                        let uploadSuccess = false;
+                        
                         for (const file of files) {
-                            await this.uploadMediaFile(file, type);
+                            const result = await this.uploadMediaFile(file, type);
+                            if (result && result.success) {
+                                uploadSuccess = true;
+                            }
                         }
-                        this.loadMediaForTab(type);
+                        
+                        // Refresh the tab that matches the uploaded file type
+                        // Map type to tab name (image -> images)
+                        const tabType = type === 'image' ? 'images' : type;
+                        
+                        // Check if this tab is currently active
+                        const activeTab = document.querySelector('.modal-tab.active');
+                        const isActiveTab = activeTab && activeTab.dataset.tab === tabType;
+                        
+                        // Always refresh the matching tab so new items appear
+                        // If it's the active tab, it will update immediately
+                        // If not, it will be fresh when user switches to it
+                        if (uploadSuccess) {
+                            this.loadMediaForTab(tabType);
+                        }
+                        
+                        // Clear the file input so the same file can be uploaded again
+                        e.target.value = '';
                     });
                 }
             });
         },
 
-        open: function(callback) {
+        open: function(callback, defaultTab = 'images') {
             mediaModalCallback = callback;
             const modal = document.getElementById('media-modal');
             if (modal) {
                 modal.style.display = 'flex';
-                this.loadMediaForTab('images');
+                // Set higher z-index to appear above background modal (10000) or other modals
+                modal.style.zIndex = '10001';
+                // Activate the default tab
+                const tabs = document.querySelectorAll('.modal-tab');
+                const tabContents = document.querySelectorAll('.modal-tab-content');
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                const targetTab = Array.from(tabs).find(t => t.dataset.tab === defaultTab) || tabs[0];
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                    const targetContent = document.getElementById(`media-tab-${targetTab.dataset.tab}`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+                    }
+                }
+                
+                this.loadMediaForTab(defaultTab);
             }
         },
 
@@ -174,9 +213,12 @@
                 const data = await response.json();
                 if (!response.ok) {
                     alert(`Error uploading ${file.name}: ${data.error}`);
+                    return { success: false };
                 }
+                return { success: true, filename: data.filename };
             } catch (error) {
                 alert(`Error uploading ${file.name}`);
+                return { success: false };
             }
         }
     };

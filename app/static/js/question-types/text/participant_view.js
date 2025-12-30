@@ -9,22 +9,36 @@ QuestionTypes.Text = QuestionTypes.Text || {};
 QuestionTypes.Text.ParticipantView = (function() {
     function render(container, element, options) {
         const questionId = element.parent_id;
+        const questionTitle = options.questionTitle || '';
         const onSubmitCallback = options.onSubmit || options.submitAnswerCallback || null;
         const submittedAnswer = options.submittedAnswer || null;
         
-        container.style.backgroundColor = 'transparent';
-        container.style.border = 'none';
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '0.5rem';
-        container.style.padding = '0.5rem';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.overflow = 'hidden';
+        container.style.boxSizing = 'border-box';
+        
+        // Title header at top (matching control view aesthetic)
+        if (questionTitle) {
+            const titleHeader = document.createElement('div');
+            titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0;';
+            titleHeader.textContent = questionTitle;
+            container.appendChild(titleHeader);
+        }
+        
+        // Content area (scrollable if needed)
+        const contentArea = document.createElement('div');
+        contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
         
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'answer-text-input';
         input.placeholder = 'Type your answer...';
         input.dataset.questionId = questionId;
-        input.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #2196F3; border-radius: 4px; font-size: 0.9rem;';
+        input.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #ddd; border-radius: 4px; font-size: 0.9rem;';
         
         if (submittedAnswer && submittedAnswer.answer !== undefined) {
             input.value = String(submittedAnswer.answer || '');
@@ -33,7 +47,7 @@ QuestionTypes.Text.ParticipantView = (function() {
             input.style.cursor = 'not-allowed';
         }
         
-        container.appendChild(input);
+        contentArea.appendChild(input);
         
         const submitBtn = document.createElement('button');
         submitBtn.textContent = submittedAnswer ? 'Submitted' : 'Submit';
@@ -44,14 +58,16 @@ QuestionTypes.Text.ParticipantView = (function() {
         submitBtn.style.cssText = submittedAnswer 
             ? 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;'
             : 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-        container.appendChild(submitBtn);
+        contentArea.appendChild(submitBtn);
         
         if (submittedAnswer) {
             const submittedMsg = document.createElement('div');
             submittedMsg.textContent = 'Answer already submitted';
             submittedMsg.style.cssText = 'color: #666; font-size: 0.85rem; font-style: italic;';
-            container.appendChild(submittedMsg);
+            contentArea.appendChild(submittedMsg);
         }
+        
+        container.appendChild(contentArea);
     }
     
     return { render: render };

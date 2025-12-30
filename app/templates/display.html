@@ -15,7 +15,10 @@
 <script>
     window.roomCode = '{{ room_code }}';
 </script>
+<script src="{{ url_for('static', filename='js/background-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/question-types/common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/quiz-structure.js') }}"></script>
 <script src="{{ url_for('static', filename='js/runtime-element-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/display.js') }}"></script>
 {% endblock %}

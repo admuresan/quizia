@@ -29,16 +29,42 @@
 #control-main {
     flex: 1;
     overflow: auto;
+    min-height: 0;
+    padding: 0;
+}
+
+#control-canvas-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-width: 100%;
+    min-height: 100%;
+    padding: 2rem;
+    box-sizing: border-box;
+    /* Center the canvas when it fits, but allow scrolling when it doesn't */
+    position: relative;
+}
+
+/* Center canvas when it fits within viewport */
+#control-canvas-wrapper::before {
+    content: '';
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+#control-canvas-wrapper::after {
+    content: '';
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 #control-canvas {
-    flex: 1;
     position: relative !important;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     min-height: 400px;
-    min-width: 100%;
-    margin-bottom: 2rem;
     overflow: auto !important;
+    margin: auto;
+    flex-shrink: 0;
 }
 
 .nav-button {
@@ -66,9 +92,17 @@
     transform: translateY(-2px);
 }
 
+.nav-button-center:hover {
+    transform: translateX(-50%) translateY(-2px);
+}
+
 .nav-button:active {
     transform: translateY(0);
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.nav-button-center:active {
+    transform: translateX(-50%) translateY(0);
 }
 
 .nav-button:disabled {
@@ -84,6 +118,11 @@
 
 .nav-button-right {
     right: 20px !important;
+}
+
+.nav-button-center {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
 }
 
 .finalize-scores-button {
@@ -105,6 +144,39 @@
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
+}
+
+.answer-display-toggle {
+    width: 50px !important;
+    height: 26px !important;
+    appearance: none;
+    background: #ccc;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+    outline: none;
+}
+
+.answer-display-toggle:checked {
+    background: #4CAF50;
+}
+
+.answer-display-toggle::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: white;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.answer-display-toggle:checked::before {
+    transform: translateX(24px);
 }
 
 .finalize-scores-button:hover {

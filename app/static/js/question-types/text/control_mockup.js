@@ -17,9 +17,15 @@ QuestionTypes.Text.ControlMockup = (function() {
             'participant3': { name: 'Charlie', avatar: 'avatar_2' }
         };
         
+        // Get correct answer from question element
+        let correctAnswer = null;
+        if (options.question && options.question.question_config) {
+            correctAnswer = options.question.question_config.question_correct_answer;
+        }
+        
         const mockAnswers = {
             'participant1': {
-                answer: 'Sample answer text that might be long',
+                answer: correctAnswer !== null && correctAnswer !== undefined ? String(correctAnswer) : 'Sample answer text that might be long',
                 submission_time: 12.5,
                 correct: true,
                 bonus_points: 5
@@ -34,10 +40,12 @@ QuestionTypes.Text.ControlMockup = (function() {
         
         const mockOptions = {
             questionId: options.questionId || 'mock-question',
-            questionTitle: options.questionTitle || 'Question',
+            questionTitle: options.questionTitle || '', // Use actual question title, not "Question"
             answers: mockAnswers,
             participants: mockParticipants,
-            onMarkAnswer: null // No-op for mockup
+            onMarkAnswer: null, // No-op for mockup
+            question: options.question || null, // Pass question element for correct_answer
+            answerType: options.answerType || 'text' // Pass answerType for radio/checkbox
         };
         
         // Use the control view renderer
@@ -46,4 +54,5 @@ QuestionTypes.Text.ControlMockup = (function() {
     
     return { render: render };
 })();
+
 

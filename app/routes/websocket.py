@@ -90,15 +90,15 @@ def handle_start_quiz(data):
         return
     
     quizmaster_username = session.get('username', 'unknown')
-    quiz_name = quiz.get('name', 'Unknown Quiz')  # Name is only for display/stats
+    quiz_name = quiz.get('name', 'Unknown Quiz')  # Name is only for display
     
     # Create room (stores both quiz_id and quiz_name - quiz_id is the authoritative identifier)
     room_code = create_room(quiz_id, quiz_name, quiz, quizmaster_username)
     
-    # Record quiz run start (stats still uses quiz_name for tracking)
+    # Record quiz run start (use quiz_id, not quiz_name)
     from app.utils.stats import record_quiz_run
     import time
-    record_quiz_run(quiz_name, quizmaster_username, room_code, completed=False)
+    record_quiz_run(quiz_id, quizmaster_username, room_code, completed=False)
     
     emit('quiz_started', {'room_code': room_code})
     
@@ -160,6 +160,101 @@ def handle_quizmaster_join_control(data):
         'participants': participants_dict,
         'answers': room.get('answers', {})  # Send all submitted answers
     })
+
+@socketio.on('quizmaster_rerender_quiz')
+def handle_quizmaster_rerender_quiz(data):
+    """Quizmaster reloads quiz from file and updates running quiz."""
+    room_code = data.get('room_code')
+    if not room_code:
+        emit('error', {'message': 'Room code required'})
+        return
+    
+    # Check access
+    if not check_quizmaster_access(room_code):
+        return
+    
+    room = get_room(room_code)
+    if not room:
+        emit('error', {'message': 'Room not found or expired'})
+        return
+    
+    # Get quiz_id from room
+    quiz_id = room.get('quiz_id')
+    if not quiz_id:
+        emit('error', {'message': 'Quiz ID not found in room'})
+        return
+    
+    # Reload quiz from file
+    from app.utils.quiz_storage import load_quiz
+    updated_quiz = load_quiz(quiz_id)
+    if not updated_quiz:
+        emit('error', {'message': f'Failed to load quiz with ID: {quiz_id}'})
+        return
+    
+    # Update room's quiz data
+    room['quiz'] = updated_quiz
+    # Update quiz_name in case it changed
+    room['quiz_name'] = updated_quiz.get('name', 'Unknown Quiz')
+    
+    # Ensure current_page is still valid after reload
+    pages = updated_quiz.get('pages', [])
+    current_page_index = room.get('current_page', 0)
+    if current_page_index >= len(pages):
+        # Current page is out of bounds, reset to 0
+        current_page_index = 0
+        room['current_page'] = 0
+        room['page_start_time'] = time.time()
+    
+    room['last_activity'] = time.time()
+    save_room_state_now(room_code)
+    
+    # Get current page
+    current_page = pages[current_page_index] if current_page_index < len(pages) else None
+    
+    # Get participants dictionary for control page
+    participants_dict = {pid: {'name': p.get('name'), 'avatar': p.get('avatar')} 
+                         for pid, p in room.get('participants', {}).items()}
+    room_scores = room.get('scores', {})
+    
+    # Broadcast updated quiz to control view
+    emit('quiz_state', {
+        'quiz': updated_quiz,
+        'current_page': current_page_index,
+        'answers': room.get('answers', {})
+    }, room=f'control_{room_code}')
+    
+    # Also emit page_changed for control view (some handlers might listen to this)
+    emit('page_changed', {
+        'page_index': current_page_index,
+        'page': current_page,
+        'quiz': updated_quiz
+    }, room=f'control_{room_code}')
+    
+    # Broadcast to display view
+    emit('display_state', {
+        'room_code': room_code,
+        'current_page': current_page_index,
+        'page': current_page,
+        'quiz': updated_quiz,
+        'participants': participants_dict,
+        'scores': room_scores
+    }, room=f'display_{room_code}')
+    
+    # Also emit page_changed for display view
+    emit('page_changed', {
+        'page_index': current_page_index,
+        'page': current_page,
+        'quiz': updated_quiz,
+        'participants': participants_dict,
+        'scores': room_scores
+    }, room=f'display_{room_code}')
+    
+    # Broadcast to participant views
+    emit('page_changed', {
+        'page_index': current_page_index,
+        'page': current_page,
+        'quiz': updated_quiz
+    }, room=f'participant_{room_code}')
 
 @socketio.on('participant_join')
 def handle_participant_join(data):
@@ -311,7 +406,9 @@ def handle_display_join(data):
     if quiz:
         print(f"[DEBUG] Quiz keys: {list(quiz.keys())}")
     if current_page:
-        print(f"[DEBUG] Current page type: {current_page.get('type')}, elements: {len(current_page.get('elements', []))}")
+        elements = current_page.get('elements', {})
+        elements_count = len(elements) if isinstance(elements, dict) else 0
+        print(f"[DEBUG] Current page type: {current_page.get('type')}, elements: {elements_count}")
     
     # Get participants and scores for status page
     participants_dict = {pid: {'name': p.get('name'), 'avatar': p.get('avatar')}
@@ -601,15 +698,17 @@ def handle_control_element_appearance(data):
     room = get_room(room_code)
     if room:
         for page in room['quiz']['pages']:
-            for element in page.get('elements', []):
-                if element.get('id') == element_id:
-                    element['appearance_visible'] = visible
-                    # If it's a question, also update its answer_input's visibility
-                    if element.get('is_question'):
-                        for child_element in page.get('elements', []):
-                            if child_element.get('parent_id') == element_id and child_element.get('type') == 'answer_input':
-                                child_element['appearance_visible'] = visible
-                    break
+            elements = page.get('elements', {})
+            # Elements is a dict with element IDs as keys
+            if element_id in elements:
+                element = elements[element_id]
+                element['appearance_visible'] = visible
+                # If it's a question, also update its answer_input's visibility
+                if element.get('is_question'):
+                    for child_id, child_element in elements.items():
+                        if child_element.get('parent_id') == element_id and child_element.get('type') == 'answer_input':
+                            child_element['appearance_visible'] = visible
+                break
         update_room_state(room_code, room['quiz']) # Persist the change
     
     # Broadcast to display
@@ -645,10 +744,11 @@ def handle_element_appearance_changed(data):
     room = get_room(room_code)
     if room:
         for page in room['quiz']['pages']:
-            for element in page.get('elements', []):
-                if element.get('id') == element_id:
-                    element['appearance_visible'] = visible
-                    break
+            elements = page.get('elements', {})
+            # Elements is a dict with element IDs as keys
+            if element_id in elements:
+                elements[element_id]['appearance_visible'] = visible
+                break
         update_room_state(room_code, room['quiz'])
     
     # Broadcast to control room so toggles update
@@ -662,6 +762,49 @@ def handle_element_appearance_changed(data):
         'element_id': element_id,
         'visible': visible
     }, room=f'participant_{room_code}')
+
+@socketio.on('quizmaster_toggle_answer_display')
+def handle_toggle_answer_display(data):
+    """Quizmaster toggles answer display on display screen."""
+    room_code = data.get('room_code')
+    question_id = data.get('question_id')
+    visible = data.get('visible')
+    
+    if not all([room_code, question_id, visible is not None]):
+        emit('error', {'message': 'Missing required fields'})
+        return
+    
+    # Check authorization
+    if not check_quizmaster_access(room_code):
+        return
+    
+    # Get room to access answers and participants
+    room = get_room(room_code)
+    if not room:
+        emit('error', {'message': 'Room not found'})
+        return
+    
+    # Get answers and participants from room if not provided
+    answers = data.get('answers') or room.get('answers', {}).get(question_id, {})
+    participants_dict = data.get('participants') or {pid: {'name': p.get('name'), 'avatar': p.get('avatar')}
+                                                      for pid, p in room.get('participants', {}).items()}
+    
+    # Get answer visibility state and correct answer from data
+    answer_visibility = data.get('answerVisibility', {})
+    correct_answer = data.get('correctAnswer')
+    
+    # Broadcast to display room
+    emit('answer_display_toggle', {
+        'question_id': question_id,
+        'visible': visible,
+        'questionTitle': data.get('questionTitle', 'Question'),
+        'answers': answers,
+        'participants': participants_dict,
+        'answerType': data.get('answerType', 'text'),
+        'imageSrc': data.get('imageSrc'),
+        'answerVisibility': answer_visibility,
+        'correctAnswer': correct_answer
+    }, room=f'display_{room_code}')
 
 @socketio.on('quizmaster_end_quiz')
 def handle_end_quiz(data):
@@ -684,11 +827,12 @@ def handle_end_quiz(data):
         room['last_activity'] = time.time()
         # Don't save state - we're about to delete the room file
         
-        # Record quiz run completion
+        # Record quiz run completion (use quiz_id, not quiz_name)
         from app.utils.stats import record_quiz_run
-        quiz_name = room.get('quiz_name')
+        quiz_id = room.get('quiz_id')
         quizmaster_username = room.get('quizmaster', session.get('username', 'unknown'))
-        record_quiz_run(quiz_name, quizmaster_username, room_code, completed=True)
+        if quiz_id:
+            record_quiz_run(quiz_id, quizmaster_username, room_code, completed=True)
         
         # Broadcast end to all
         emit('quiz_ended', {

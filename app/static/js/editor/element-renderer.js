@@ -5,11 +5,13 @@ Editor.ElementRenderer = (function() {
     let selectElementCallback = null;
     let getCurrentQuizCallback = null;
     let getCurrentPageIndexCallback = null;
+    let getCurrentViewCallback = null;
 
-    function init(selectElementCb, getCurrentQuizCb, getCurrentPageIndexCb) {
+    function init(selectElementCb, getCurrentQuizCb, getCurrentPageIndexCb, getCurrentViewCb) {
         selectElementCallback = selectElementCb;
         getCurrentQuizCallback = getCurrentQuizCb;
         getCurrentPageIndexCallback = getCurrentPageIndexCb;
+        getCurrentViewCallback = getCurrentViewCb;
     }
 
     function renderMediaElement(el, element) {
@@ -52,13 +54,24 @@ Editor.ElementRenderer = (function() {
         const el = document.createElement('div');
         el.className = 'canvas-element';
         el.id = `element-${element.id}`;
+        // Add data attribute for element type to help with CSS targeting and debugging
+        if (element.type) {
+            el.setAttribute('data-type', element.type);
+        }
         
         // If inside a container, don't set absolute positioning
         if (!insideContainer) {
+            // CRITICAL: Use absolute pixel values from top-left corner of canvas (0,0 = top-left)
+            // For answer_display elements, these coordinates come from answer_display_config
+            // and must be respected exactly to match runtime positioning
+            el.style.position = 'absolute';
             el.style.left = `${element.x}px`;
             el.style.top = `${element.y}px`;
             el.style.width = `${element.width}px`;
             el.style.height = `${element.height}px`;
+            // Ensure no margin or padding that could affect positioning
+            el.style.margin = '0';
+            el.style.padding = '0';
         } else {
             // When inside a container, use relative positioning and full width
             el.style.position = 'relative';
@@ -77,6 +90,60 @@ Editor.ElementRenderer = (function() {
                 selectElementCallback(element);
             }
         });
+        
+        // Add right-click context menu for layering and alignment
+        // For main elements (not inside containers and not child elements), add context menu
+        // Also add context menu to answer_display and audio_control in control view and appearance_control for alignment
+        const currentView = getCurrentViewCallback ? getCurrentViewCallback() : null;
+        const isMainElement = !insideContainer && !element.parent_id && 
+            element.type !== 'answer_input' && element.type !== 'answer_display' && element.type !== 'audio_control';
+        const isAnswerDisplay = element.type === 'answer_display';
+        const isAudioControl = element.type === 'audio_control';
+        const isAppearanceControl = !insideContainer && element.type === 'appearance_control';
+        
+        // Add handler for main elements, appearance_control, answer_display, or audio_control
+        // We'll check view and conditions at event time
+        if (isMainElement || isAnswerDisplay || isAudioControl || isAppearanceControl) {
+            el.addEventListener('contextmenu', (e) => {
+                // Always check view at event time
+                const viewAtEventTime = getCurrentViewCallback ? getCurrentViewCallback() : null;
+                const isAnswerDisplayInControl = isAnswerDisplay && viewAtEventTime === 'control';
+                const isAudioControlInControl = isAudioControl && viewAtEventTime === 'control';
+                
+                // Check if we should handle this event
+                const shouldHandle = isMainElement || isAppearanceControl || isAnswerDisplayInControl || isAudioControlInControl;
+                
+                if (!shouldHandle) {
+                    return; // Don't handle, let browser show default menu
+                }
+                
+                // For answer_display and audio_control in control view, check if clicking on interactive elements
+                if (isAnswerDisplayInControl || isAudioControlInControl) {
+                    const target = e.target;
+                    // If clicking directly on an interactive element (not the container), let browser handle it
+                    if (target !== el && target !== document && 
+                        (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
+                        target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.closest('button') || target.closest('input') || 
+                        target.closest('label') || target.closest('select'))) {
+                        return; // Let browser handle interactive elements - don't prevent default
+                    }
+                }
+                
+                // Prevent default and show custom menu
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                
+                if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                    // Use global function to show context menu (set up in editor.js)
+                    if (typeof window.showElementContextMenu === 'function') {
+                        window.showElementContextMenu(e, element);
+                    }
+                }
+            }, true); // Use capture phase to ensure we catch it early
+        }
 
         // Render content based on type
         switch (element.type) {
@@ -260,31 +327,54 @@ Editor.ElementRenderer = (function() {
                 });
                 break;
             case 'answer_input': {
-                el.style.backgroundColor = 'transparent';
-                el.style.border = 'none';
+                // Match control view styling: white background with blue border
+                el.style.backgroundColor = 'white';
+                el.style.border = '2px solid #2196F3';
+                el.style.borderRadius = '8px';
                 el.style.display = 'flex';
                 el.style.flexDirection = 'column';
-                el.style.gap = '0.5rem';
-                el.style.padding = '0.5rem';
-                el.style.overflowY = 'auto';
-                el.style.overflowX = 'hidden';
+                el.style.padding = '1rem';
+                el.style.overflow = 'hidden';
                 el.style.boxSizing = 'border-box';
+                el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                 
                 const quizForInput = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
                 const pageIndexForInput = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
                 const pageForInput = quizForInput && quizForInput.pages ? quizForInput.pages[pageIndexForInput] : null;
-                const parentQuestionForInput = pageForInput && pageForInput.elements ? pageForInput.elements.find(e => e.id === element.parent_id) : null;
-                const answerType = element.answer_type || (parentQuestionForInput ? parentQuestionForInput.answer_type : 'text');
-                const options = element.options || (parentQuestionForInput ? parentQuestionForInput.options : []);
+                // elements is an object (dictionary) - access directly by ID
+                let parentQuestionForInput = null;
+                if (pageForInput && pageForInput.elements && typeof pageForInput.elements === 'object' && !Array.isArray(pageForInput.elements)) {
+                    parentQuestionForInput = pageForInput.elements[element.parent_id] || null;
+                }
+                // Get question_type from question_config or fallback to old answer_type
+                const parentQuestionType = parentQuestionForInput ? 
+                    ((parentQuestionForInput.question_config && parentQuestionForInput.question_config.question_type) || parentQuestionForInput.answer_type) : null;
+                const answerType = (element.question_config && element.question_config.question_type) || element.answer_type || parentQuestionType || 'text';
+                const options = element.options || (parentQuestionForInput && parentQuestionForInput.question_config ? parentQuestionForInput.question_config.options : []);
+                
+                // Get question title from question element (new format: in question_config)
+                const questionTitle = parentQuestionForInput && parentQuestionForInput.question_config ? (parentQuestionForInput.question_config.question_title || '') : '';
                 
                 el.innerHTML = '';
+                
+                // Title header at top (matching control view aesthetic)
+                if (questionTitle) {
+                    const titleHeader = document.createElement('div');
+                    titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0; margin-bottom: 0.5rem;';
+                    titleHeader.textContent = questionTitle;
+                    el.appendChild(titleHeader);
+                }
+                
+                // Content area (scrollable if needed)
+                const contentArea = document.createElement('div');
+                contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
                 
                 if (answerType === 'text') {
                     const textInput = document.createElement('input');
                     textInput.type = 'text';
                     textInput.placeholder = 'Type your answer...';
-                    textInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #2196F3; border-radius: 4px; font-size: 0.9rem;';
-                    el.appendChild(textInput);
+                    textInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #ddd; border-radius: 4px; font-size: 0.9rem;';
+                    contentArea.appendChild(textInput);
                     
                     const submitBtn = document.createElement('button');
                     submitBtn.textContent = 'Submit';
@@ -293,10 +383,10 @@ Editor.ElementRenderer = (function() {
                         e.stopPropagation();
                         alert('Submit clicked (editor mode)');
                     };
-                    el.appendChild(submitBtn);
+                    contentArea.appendChild(submitBtn);
                 } else if (answerType === 'radio') {
                     const optionsDiv = document.createElement('div');
-                    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; overflow-y: auto; overflow-x: hidden;';
+                    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
                     
                     (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option, index) => {
                         const label = document.createElement('label');
@@ -310,7 +400,7 @@ Editor.ElementRenderer = (function() {
                         label.appendChild(document.createTextNode(option));
                         optionsDiv.appendChild(label);
                     });
-                    el.appendChild(optionsDiv);
+                    contentArea.appendChild(optionsDiv);
                     
                     const submitBtn = document.createElement('button');
                     submitBtn.textContent = 'Submit';
@@ -319,10 +409,10 @@ Editor.ElementRenderer = (function() {
                         e.stopPropagation();
                         alert('Submit clicked (editor mode)');
                     };
-                    el.appendChild(submitBtn);
+                    contentArea.appendChild(submitBtn);
                 } else if (answerType === 'checkbox') {
                     const checkboxesDiv = document.createElement('div');
-                    checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; overflow-y: auto; overflow-x: hidden;';
+                    checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
                     
                     (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option) => {
                         const label = document.createElement('label');
@@ -335,7 +425,7 @@ Editor.ElementRenderer = (function() {
                         label.appendChild(document.createTextNode(option));
                         checkboxesDiv.appendChild(label);
                     });
-                    el.appendChild(checkboxesDiv);
+                    contentArea.appendChild(checkboxesDiv);
                     
                     const submitBtn = document.createElement('button');
                     submitBtn.textContent = 'Submit';
@@ -344,17 +434,16 @@ Editor.ElementRenderer = (function() {
                         e.stopPropagation();
                         alert('Submit clicked (editor mode)');
                     };
-                    el.appendChild(submitBtn);
+                    contentArea.appendChild(submitBtn);
                 } else if (answerType === 'image' || answerType === 'image_click') {
                     let imageSrc = null;
                     if (parentQuestionForInput) {
-                        imageSrc = parentQuestionForInput.src || 
-                                  (parentQuestionForInput.filename ? '/api/media/serve/' + parentQuestionForInput.filename : null) ||
-                                  parentQuestionForInput.image_src;
-                        
-                        if (!imageSrc && parentQuestionForInput.type === 'image') {
-                            imageSrc = parentQuestionForInput.src || (parentQuestionForInput.filename ? '/api/media/serve/' + parentQuestionForInput.filename : null);
-                        }
+                        // New format: image sources are in properties
+                        const properties = parentQuestionForInput.properties || {};
+                        imageSrc = properties.media_url || 
+                                  (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
+                                  (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
+                                  '';
                     }
                     
                     if (imageSrc) {
@@ -365,7 +454,7 @@ Editor.ElementRenderer = (function() {
                         
                         const img = document.createElement('img');
                         img.src = imageSrc;
-                        img.style.cssText = 'max-width: 100%; height: auto; display: block; cursor: crosshair; border: 2px solid #2196F3; border-radius: 4px;';
+                        img.style.cssText = 'max-width: 100%; height: auto; display: block; cursor: crosshair; border: 2px solid #ddd; border-radius: 4px;';
                         img.onclick = (e) => {
                             e.stopPropagation();
                             const rect = img.getBoundingClientRect();
@@ -381,12 +470,12 @@ Editor.ElementRenderer = (function() {
                             imageContainer.appendChild(clickIndicator);
                         };
                         imageContainer.appendChild(img);
-                        el.appendChild(imageContainer);
+                        contentArea.appendChild(imageContainer);
                     } else {
                         const placeholder = document.createElement('div');
                         placeholder.textContent = 'Image (set image source on parent question)';
-                        placeholder.style.cssText = 'padding: 2rem; text-align: center; border: 2px dashed #2196F3; border-radius: 4px; color: #666;';
-                        el.appendChild(placeholder);
+                        placeholder.style.cssText = 'padding: 2rem; text-align: center; border: 2px dashed #ddd; border-radius: 4px; color: #666;';
+                        contentArea.appendChild(placeholder);
                     }
                     
                     const submitBtn = document.createElement('button');
@@ -396,7 +485,7 @@ Editor.ElementRenderer = (function() {
                         e.stopPropagation();
                         alert('Submit clicked (editor mode)');
                     };
-                    el.appendChild(submitBtn);
+                    contentArea.appendChild(submitBtn);
                 } else if (answerType === 'stopwatch') {
                     const stopwatchContainer = document.createElement('div');
                     stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; align-items: center;';
@@ -457,150 +546,84 @@ Editor.ElementRenderer = (function() {
                     controlsDiv.appendChild(startBtn);
                     controlsDiv.appendChild(stopBtn);
                     stopwatchContainer.appendChild(controlsDiv);
-                    el.appendChild(stopwatchContainer);
+                    contentArea.appendChild(stopwatchContainer);
                 } else {
-                    el.textContent = `Answer Input (${answerType})`;
-                    el.style.backgroundColor = '#e3f2fd';
-                    el.style.border = '2px dashed #2196F3';
-                    el.style.borderRadius = '4px';
-                    el.style.padding = '1rem';
+                    contentArea.textContent = `Answer Input (${answerType})`;
+                    contentArea.style.backgroundColor = '#e3f2fd';
+                    contentArea.style.border = '2px dashed #2196F3';
+                    contentArea.style.borderRadius = '4px';
+                    contentArea.style.padding = '1rem';
+                }
+                
+                // Append content area to element
+                el.appendChild(contentArea);
+                
+                // Add right-click context menu for answer_input in participant view (even when inside container)
+                // This allows alignment of answer elements
+                const currentViewForInput = getCurrentViewCallback ? getCurrentViewCallback() : null;
+                if (insideContainer && currentViewForInput === 'participant') {
+                    el.addEventListener('contextmenu', (e) => {
+                        // Don't show context menu if clicking on interactive elements
+                        const target = e.target;
+                        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
+                            target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
+                            target.tagName === 'TEXTAREA' || target.tagName === 'IMG' ||
+                            target.closest('button') || target.closest('input') || 
+                            target.closest('label') || target.closest('select')) {
+                            return; // Let browser handle it for interactive elements
+                        }
+                        
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                            // Use global function to show context menu (set up in editor.js)
+                            if (typeof window.showElementContextMenu === 'function') {
+                                window.showElementContextMenu(e, element);
+                            }
+                        }
+                    }, true); // Use capture phase to ensure we catch it early
                 }
             }
             break;
             case 'appearance_control':
-                // Appearance control element - shows toggles for control mode elements
-                el.style.backgroundColor = '#f9f9f9';
-                el.style.border = '2px solid #2196F3';
-                el.style.borderRadius = '8px';
-                el.style.padding = '1rem';
-                el.style.display = 'flex';
-                el.style.flexDirection = 'column';
-                el.style.overflow = 'auto';
-                el.style.boxSizing = 'border-box';
-                
-                const appearanceTitle = document.createElement('div');
-                appearanceTitle.textContent = 'Element Appearance';
-                appearanceTitle.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #333; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 2px solid #ddd;';
-                el.appendChild(appearanceTitle);
-                
-                // Get page and elements for appearance controls
-                const quizForAppearance = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
-                const pageIndexForAppearance = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
-                const pageForAppearance = quizForAppearance && quizForAppearance.pages ? quizForAppearance.pages[pageIndexForAppearance] : null;
-                
-                if (pageForAppearance && pageForAppearance.elements) {
-                    // Initialize appearance_order if it doesn't exist
-                    if (!pageForAppearance.appearance_order) {
-                        const displayElements = pageForAppearance.elements.filter(el => 
-                            (!el.view || el.view === 'display') && 
-                            el.type !== 'navigation_control' && 
-                            el.type !== 'audio_control' && 
-                            el.type !== 'answer_input' && 
-                            el.type !== 'answer_display'
-                        );
-                        pageForAppearance.appearance_order = displayElements.map(el => el.id);
-                    }
-                    
-                    // Get elements in appearance order
-                    const orderedElements = (pageForAppearance.appearance_order || [])
-                        .map(id => pageForAppearance.elements.find(el => el.id === id))
-                        .filter(el => el && (!el.view || el.view === 'display') && 
-                                el.type !== 'navigation_control' && 
-                                el.type !== 'audio_control' && 
-                                el.type !== 'answer_input' && 
-                                el.type !== 'answer_display');
-                    
-                    // Generate unique names for elements (fallback if no custom name)
-                    const typeCounts = {};
-                    const elementNames = {};
-                    orderedElements.forEach(el => {
-                        const type = el.type || 'element';
-                        typeCounts[type] = (typeCounts[type] || 0) + 1;
-                        elementNames[el.id] = type + (typeCounts[type] || 1);
-                    });
-                    
-                    const controlsList = document.createElement('div');
-                    controlsList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
-                    
-                    orderedElements.forEach(element => {
-                        const appearanceMode = element.appearance_mode || 'on_load';
-                        const isControlMode = appearanceMode === 'control';
-                        
-                        // Only show control mode elements in the appearance control
-                        if (isControlMode) {
-                            const controlItem = document.createElement('div');
-                            controlItem.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px;';
-                            controlItem.dataset.elementId = element.id;
-                            
-                            const nameLabel = document.createElement('span');
-                            // Use custom appearance_name if available, otherwise fallback to generated name
-                            nameLabel.textContent = element.appearance_name || elementNames[element.id] || element.type || 'element';
-                            nameLabel.style.cssText = 'flex: 1; font-weight: 500; font-size: 0.9rem;';
-                            controlItem.appendChild(nameLabel);
-                            
-                            // Create toggle switch container
-                            const toggleContainer = document.createElement('div');
-                            toggleContainer.style.cssText = 'position: relative; width: 50px; height: 26px; cursor: pointer; flex-shrink: 0;';
-                            
-                            // Toggle track (background)
-                            const toggleTrack = document.createElement('div');
-                            toggleTrack.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 13px; transition: background-color 0.3s ease;';
-                            toggleContainer.appendChild(toggleTrack);
-                            
-                            // Toggle ball (slider)
-                            const toggleBall = document.createElement('div');
-                            toggleBall.style.cssText = 'position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
-                            toggleContainer.appendChild(toggleBall);
-                            
-                            // Function to update toggle state
-                            const updateToggleState = (isOn) => {
-                                element.appearance_visible = isOn;
-                                if (isOn) {
-                                    toggleTrack.style.backgroundColor = '#2196F3'; // Blue when on
-                                    toggleBall.style.transform = 'translateX(24px)'; // Move to right
-                                } else {
-                                    toggleTrack.style.backgroundColor = '#ccc'; // Grey when off
-                                    toggleBall.style.transform = 'translateX(0)'; // Move to left
-                                }
-                            };
-                            
-                            // Initialize toggle state
-                            const initialVisible = element.appearance_visible || false;
-                            updateToggleState(initialVisible);
-                            
-                            // Click handler
-                            toggleContainer.onclick = (e) => {
-                                e.stopPropagation();
-                                const currentState = element.appearance_visible || false;
-                                const newState = !currentState;
-                                updateToggleState(newState);
-                                // Trigger autosave
-                                if (typeof autosaveQuiz === 'function') {
-                                    autosaveQuiz();
-                                }
-                            };
-                            
-                            // Store update function on element for external updates
-                            element._updateAppearanceToggle = updateToggleState;
-                            
-                            controlItem.appendChild(toggleContainer);
-                            controlsList.appendChild(controlItem);
+                // Ensure dimensions are set for appearance_control elements
+                if (!insideContainer) {
+                    el.style.position = 'absolute';
+                    el.style.width = `${element.width}px`;
+                    el.style.height = `${element.height}px`;
+                    el.style.overflow = 'hidden'; // Hide overflow on outer element
+                    el.style.boxSizing = 'border-box';
+                } else {
+                    el.style.overflowY = 'auto';
+                    el.style.overflowX = 'hidden';
+                    el.style.boxSizing = 'border-box';
+                }
+                // Use the dedicated appearance control renderer
+                if (Editor && Editor.AppearanceControlRenderer && Editor.AppearanceControlRenderer.render) {
+                    const quiz = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
+                    const pageIndex = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
+                    const page = quiz && quiz.pages && quiz.pages[pageIndex] ? quiz.pages[pageIndex] : null;
+                    Editor.AppearanceControlRenderer.render(el, element, {
+                        getCurrentQuiz: getCurrentQuizCallback,
+                        getCurrentPageIndex: getCurrentPageIndexCallback,
+                        getCurrentView: getCurrentViewCallback,
+                        isRuntime: false, // Editor mode - toggles are non-functional
+                        quiz: quiz,
+                        page: page,
+                        autosaveQuiz: function() {
+                            if (window.Editor && window.Editor.QuizStorage && window.Editor.QuizStorage.autosaveQuiz) {
+                                window.Editor.QuizStorage.autosaveQuiz();
+                            }
+                        },
+                        renderCanvas: function() {
+                            if (window.Editor && window.Editor.CanvasRenderer && window.Editor.CanvasRenderer.renderCanvas) {
+                                window.Editor.CanvasRenderer.renderCanvas();
+                            }
                         }
                     });
-                    
-                    if (controlsList.children.length === 0) {
-                        const noControls = document.createElement('p');
-                        noControls.style.cssText = 'color: #666; font-style: italic; font-size: 0.9rem; padding: 0.5rem;';
-                        noControls.textContent = 'No elements with control mode';
-                        controlsList.appendChild(noControls);
-                    }
-                    
-                    el.appendChild(controlsList);
                 } else {
-                    const noPage = document.createElement('p');
-                    noPage.style.cssText = 'color: #666; font-style: italic; font-size: 0.9rem; padding: 0.5rem;';
-                    noPage.textContent = 'No page data available';
-                    el.appendChild(noPage);
+                    // Fallback if renderer not available
+                    el.innerHTML = '<p style="padding: 1rem; color: #666;">Appearance control renderer not available</p>';
                 }
                 break;
             case 'answer_display':
@@ -608,29 +631,34 @@ Editor.ElementRenderer = (function() {
                 const quizForDisplay = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
                 const pageIndexForDisplay = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
                 const pageForDisplay = quizForDisplay && quizForDisplay.pages ? quizForDisplay.pages[pageIndexForDisplay] : null;
-                const parentQuestion = pageForDisplay && pageForDisplay.elements ? pageForDisplay.elements.find(e => e.id === element.parent_id) : null;
-                
-                // Get answer_type - prioritize question element's answer_type as source of truth (matching runtime)
-                // Fallback to answer_input element, then to answer_display element
-                // This handles legacy quizzes where answer_display.answer_type might be incorrect
-                let answerType = null;
-                if (parentQuestion && parentQuestion.answer_type) {
-                    answerType = parentQuestion.answer_type;
+                // elements is an object (dictionary) - access directly by ID
+                let parentQuestion = null;
+                if (pageForDisplay && pageForDisplay.elements && typeof pageForDisplay.elements === 'object' && !Array.isArray(pageForDisplay.elements)) {
+                    parentQuestion = pageForDisplay.elements[element.parent_id] || null;
                 }
-                if (!answerType && pageForDisplay && pageForDisplay.elements) {
+                
+                // Get question_type - prioritize question element's question_config.question_type as source of truth (matching runtime)
+                // Fallback to old answer_type for backwards compatibility
+                let answerType = null;
+                if (parentQuestion) {
+                    answerType = (parentQuestion.question_config && parentQuestion.question_config.question_type) || parentQuestion.answer_type;
+                }
+                if (!answerType && pageForDisplay && pageForDisplay.elements && typeof pageForDisplay.elements === 'object' && !Array.isArray(pageForDisplay.elements)) {
                     // Try to get it from the associated answer_input element
-                    const answerInput = pageForDisplay.elements.find(el => 
+                    // elements is an object - search through values
+                    const elementsArray = Object.values(pageForDisplay.elements);
+                    const answerInput = elementsArray.find(el => 
                         el.type === 'answer_input' && 
                         el.parent_id === element.parent_id && 
                         el.view === 'participant'
                     );
-                    if (answerInput && answerInput.answer_type) {
-                        answerType = answerInput.answer_type;
+                    if (answerInput) {
+                        answerType = (answerInput.question_config && answerInput.question_config.question_type) || answerInput.answer_type;
                     }
                 }
-                // Last fallback to answer_display element's answer_type
-                if (!answerType && element.answer_type) {
-                    answerType = element.answer_type;
+                // Last fallback to answer_display element's question_type or answer_type
+                if (!answerType) {
+                    answerType = (element.question_config && element.question_config.question_type) || element.answer_type;
                 }
                 // Default to 'text' if still not found
                 if (!answerType) {
@@ -642,30 +670,60 @@ Editor.ElementRenderer = (function() {
                     answerType = 'image_click';
                 }
                 
-                const questionTitle = parentQuestion ? (parentQuestion.question_title || 'Question') : 'Question';
+                // Use actual question title from question element, not "Question" as fallback
+                const questionTitle = parentQuestion ? (parentQuestion.question_title || (parentQuestion.question_config && parentQuestion.question_config.question_title) || '') : '';
                 
-                console.log('[DEBUG editor answer_display]', {
-                    elementId: element.id,
-                    elementAnswerType: element.answer_type,
-                    finalAnswerType: answerType,
-                    parentQuestionId: element.parent_id,
-                    parentQuestionAnswerType: parentQuestion ? parentQuestion.answer_type : null
-                });
-                
-                // Ensure content doesn't overflow the container - allow scrolling for all answer types
-                el.style.overflowY = 'auto';
-                el.style.overflowX = 'hidden';
-                el.style.boxSizing = 'border-box';
-                // Keep the fixed width/height from element (set earlier in renderElementOnCanvas)
+                // CRITICAL: Ensure answer_display elements use absolute positioning with exact coordinates
+                // This is essential to match runtime positioning and allow overlapping elements
+                // Enforce the configured width and height strictly (only if not inside a container)
+                if (!insideContainer) {
+                    // Force absolute positioning - coordinates are absolute pixel values from top-left of canvas
+                    // IMPORTANT: Set position AFTER content is rendered to ensure it's not overridden
+                    // But we need to set it here first, then re-apply after content is added
+                    el.style.position = 'absolute';
+                    // CRITICAL: Use exact coordinates from element.x and element.y (already set in renderElementOnCanvas)
+                    // These coordinates come from answer_display_config and must be respected exactly
+                    el.style.left = `${element.x}px`;
+                    el.style.top = `${element.y}px`;
+                    el.style.width = `${element.width}px`;
+                    el.style.height = `${element.height}px`;
+                    el.style.minWidth = `${element.width}px`;
+                    el.style.maxWidth = `${element.width}px`;
+                    el.style.minHeight = `${element.height}px`;
+                    el.style.maxHeight = `${element.height}px`;
+                    el.style.overflow = 'hidden'; // Hide overflow on outer element - inner content handles scrolling
+                    el.style.boxSizing = 'border-box';
+                    // Ensure no margin or padding that could affect positioning
+                    el.style.margin = '0';
+                    el.style.padding = '0';
+                    // Ensure elements can overlap by allowing them to have the same z-index
+                    el.style.zIndex = '100';
+                } else {
+                    el.style.overflowY = 'auto';
+                    el.style.overflowX = 'hidden';
+                    el.style.boxSizing = 'border-box';
+                }
                 
                 // Clear innerHTML - ControlView.render() will handle all styling and content
                 el.innerHTML = '';
                 
                 // Use control_mockup files for preview (which will call ControlView.render that handles all styling)
+                // Get image source from parent question (new format: in properties)
+                let imageSrc = '';
+                if (parentQuestion) {
+                    const properties = parentQuestion.properties || {};
+                    imageSrc = properties.media_url || 
+                              (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
+                              (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
+                              '';
+                }
+                
                 const mockOptions = {
                     questionId: element.parent_id || 'mock-question',
                     questionTitle: questionTitle,
-                    imageSrc: parentQuestion && (parentQuestion.src || (parentQuestion.filename ? '/api/media/serve/' + parentQuestion.filename : null)) || ''
+                    imageSrc: imageSrc,
+                    question: parentQuestion || null, // Pass question element for correct_answer access
+                    answerType: answerType // Pass answerType for radio/checkbox correct answer display
                 };
                 
                 // Route to appropriate control mockup renderer
@@ -683,6 +741,26 @@ Editor.ElementRenderer = (function() {
                 } else {
                     console.warn('Control mockup not found for answer type:', answerType);
                     el.textContent = `Preview not available for ${answerType}`;
+                }
+                
+                // CRITICAL: Re-apply absolute positioning after content is rendered
+                // ControlView.render() sets position: 'relative' on the container, which breaks absolute positioning
+                // We must override this to maintain the exact coordinates from answer_display_config
+                if (!insideContainer) {
+                    // Force absolute positioning again after content is rendered
+                    el.style.position = 'absolute';
+                    el.style.left = `${element.x}px`;
+                    el.style.top = `${element.y}px`;
+                    el.style.width = `${element.width}px`;
+                    el.style.height = `${element.height}px`;
+                    // Ensure the inner content container doesn't override positioning
+                    const innerContainer = el.querySelector('div[style*="position"]');
+                    if (innerContainer && innerContainer.style.position === 'relative') {
+                        // Keep inner container as relative for its own layout, but ensure outer stays absolute
+                        // The inner container should fill the outer container
+                        innerContainer.style.width = '100%';
+                        innerContainer.style.height = '100%';
+                    }
                 }
                 
                 // Old inline rendering code removed - now using control_mockup files

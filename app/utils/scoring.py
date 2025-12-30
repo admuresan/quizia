@@ -78,3 +78,4 @@ def calculate_score(room):
     
     return scores
 
+

@@ -20,6 +20,7 @@
     window.roomCode = '{{ room_code }}';
     window.participantId = sessionStorage.getItem('participant_id');
 </script>
+<script src="{{ url_for('static', filename='js/background-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/question-types/common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/question-types/text/participant_view.js') }}"></script>
@@ -27,6 +28,7 @@
 <script src="{{ url_for('static', filename='js/question-types/checkbox/participant_view.js') }}"></script>
 <script src="{{ url_for('static', filename='js/question-types/stopwatch/participant_view.js') }}"></script>
 <script src="{{ url_for('static', filename='js/question-types/image_click/participant_view.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/quiz-structure.js') }}"></script>
 <script src="{{ url_for('static', filename='js/runtime-element-renderer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/participant.js') }}"></script>
 {% endblock %}

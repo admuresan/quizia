@@ -9,20 +9,39 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
     function render(container, element, options) {
         const questionId = element.parent_id;
         const question = options.question || null;
+        const questionTitle = options.questionTitle || '';
         const submittedAnswer = options.submittedAnswer || null;
         const submitAnswerCallback = options.submitAnswerCallback || null;
         
-        container.style.backgroundColor = 'transparent';
-        container.style.border = 'none';
         container.style.display = 'flex';
         container.style.flexDirection = 'column';
         container.style.gap = '0.5rem';
-        container.style.padding = '0.5rem';
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.overflow = 'hidden';
+        container.style.boxSizing = 'border-box';
         
-        // Get image source from question element
+        // Title header at top (matching control view aesthetic)
+        if (questionTitle) {
+            const titleHeader = document.createElement('div');
+            titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0;';
+            titleHeader.textContent = questionTitle;
+            container.appendChild(titleHeader);
+        }
+        
+        // Content area (scrollable if needed)
+        const contentArea = document.createElement('div');
+        contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
+        
+        // Get image source from question element (new format: in properties)
         let imageSrc = null;
         if (question) {
-            imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
+            const properties = question.properties || {};
+            imageSrc = properties.media_url || 
+                      (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
+                      (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
+                      question.src || 
+                      (question.filename ? '/api/media/serve/' + question.filename : null);
         }
         if (!imageSrc) {
             imageSrc = element.image_src || element.src;
@@ -99,20 +118,27 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
             }
             
             imageContainer.appendChild(img);
-            container.appendChild(imageContainer);
-            container.appendChild(submitBtn);
+            contentArea.appendChild(imageContainer);
+            contentArea.appendChild(submitBtn);
             
             if (submittedAnswer) {
                 const submittedMsg = document.createElement('div');
                 submittedMsg.textContent = 'Answer already submitted';
                 submittedMsg.style.cssText = 'color: #666; font-size: 0.85rem; font-style: italic;';
-                container.appendChild(submittedMsg);
+                contentArea.appendChild(submittedMsg);
             }
+            
+            container.appendChild(contentArea);
         } else {
-            container.textContent = 'Image not available';
+            const noImageMsg = document.createElement('div');
+            noImageMsg.textContent = 'Image not available';
+            noImageMsg.style.cssText = 'color: #666; font-style: italic; text-align: center; padding: 2rem;';
+            contentArea.appendChild(noImageMsg);
+            container.appendChild(contentArea);
         }
     }
     
     return { render: render };
 })();
+
 

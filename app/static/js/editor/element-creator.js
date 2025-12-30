@@ -26,19 +26,20 @@
         },
 
         createAnswerDisplayElement: function(parentQuestion) {
-            // Always use parent question's answer_type to ensure they match
-            const answerType = parentQuestion.answer_type || 'text';
+            // Always use parent question's question_type to ensure they match
+            const answerType = (parentQuestion.question_config && parentQuestion.question_config.question_type) || parentQuestion.answer_type || 'text';
             return {
                 id: `element-${Date.now()}-answer-display`,
                 type: 'answer_display',
                 parent_id: parentQuestion.id,
                 view: 'control',
-                answer_type: answerType, // Must match parent question's answer_type
+                question_config: { question_type: answerType }, // New format
+                answer_type: answerType, // Backwards compatibility
                 x: parentQuestion.x || 50,
                 y: (parentQuestion.y || 50) + (parentQuestion.height || 100) + 20,
                 width: 600,
                 height: 300,
-                options: parentQuestion.options || [],
+                options: parentQuestion.options || (parentQuestion.question_config && parentQuestion.question_config.options) || [],
                 filename: parentQuestion.filename,
                 src: parentQuestion.src
             };
@@ -53,24 +54,33 @@
                 x: 50,
                 y: 100,
                 width: 400,
-                height: 300
+                height: 300,
+                properties: {},
+                appearance_config: {
+                    appearance_type: 'on_load',
+                    appearance_order: 999
+                }
             };
         },
 
         createQuestionChildElements: function(parentElement) {
             const childElements = [];
             
+            const answerType = (parentElement.question_config && parentElement.question_config.question_type) || parentElement.answer_type || 'text';
+            const options = parentElement.options || (parentElement.question_config && parentElement.question_config.options) || [];
+            
             const answerElement = {
                 id: `element-${Date.now()}-answer`,
                 type: 'answer_input',
                 parent_id: parentElement.id,
                 view: 'participant',
-                answer_type: parentElement.answer_type || 'text',
+                question_config: { question_type: answerType, options: options }, // New format
+                answer_type: answerType, // Backwards compatibility
                 x: 50,
                 y: 100,
                 width: 400,
                 height: 100,
-                options: parentElement.options || []
+                options: options
             };
             childElements.push(answerElement);
             
@@ -79,7 +89,8 @@
                 type: 'answer_display',
                 parent_id: parentElement.id,
                 view: 'control',
-                answer_type: parentElement.answer_type || 'text',
+                question_config: { question_type: answerType, options: options }, // New format
+                answer_type: answerType, // Backwards compatibility
                 x: 50,
                 y: 200,
                 width: 600,
@@ -130,14 +141,39 @@
                                     filename: selectedMedia.filename
                                 };
 
-                                if (!page.elements) {
-                                    page.elements = [];
-                                }
-                                page.elements.push(element);
-                                
-                                const controlElement = this.createMediaControlElement(element);
-                                if (controlElement) {
-                                    page.elements.push(controlElement);
+                                // Use QuizStructure helper to add element
+                                if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                                    const currentQuiz = callbacks.getCurrentQuiz();
+                                    const currentPageIndex = callbacks.getCurrentPageIndex();
+                                    let currentPage = currentQuiz.pages[currentPageIndex];
+                                    
+                                    const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === currentPage) {
+                                        currentQuiz.pages[currentPageIndex] = updatedPage;
+                                        currentPage = updatedPage;
+                                    }
+                                    
+                                    // Store media control position in parent element's control view config (not separate entry)
+                                    const controlElement = this.createMediaControlElement(element);
+                                    if (controlElement) {
+                                        if (!currentPage.views) {
+                                            currentPage.views = {
+                                                display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                                participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                                control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
+                                            };
+                                        }
+                                        if (!currentPage.views.control.local_element_configs[element.id]) {
+                                            currentPage.views.control.local_element_configs[element.id] = { config: {} };
+                                        }
+                                        currentPage.views.control.local_element_configs[element.id].control_config = {
+                                            x: controlElement.x || 0,
+                                            y: controlElement.y || 0,
+                                            width: controlElement.width || 400,
+                                            height: controlElement.height || 80,
+                                            rotation: controlElement.rotation || 0
+                                        };
+                                    }
                                 }
                                 
                                 if (callbacks.onElementAdded) {
@@ -162,14 +198,39 @@
                                     filename: selectedMedia.filename
                                 };
 
-                                if (!page.elements) {
-                                    page.elements = [];
-                                }
-                                page.elements.push(element);
-                                
-                                const controlElement = this.createMediaControlElement(element);
-                                if (controlElement) {
-                                    page.elements.push(controlElement);
+                                // Use QuizStructure helper to add element
+                                if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                                    const currentQuiz = callbacks.getCurrentQuiz();
+                                    const currentPageIndex = callbacks.getCurrentPageIndex();
+                                    let currentPage = currentQuiz.pages[currentPageIndex];
+                                    
+                                    const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === currentPage) {
+                                        currentQuiz.pages[currentPageIndex] = updatedPage;
+                                        currentPage = updatedPage;
+                                    }
+                                    
+                                    // Store media control position in parent element's control view config (not separate entry)
+                                    const controlElement = this.createMediaControlElement(element);
+                                    if (controlElement) {
+                                        if (!currentPage.views) {
+                                            currentPage.views = {
+                                                display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                                participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                                control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
+                                            };
+                                        }
+                                        if (!currentPage.views.control.local_element_configs[element.id]) {
+                                            currentPage.views.control.local_element_configs[element.id] = { config: {} };
+                                        }
+                                        currentPage.views.control.local_element_configs[element.id].control_config = {
+                                            x: controlElement.x || 0,
+                                            y: controlElement.y || 0,
+                                            width: controlElement.width || 400,
+                                            height: controlElement.height || 80,
+                                            rotation: controlElement.rotation || 0
+                                        };
+                                    }
                                 }
                                 
                                 if (callbacks.onElementAdded) {
@@ -195,14 +256,25 @@
                                 filename: selectedMedia.filename
                             };
 
-                            if (!page.elements) {
-                                page.elements = [];
-                            }
-                            page.elements.push(element);
-                            
-                            const controlElement = this.createMediaControlElement(element);
-                            if (controlElement) {
-                                page.elements.push(controlElement);
+                            // Use QuizStructure helper to add element
+                            if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                                const updatedPage = Editor.QuizStructure.setPageElement(page, element);
+                                // Update the page in the quiz (in case setPageElement created a new object)
+                                const currentQuiz = callbacks.getCurrentQuiz();
+                                const currentPageIndex = callbacks.getCurrentPageIndex();
+                                if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === page) {
+                                    currentQuiz.pages[currentPageIndex] = updatedPage;
+                                    page = updatedPage; // Update local reference
+                                }
+                                
+                                const controlElement = this.createMediaControlElement(element);
+                                if (controlElement) {
+                                    const updatedPage2 = Editor.QuizStructure.setPageElement(page, controlElement);
+                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === page) {
+                                        currentQuiz.pages[currentPageIndex] = updatedPage2;
+                                        page = updatedPage2; // Update local reference
+                                    }
+                                }
                             }
                             
                             if (callbacks.onElementAdded) {
@@ -248,10 +320,22 @@
                 element.background_color = 'transparent';
             }
 
-            if (!page.elements) {
-                page.elements = [];
+            // Use QuizStructure helper to add element
+            if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                const currentQuiz = callbacks.getCurrentQuiz();
+                const currentPageIndex = callbacks.getCurrentPageIndex();
+                // Get the current page reference (in case it changed)
+                const currentPage = currentQuiz.pages[currentPageIndex];
+                const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                // Always update the page reference in the quiz
+                if (currentQuiz && currentQuiz.pages) {
+                    currentQuiz.pages[currentPageIndex] = updatedPage;
+                } else {
+                    console.error('[ElementCreator] Failed to update page - quiz or pages array is null');
+                }
+            } else {
+                console.error('[ElementCreator] QuizStructure.setPageElement not available');
             }
-            page.elements.push(element);
             
             if (callbacks.onElementAdded) {
                 callbacks.onElementAdded(element);

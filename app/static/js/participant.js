@@ -95,7 +95,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.current_page !== undefined) {
             currentPageIndex = data.current_page;
         }
-        console.log('Joined room - current page index:', currentPageIndex);
         renderPage(currentPageIndex, data.page);
     });
     
@@ -127,7 +126,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.page_index !== undefined) {
             currentPageIndex = data.page_index;
         }
-        console.log('Page changed to index:', currentPageIndex);
         renderPage(currentPageIndex, data.page);
     });
 
@@ -207,56 +205,71 @@ function renderPage(pageIndex, page) {
 
     currentPage = page;
 
-    if (page.type === 'status' || page.type === 'results') {
+    // Check page type
+    const pageType = page.page_type;
+    if (pageType === 'status_page' || pageType === 'result_page') {
         container.innerHTML = '<div class="question-container">Viewing status page...</div>';
         return;
     }
 
-    // Set up container - match editor participant view
+    // Get canvas dimensions from page view_config.size (new format) FIRST
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+    if (page && page.views && page.views.participant && page.views.participant.view_config && page.views.participant.view_config.size) {
+        canvasWidth = page.views.participant.view_config.size.width || 1920;
+        canvasHeight = page.views.participant.view_config.size.height || 1080;
+    }
+    
+    // Set up container - match editor participant view with exact dimensions
     container.innerHTML = '';
     container.style.position = 'relative';
-    container.style.width = '100%';
-    container.style.minHeight = 'calc(100vh - 120px)';
-    
-    // Set background - use page background if available, otherwise use quiz background
-    const bgColor = page?.background_color || quiz?.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    const bgImage = page?.background_image || quiz?.background_image;
-    
-    if (bgImage) {
-        container.style.backgroundImage = `url(${bgImage})`;
-        container.style.backgroundSize = 'cover';
-        container.style.backgroundPosition = 'center';
-        container.style.backgroundRepeat = 'no-repeat';
-    } else {
-        container.style.background = bgColor;
-        container.style.backgroundImage = 'none';
-    }
-
-    // Get canvas dimensions
-    const viewSettings = quiz?.view_settings?.participant || { canvas_width: 1920, canvas_height: 1080 };
-    const canvasWidth = viewSettings.canvas_width || 1920;
     container.style.width = `${canvasWidth}px`;
-    container.style.maxWidth = '100%';
+    container.style.height = `${canvasHeight}px`;
+    container.style.minWidth = `${canvasWidth}px`;
+    container.style.maxWidth = `${canvasWidth}px`;
+    container.style.minHeight = `${canvasHeight}px`;
+    container.style.maxHeight = `${canvasHeight}px`;
+    container.style.boxSizing = 'border-box';
+    container.style.overflow = 'auto';
+    
+    // Set background using shared utility function
+    // NO hardcoded fallbacks - only use what's in the saved quiz
+    if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
+        window.BackgroundUtils.applyBackground(container, page, quiz, 'participant');
+    } else {
+        console.error('BackgroundUtils not available');
+    }
 
-    // Initialize appearance_order if it doesn't exist
-    if (!page.appearance_order) {
-        const displayElements = page.elements.filter(el => 
-            (!el.view || el.view === 'display') && 
-            el.type !== 'navigation_control' && 
-            el.type !== 'audio_control' && 
-            el.type !== 'answer_input' && 
-            el.type !== 'answer_display'
-        );
-        page.appearance_order = displayElements.map(el => el.id);
+    // Get appearance_order and question elements
+    let appearanceOrder = [];
+    let questionElements = [];
+    let participantElements = []; // Includes dynamically generated answer_input elements
+    
+    // Use helper function to get globals
+    if (Editor && Editor.QuizStructure && Editor.QuizStructure.getPageGlobals) {
+        const globals = Editor.QuizStructure.getPageGlobals(page);
+        appearanceOrder = globals.appearance_order || [];
+    } else {
+        console.error('Editor.QuizStructure.getPageGlobals not available');
     }
     
-    // Find question elements and render them - matching editor participant view structure
-    const questionElements = page.elements?.filter(el => el.is_question && (!el.view || el.view === 'display')) || [];
+    // Get question elements from display view (for question data)
+    if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+        const displayElements = Editor.QuizStructure.getViewElements(page, 'display');
+        questionElements = displayElements.filter(el => el.is_question);
+        
+        // Get participant view elements (includes dynamically generated answer_input elements)
+        participantElements = Editor.QuizStructure.getViewElements(page, 'participant');
+    } else {
+        console.error('Editor.QuizStructure.getViewElements not available');
+    }
     
     // Get questions in appearance order
-    const orderedQuestions = page.appearance_order
-        .map(id => questionElements.find(el => el.id === id))
-        .filter(el => el);
+    const orderedQuestions = appearanceOrder.length > 0
+        ? appearanceOrder
+            .map(id => questionElements.find(el => el.id === id))
+            .filter(el => el)
+        : questionElements;
     
     // Function to show a question and its answer box
     const showQuestion = (questionId) => {
@@ -284,11 +297,10 @@ function renderPage(pageIndex, page) {
         questionContainer.id = `question-${question.id}`;
         questionContainer.style.cssText = 'position: relative; background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1rem; margin-left: auto; margin-right: auto; max-width: 800px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
         
-        // Find the answer_input element for this question
-        const answerInput = page.elements?.find(el => 
-            el.type === 'answer_input' && 
-            el.parent_id === question.id && 
-            el.view === 'participant'
+        // Find the answer_input element for this question from participant view elements
+        // answer_input elements are dynamically generated by getViewElements and have parent_id pointing to the question
+        let answerInput = participantElements.find(el => 
+            el.type === 'answer_input' && el.parent_id === question.id
         );
         
         // Add question title if available
@@ -303,15 +315,7 @@ function renderPage(pageIndex, page) {
         }
         
         // Find and render the answer_input element for this question
-        console.log(`Looking for answer_input for question ${question.id}:`, {
-            questionId: question.id,
-            totalElements: page.elements?.length,
-            answerInputs: page.elements?.filter(el => el.type === 'answer_input'),
-            matchingInput: answerInput
-        });
-        
         if (answerInput) {
-            console.log(`Found answer_input for question ${question.id}:`, answerInput);
             // Check if this question was already answered
             const submittedAnswer = submittedAnswers[question.id];
             
@@ -324,21 +328,15 @@ function renderPage(pageIndex, page) {
                 submittedAnswer: submittedAnswer // Pass submitted answer if exists
             });
             
-            console.log('Rendered element:', renderedEl, 'Has parent:', renderedEl?.parentElement, 'Children:', renderedEl?.children);
-            
             // When insideContainer is true, we need to manually append the element
             if (renderedEl && !renderedEl.parentElement) {
                 questionContainer.appendChild(renderedEl);
-                console.log('Appended rendered element to question container');
-            } else if (renderedEl && renderedEl.parentElement) {
-                console.log('Rendered element already has parent, not appending');
-            } else {
+            } else if (!renderedEl) {
                 console.error('renderedEl is null or undefined!');
             }
             
             // Set up submit handlers for the rendered elements
             const submitBtns = renderedEl?.querySelectorAll?.('.submit-answer-btn') || [];
-            console.log(`Found ${submitBtns.length} submit buttons`);
             submitBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const questionId = btn.dataset.questionId;

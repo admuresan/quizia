@@ -42,6 +42,7 @@ def save_quiz_route():
     data = request.json
     quiz_data = data.get('quiz')
     quiz_id = data.get('id')
+    force_recreate = data.get('force_recreate', False)
     
     if not quiz_data:
         return jsonify({'error': 'Quiz data required'}), 400
@@ -70,7 +71,7 @@ def save_quiz_route():
     # Set ID in quiz data
     quiz_data['id'] = quiz_id
     
-    result = save_quiz(quiz_id, quiz_data)
+    result = save_quiz(quiz_id, quiz_data, force_recreate=force_recreate)
     if result['success']:
         return jsonify({'message': 'Quiz saved', 'id': quiz_id}), 200
     else:
@@ -264,7 +265,7 @@ def end_running_quiz(room_code):
     username = session.get('username')
     
     # Check if room exists and belongs to this quizmaster
-    from app.utils.room_manager import get_room
+    from app.utils.room_manager import get_room, end_room
     room = get_room(room_code)
     
     if not room:
@@ -274,62 +275,82 @@ def end_running_quiz(room_code):
         return jsonify({'error': 'Only the quizmaster who started this quiz can end it'}), 403
     
     # End the room - use the same logic as websocket handler
-    from app.utils.scoring import calculate_score
-    from app.utils.stats import record_quiz_run
-    from app import socketio
+    # Wrap in try-except to ensure room is always ended even if stats/socket operations fail
+    try:
+        from app.utils.scoring import calculate_score
+        from app.utils.stats import record_quiz_run
+        from app import socketio
+        
+        # Calculate final scores
+        scores = calculate_score(room)
+        room['scores'] = scores
+        room['ended'] = True
+        room['last_activity'] = time.time()
+        
+        # Don't save state - we're about to delete the room file
+        
+        # Record quiz run completion (use quiz_id, not quiz_name)
+        quiz_id = room.get('quiz_id')
+        try:
+            if quiz_id:
+                record_quiz_run(quiz_id, username, room_code, completed=True)
+        except Exception as e:
+            # Log error but don't fail - stats recording is not critical
+            print(f"Warning: Failed to record quiz run stats: {e}")
+        
+        # Get final rankings
+        participants = room.get('participants', {})
+        rankings = []
+        for participant_id, participant in participants.items():
+            rankings.append({
+                'id': participant_id,
+                'name': participant.get('name'),
+                'avatar': participant.get('avatar'),
+                'score': scores.get(participant_id, 0)
+            })
+        
+        rankings.sort(key=lambda x: x['score'], reverse=True)
+        for i, ranking in enumerate(rankings):
+            ranking['rank'] = i + 1
+        
+        # Broadcast end to all rooms
+        try:
+            socketio.emit('quiz_ended', {
+                'scores': scores,
+                'final_rankings': rankings
+            }, room=f'display_{room_code}')
+            
+            socketio.emit('quiz_ended', {
+                'scores': scores,
+                'final_rankings': rankings
+            }, room=f'participant_{room_code}')
+            
+            socketio.emit('quiz_ended', {
+                'scores': scores,
+                'final_rankings': rankings
+            }, room=f'control_{room_code}')
+        except Exception as e:
+            # Log error but don't fail - socket operations are not critical
+            print(f"Warning: Failed to emit quiz_ended events: {e}")
+        
+        # Disconnect all clients from the rooms
+        try:
+            from flask_socketio import close_room
+            close_room(f'display_{room_code}')
+            close_room(f'participant_{room_code}')
+            close_room(f'control_{room_code}')
+        except Exception as e:
+            # Log error but don't fail
+            print(f"Warning: Failed to close rooms: {e}")
+    except Exception as e:
+        # Log the error but ensure room is still ended
+        print(f"Error during quiz end operations: {e}")
     
-    # Calculate final scores
-    scores = calculate_score(room)
-    room['scores'] = scores
-    room['ended'] = True
-    room['last_activity'] = time.time()
-    
-    # Don't save state - we're about to delete the room file
-    
-    # Record quiz run completion
-    quiz_id = room.get('quiz_id')
-    quiz_name = room.get('quiz_name', 'Unknown')
-    record_quiz_run(quiz_id, username, room_code, completed=True)
-    
-    # Get final rankings
-    participants = room.get('participants', {})
-    rankings = []
-    for participant_id, participant in participants.items():
-        rankings.append({
-            'id': participant_id,
-            'name': participant.get('name'),
-            'avatar': participant.get('avatar'),
-            'score': scores.get(participant_id, 0)
-        })
-    
-    rankings.sort(key=lambda x: x['score'], reverse=True)
-    for i, ranking in enumerate(rankings):
-        ranking['rank'] = i + 1
-    
-    # Broadcast end to all rooms
-    socketio.emit('quiz_ended', {
-        'scores': scores,
-        'final_rankings': rankings
-    }, room=f'display_{room_code}')
-    
-    socketio.emit('quiz_ended', {
-        'scores': scores,
-        'final_rankings': rankings
-    }, room=f'participant_{room_code}')
-    
-    socketio.emit('quiz_ended', {
-        'scores': scores,
-        'final_rankings': rankings
-    }, room=f'control_{room_code}')
-    
-    # Disconnect all clients from the rooms
-    from flask_socketio import close_room
-    close_room(f'display_{room_code}')
-    close_room(f'participant_{room_code}')
-    close_room(f'control_{room_code}')
-    
-    # Mark room as ended and remove it
-    end_room(room_code)
+    # Mark room as ended and remove it (always do this, even if other operations failed)
+    try:
+        end_room(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to end room: {e}")
     
     return jsonify({'message': 'Quiz ended successfully'}), 200
 

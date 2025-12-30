@@ -1,0 +1,24 @@
+i want you to overhaul the quiz saving json format the current format doe snot make sense and causes errors.
+
+do not worry about migrating or supporting old formats, just make the new format work and ensure al code saves to it correctly and reads form it correctly!
+
+the new format wil be exemplified in the sample_save_fle.json file, please use this as a guide to make the new format work and ensure all code saves to it correctly and reads form it correctly!
+
+the file has extra comments to help you understand the format
+
+the format shows some of the poissibel eleemnts as exmaples, the rest should be extrpulatable from the examples
+
+the "question_tyype" is the value that should be used to determine the type of question, do nto use "answer_type" 
+
+the new paradigm, is that elements are defined globally and their main properties are defined in the global objects, but each element can be displayed on different views of the page, and in the view section we define the specific size and positiooning of the element on each view (and any associated extra elements, note not all elements are shown on all views) in each view there is a different renderer thatw ill use the global properties to display the element, and this will make it look different on each view
+
+fill in missing properties for elements in the properties section of the global elements object
+
+child elements are not documented in the global elements since this is not required, an ovbject generated child objects based on it's global propterties and theo are on different views, so looking up the main element name on the specific view will tell you the local rpoperties of the "child" element
+
+only elements types that are defined to have contorl configs have a control_config section in the local_element_configs object on the control view, currently in code base, audio and video elements should have one but nothing else
+
+in the case that an element is not a question, the question_config section can either be empty or not present, decide on a standard and use that trhoughtout the file whenever a config is not required
+
+I tried to use proper spelling in key names, but some of them are not spelled correctly, please correct them to the correct spelling
+

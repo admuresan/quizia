@@ -1,15 +1,25 @@
 // Quizmaster control page - matches editor control view exactly with live answers
 const socket = io();
+window.socket = socket; // Make socket available globally for question type views
 // roomCode is set in template as window.roomCode
 let currentPageIndex = 0;
 let quiz = null;
 let answers = {}; // { question_id: { participant_id: { answer, submission_time, correct, bonus_points } } }
 let participants = {}; // { participant_id: { name, avatar } }
+// Answer visibility state: { question_id: { participant_ids: [participant_id], control_answer: boolean } }
+// Store on window so it's accessible from control view renderers
+window.answerVisibility = {}; // { question_id: { visibleParticipants: Set, controlAnswerVisible: boolean } }
 
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.roomCode) {
         console.error('Room code not found');
         return;
+    }
+    
+    // Ensure rerender button is visible from the start
+    const rerenderBtn = document.getElementById('rerender-btn');
+    if (rerenderBtn) {
+        rerenderBtn.style.cssText = 'position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; padding: 1rem 2rem; font-size: 1.1rem; font-weight: bold; color: white; background: #2196F3; border: 2px solid #1976D2; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: block; visibility: visible;';
     }
     
     socket.on('connect', () => {
@@ -32,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.answers) {
             answers = data.answers;
         }
-        console.log('Joined control - current page index:', currentPageIndex);
         updateNavigationButtons();
         loadPage();
     });
@@ -49,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.answers) {
             answers = data.answers;
         }
-        console.log('Quiz state updated - current page index:', currentPageIndex);
         loadPage();
         updateNavigationButtons();
     });
@@ -62,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.quiz) {
             quiz = data.quiz;
         }
-        console.log('Page changed to index:', currentPageIndex);
         loadPage();
         updateNavigationButtons();
     });
@@ -74,7 +81,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 name: data.name,
                 avatar: data.avatar
             };
-            console.log('Participant joined - updated participants:', Object.keys(participants));
+            // Add new participant to visibility sets for all questions (default: visible)
+            if (!window.answerVisibility) {
+                window.answerVisibility = {};
+            }
+            // Add to all existing question visibility sets
+            Object.keys(window.answerVisibility).forEach(questionId => {
+                if (!window.answerVisibility[questionId].visibleParticipants) {
+                    window.answerVisibility[questionId].visibleParticipants = new Set();
+                }
+                window.answerVisibility[questionId].visibleParticipants.add(data.participant_id);
+            });
             // Refresh the page to show new participant in answer sections
             loadPage();
         }
@@ -82,11 +99,34 @@ document.addEventListener('DOMContentLoaded', () => {
     
     socket.on('participant_list_update', (data) => {
         if (data.participants) {
-            console.log('Participant list update received - participant IDs:', Object.keys(data.participants));
-            console.log('Participant list update - full data:', data.participants);
             // Replace entire participants object to ensure consistency with server
+            const oldParticipantIds = new Set(Object.keys(participants));
             participants = data.participants;
-            console.log('Participants after update:', Object.keys(participants));
+            const newParticipantIds = new Set(Object.keys(participants));
+            
+            // Update visibility sets: add new participants, remove removed participants
+            if (!window.answerVisibility) {
+                window.answerVisibility = {};
+            }
+            Object.keys(window.answerVisibility).forEach(questionId => {
+                const visibility = window.answerVisibility[questionId];
+                if (!visibility.visibleParticipants) {
+                    visibility.visibleParticipants = new Set();
+                }
+                // Add new participants (default: visible)
+                newParticipantIds.forEach(pid => {
+                    if (!oldParticipantIds.has(pid)) {
+                        visibility.visibleParticipants.add(pid);
+                    }
+                });
+                // Remove participants that left
+                oldParticipantIds.forEach(pid => {
+                    if (!newParticipantIds.has(pid)) {
+                        visibility.visibleParticipants.delete(pid);
+                    }
+                });
+            });
+            
             // Refresh the page to show updated participant list in answer sections
             loadPage();
         }
@@ -130,22 +170,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Listen for element appearance changes to update toggles
+    // Helper function to update toggle state for an element
+    function updateElementToggle(elementId, visible) {
+        // Find the appearance control container by looking for an element with _toggleUpdateFunctions
+        const canvas = document.getElementById('control-canvas');
+        if (canvas) {
+            // Find all elements that might be the appearance control container
+            const allElements = canvas.querySelectorAll('.runtime-element');
+            let appearanceControlContainer = null;
+            
+            for (let el of allElements) {
+                if (el._toggleUpdateFunctions) {
+                    appearanceControlContainer = el;
+                    break;
+                }
+            }
+            
+            if (appearanceControlContainer && appearanceControlContainer._toggleUpdateFunctions) {
+                const updateFunction = appearanceControlContainer._toggleUpdateFunctions[elementId];
+                if (updateFunction) {
+                    updateFunction(visible);
+                }
+            }
+        }
+    }
+    
+    // Listen for element appearance control events (when user toggles visibility)
     socket.on('element_appearance_control', (data) => {
         // Update toggle state when element visibility changes
         const elementId = data.element_id;
         const visible = data.visible;
-        
-        // Find the element in the quiz data and update its toggle
-        if (quiz && quiz.pages) {
-            quiz.pages.forEach(page => {
-                if (page.elements) {
-                    const element = page.elements.find(el => el.id === elementId);
-                    if (element && element._updateAppearanceToggle) {
-                        element._updateAppearanceToggle(visible);
-                    }
-                }
-            });
+        updateElementToggle(elementId, visible);
+    });
+    
+    // Listen for element appearance changed events (when elements appear via timers)
+    socket.on('element_appearance_changed', (data) => {
+        // Update toggle state when element becomes visible via timer/delay
+        const elementId = data.element_id;
+        const visible = data.visible;
+        if (visible !== undefined && visible) {
+            updateElementToggle(elementId, true);
         }
     });
 
@@ -162,6 +226,13 @@ document.addEventListener('DOMContentLoaded', () => {
             room_code: window.roomCode,
             direction: 'next'
         });
+    });
+
+    // Rerender button
+    document.getElementById('rerender-btn')?.addEventListener('click', () => {
+        if (confirm('Reload quiz from saved file? This will update the quiz based on any changes made to the quiz file.')) {
+            socket.emit('quizmaster_rerender_quiz', { room_code: window.roomCode });
+        }
     });
 
     // End quiz button
@@ -218,43 +289,60 @@ function loadPage() {
     
     // Clear canvas but preserve navigation buttons
     const navButtons = Array.from(canvas.children).filter(
-        child => child.id === 'prev-page-btn' || child.id === 'next-page-btn'
+        child => child.id === 'prev-page-btn' || child.id === 'next-page-btn' || child.id === 'rerender-btn'
     );
     canvas.innerHTML = '';
     navButtons.forEach(btn => canvas.appendChild(btn));
     
-    // Set up canvas
-    canvas.style.position = 'relative';
-    canvas.style.width = '100%';
-    canvas.style.minHeight = '400px';
-    canvas.style.marginBottom = '2rem';
-    
-    // Set background
-    const bgColor = quiz?.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    const bgImage = quiz?.background_image;
-    
-    if (bgImage) {
-        canvas.style.backgroundImage = `url(${bgImage})`;
-        canvas.style.backgroundSize = 'cover';
-        canvas.style.backgroundPosition = 'center';
-        canvas.style.backgroundRepeat = 'no-repeat';
-    } else {
-        canvas.style.background = bgColor;
-        canvas.style.backgroundImage = 'none';
+    // Get canvas dimensions from page view_config.size (new format)
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+    if (page && page.views && page.views.control && page.views.control.view_config && page.views.control.view_config.size) {
+        canvasWidth = page.views.control.view_config.size.width || 1920;
+        canvasHeight = page.views.control.view_config.size.height || 1080;
     }
     
-    // Get canvas dimensions
-    const viewSettings = quiz?.view_settings?.control || { canvas_width: 1920, canvas_height: 1080 };
-    const canvasWidth = viewSettings.canvas_width || 1920;
-    const canvasHeight = viewSettings.canvas_height || 1080;
+    console.log('[Control] Canvas dimensions from quiz file:', {
+        canvasWidth: canvasWidth,
+        canvasHeight: canvasHeight,
+        source: 'views.control.view_config.size',
+        viewConfig: page && page.views && page.views.control ? page.views.control.view_config : null
+    });
+    
+    // Set up canvas with exact dimensions (matching editor setup)
+    canvas.style.position = 'relative';
     canvas.style.width = `${canvasWidth}px`;
     canvas.style.height = `${canvasHeight}px`;
-    canvas.style.maxWidth = '100%';
+    canvas.style.minWidth = `${canvasWidth}px`;
+    canvas.style.maxWidth = `${canvasWidth}px`;
+    canvas.style.minHeight = `${canvasHeight}px`;
+    canvas.style.maxHeight = `${canvasHeight}px`;
+    canvas.style.boxSizing = 'border-box';
     canvas.style.overflow = 'hidden';
+    canvas.style.marginBottom = '2rem';
+    
+    console.log('[Control] Canvas element computed styles after setup:', {
+        width: canvas.style.width,
+        height: canvas.style.height,
+        position: canvas.style.position,
+        actualWidth: canvas.offsetWidth,
+        actualHeight: canvas.offsetHeight,
+        boundingRect: canvas.getBoundingClientRect()
+    });
+    
+    // Set background using shared utility function
+    // Use current page for page-specific background, quiz for quiz-level background
+    // NO hardcoded fallbacks - only use what's in the saved quiz
+    if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
+        window.BackgroundUtils.applyBackground(canvas, page, quiz, 'control');
+    } else {
+        console.error('BackgroundUtils not available');
+    }
     
     // Ensure navigation buttons are positioned correctly
     const prevBtn = document.getElementById('prev-page-btn');
     const nextBtn = document.getElementById('next-page-btn');
+    const rerenderBtn = document.getElementById('rerender-btn');
     if (prevBtn) {
         prevBtn.style.position = 'absolute';
         prevBtn.style.top = '20px';
@@ -269,12 +357,16 @@ function loadPage() {
         nextBtn.style.zIndex = '10000';
         nextBtn.style.cssText += 'padding: 1rem 2rem; font-size: 1.1rem; font-weight: bold; color: white; background: #2196F3; border: 2px solid #1976D2; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3);';
     }
+    if (rerenderBtn) {
+        rerenderBtn.style.cssText = 'position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; padding: 1rem 2rem; font-size: 1.1rem; font-weight: bold; color: white; background: #2196F3; border: 2px solid #1976D2; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: block; visibility: visible;';
+    }
     
     // Handle special page types - but still show navigation buttons
-    if (page.type === 'status' || page.type === 'results') {
+    const pageType = page.page_type;
+    if (pageType === 'status_page' || pageType === 'result_page') {
         // Clear canvas content but preserve navigation buttons
         const navButtons = Array.from(canvas.children).filter(
-            child => child.id === 'prev-page-btn' || child.id === 'next-page-btn' || child.id === 'finalize-scores-btn'
+            child => child.id === 'prev-page-btn' || child.id === 'next-page-btn' || child.id === 'rerender-btn' || child.id === 'finalize-scores-btn'
         );
         canvas.innerHTML = '';
         // Re-add navigation buttons first
@@ -287,7 +379,7 @@ function loadPage() {
         canvas.appendChild(statusMsg);
         
         // Add Finalize Scores button for results page
-        if (page.type === 'results') {
+        if (pageType === 'results' || pageType === 'result_page') {
             let finalizeBtn = document.getElementById('finalize-scores-btn');
             if (!finalizeBtn) {
                 finalizeBtn = document.createElement('button');
@@ -320,19 +412,29 @@ function loadPage() {
     }
     
     // Render control view elements - ONLY control-specific elements
-    if (page.elements) {
+    // Get elements from new structure
+    let controlElements = [];
+    let displayElements = [];
+    let elementsDict = page.elements || {};
+    
+    // Use helper functions
+    if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+        controlElements = Editor.QuizStructure.getViewElements(page, 'control');
+        displayElements = Editor.QuizStructure.getViewElements(page, 'display');
+    } else {
+        console.error('Editor.QuizStructure.getViewElements not available');
+    }
+    
+    if (controlElements.length > 0 || displayElements.length > 0) {
         // Audio/video control elements (for controlling media)
-        const audioVideoElements = page.elements.filter(el => 
-            (el.type === 'audio' || el.type === 'video' || el.media_type === 'audio' || el.media_type === 'video') &&
-            (!el.view || el.view === 'display')
+        const audioVideoElements = displayElements.filter(el => 
+            el.type === 'audio' || el.type === 'video' || el.media_type === 'audio' || el.media_type === 'video'
         );
         
         audioVideoElements.forEach(mediaElement => {
             // Check if control element exists
-            const existingControl = page.elements.find(el => 
-                el.type === 'audio_control' && 
-                el.parent_id === mediaElement.id && 
-                el.view === 'control'
+            const existingControl = controlElements.find(el => 
+                el.type === 'audio_control' && el.parent_id === mediaElement.id
             );
             
             if (existingControl) {
@@ -343,74 +445,129 @@ function loadPage() {
         });
         
         // Answer display elements (for showing and marking answers)
-        const questionElements = page.elements.filter(el => 
-            el.is_question && (!el.view || el.view === 'display')
-        );
+        const questionElements = displayElements.filter(el => el.is_question);
         
-        questionElements.forEach(question => {
-            const answerDisplay = page.elements.find(el => 
-                el.type === 'answer_display' && 
-                el.parent_id === question.id && 
-                el.view === 'control'
+        questionElements.forEach(questionViewElement => {
+            const answerDisplay = controlElements.find(el => 
+                el.type === 'answer_display' && el.parent_id === questionViewElement.id
             );
             
             if (answerDisplay) {
-                // Get answers for this question
-                const questionAnswers = answers[question.id] || {};
+                // Get the actual question element from page.elements (contains question_config)
+                const questionElement = elementsDict[questionViewElement.id];
                 
-                // Get answer_type - prioritize question element's answer_type as source of truth
-                // Fallback to answer_input element, then to answer_display element
-                // This handles legacy quizzes where answer_display.answer_type might be incorrect
-                let answerType = question.answer_type;
-                if (!answerType) {
-                    // Try to get it from the associated answer_input element
-                    const answerInput = page.elements.find(el => 
-                        el.type === 'answer_input' && 
-                        el.parent_id === question.id && 
-                        el.view === 'participant'
-                    );
-                    if (answerInput && answerInput.answer_type) {
-                        answerType = answerInput.answer_type;
-                    } else if (answerDisplay.answer_type) {
-                        // Last fallback to answer_display element's answer_type
-                        answerType = answerDisplay.answer_type;
+                // Get answers for this question
+                const questionAnswers = answers[questionViewElement.id] || {};
+                
+                // Get question_type from the actual question element's question_config (from page.elements)
+                let answerType = 'text';
+                if (questionElement && questionElement.question_config && questionElement.question_config.question_type) {
+                    answerType = questionElement.question_config.question_type;
+                }
+                
+                // Normalize 'image' to 'image_click' for consistency
+                if (answerType === 'image') {
+                    answerType = 'image_click';
+                }
+                
+                // If still not found, try to get it from the associated answer_input element
+                if (!answerType || answerType === 'text') {
+                    if (page.views && page.views.participant && page.views.participant.local_element_configs) {
+                        const participantLocalConfigs = page.views.participant.local_element_configs || {};
+                        
+                        Object.keys(participantLocalConfigs).forEach(elementId => {
+                            const elementData = elementsDict[elementId];
+                            if (elementData && elementData.type === 'answer_input') {
+                                const questionConfig = elementData.question_config || {};
+                                const parentId = questionConfig.parent_id || elementData.parent_id;
+                                if (parentId === questionViewElement.id) {
+                                    const foundType = questionConfig.question_type || 'text';
+                                    // Normalize 'image' to 'image_click'
+                                    answerType = (foundType === 'image') ? 'image_click' : foundType;
+                                }
+                            }
+                        });
                     }
                 }
                 
-                // Get image source if image_click question (image is stored in the question element)
-                let imageSrc = null;
-                if (answerType === 'image_click') {
-                    imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
-                    console.log('[DEBUG control.js] Image source:', imageSrc);
+                // Last fallback to answer_display element's question_type
+                if (!answerType || answerType === 'text') {
+                    if (answerDisplay) {
+                        const foundType = (answerDisplay.question_config && answerDisplay.question_config.question_type) || 'text';
+                        // Normalize 'image' to 'image_click'
+                        answerType = (foundType === 'image') ? 'image_click' : foundType;
+                    }
                 }
+                
+                console.log('[Control] Determined answerType:', answerType, 'for question:', questionViewElement.id, {
+                    questionElement: questionElement,
+                    questionConfig: questionElement ? questionElement.question_config : null
+                });
+                
+                // Get image source if image_click question (image is stored in the question element's properties)
+                let imageSrc = null;
+                if (answerType === 'image_click' && questionElement) {
+                    const properties = questionElement.properties || {};
+                    imageSrc = properties.media_url || 
+                              (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
+                              (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
+                              questionViewElement.src || 
+                              (questionViewElement.filename ? '/api/media/serve/' + questionViewElement.filename : null);
+                }
+        
+                // Initialize answer visibility state for this question if not exists
+                if (!window.answerVisibility[questionViewElement.id]) {
+                    const allParticipantIds = Object.keys(participants || {});
+                    window.answerVisibility[questionViewElement.id] = {
+                        visibleParticipants: new Set(allParticipantIds),
+                        controlAnswerVisible: false
+                    };
+                }
+        
+                // Extract question title from question_config first, then fallback to question_title
+                const questionTitle = (questionElement && questionElement.question_config && questionElement.question_config.question_title) 
+                    || (questionViewElement.question_config && questionViewElement.question_config.question_title)
+                    || questionViewElement.question_title 
+                    || 'Question';
                 
                 RuntimeRenderer.ElementRenderer.renderElement(canvas, answerDisplay, {
                     mode: 'control',
                     answers: questionAnswers,
                     participants: participants,
-                    questionTitle: question.question_title || 'Question',
+                    questionTitle: questionTitle,
                     imageSrc: imageSrc,
                     answerType: answerType, // Pass answerType to renderer
-                    onMarkAnswer: saveAnswerMark
+                    onMarkAnswer: saveAnswerMark,
+                    question: questionElement || questionViewElement // Pass actual question element to access correct_answer
                 });
             }
         });
         
         // Appearance control element (for controlling element appearance)
-        const appearanceControl = page.elements.find(el => 
-            el.type === 'appearance_control' && 
-            el.view === 'control'
-        );
+        // Always ensure it exists - create default if not found
+        let appearanceControl = controlElements.find(el => el.type === 'appearance_control');
         
-        if (appearanceControl) {
-            RuntimeRenderer.ElementRenderer.renderElement(canvas, appearanceControl, {
-                mode: 'control',
-                quiz: quiz,
-                page: page,
-                socket: socket,
-                roomCode: window.roomCode
-            });
+        if (!appearanceControl) {
+            // Create a default appearance control element if one doesn't exist
+            appearanceControl = {
+                id: `element-${Date.now()}-appearance-control`,
+                type: 'appearance_control',
+                view: 'control',
+                x: 50,
+                y: 100,
+                width: 400,
+                height: 300
+            };
         }
+        
+        // Always render the appearance control element
+        RuntimeRenderer.ElementRenderer.renderElement(canvas, appearanceControl, {
+            mode: 'control',
+            quiz: quiz,
+            page: page,
+            socket: socket,
+            roomCode: window.roomCode
+        });
     }
 }
 
@@ -419,44 +576,103 @@ function updateAnswerDisplay(questionId) {
     if (!quiz || !quiz.pages || !quiz.pages[currentPageIndex]) return;
     
     const page = quiz.pages[currentPageIndex];
-    const question = page.elements?.find(el => el.id === questionId);
+    
+    // Get question from new structure
+    let question = null;
+    const elementsDict = page.elements || {};
+    
+    if (page.views && page.views.display && page.views.display.local_element_configs) {
+        const displayLocalConfigs = page.views.display.local_element_configs || {};
+        
+        Object.keys(displayLocalConfigs).forEach(elementId => {
+            if (elementId === questionId) {
+                const elementData = elementsDict[elementId];
+                if (elementData && elementData.is_question) {
+                    const localConfig = displayLocalConfigs[elementId];
+                    const config = localConfig.config || {};
+                    const properties = elementData.properties || {};
+                    const questionConfig = elementData.question_config || {};
+                    
+                    question = {
+                        id: elementId,
+                        type: elementData.type,
+                        is_question: true,
+                        ...properties,
+                        x: config.x || 0,
+                        y: config.y || 0,
+                        width: config.width || 100,
+                        height: config.height || 100,
+                        question_title: questionConfig.question_title || '',
+                        question_type: questionConfig.question_type || 'text',
+                        answer_type: questionConfig.question_type || 'text',
+                        options: questionConfig.options || []
+                    };
+                }
+            }
+        });
+    }
     
     if (!question || !question.is_question) return;
     
-    const answerDisplay = page.elements.find(el => 
-        el.type === 'answer_display' && 
-        el.parent_id === questionId && 
-        el.view === 'control'
-    );
-    
-    if (answerDisplay) {
-        // Remove old answer display
-        const oldEl = document.getElementById(`element-${answerDisplay.id}`);
-        if (oldEl) {
-            oldEl.remove();
+    // Get answer_display from new structure
+    const canvas = document.getElementById('control-canvas');
+    const questionAnswers = answers[questionId] || {};
+    let answerDisplay = null;
+        if (page.views && page.views.control && page.views.control.local_element_configs) {
+            const controlLocalConfigs = page.views.control.local_element_configs || {};
+            
+            Object.keys(controlLocalConfigs).forEach(elementId => {
+                const elementData = elementsDict[elementId];
+                if (elementData && elementData.type === 'answer_display') {
+                    const questionConfig = elementData.question_config || {};
+                    const parentId = questionConfig.parent_id || elementData.parent_id;
+                    if (parentId === questionId) {
+                        const localConfig = controlLocalConfigs[elementId];
+                        const answerConfig = localConfig.answer_config || {};
+                        const properties = elementData.properties || {};
+                        
+                        answerDisplay = {
+                            id: elementId,
+                            type: elementData.type,
+                            parent_id: parentId,
+                            ...properties,
+                            x: answerConfig.x || 0,
+                            y: answerConfig.y || 0,
+                            width: answerConfig.width || 100,
+                            height: answerConfig.height || 100,
+                            question_type: questionConfig.question_type || 'text',
+                            answer_type: questionConfig.question_type || 'text',
+                            options: questionConfig.options || []
+                        };
+                    }
+                }
+            });
         }
         
-        // Re-render with updated answers
-        const canvas = document.getElementById('control-canvas');
-        const questionAnswers = answers[questionId] || {};
+        if (!answerDisplay) return;
         
-        // Get answer_type - prioritize question element's answer_type as source of truth
-        // Fallback to answer_input element, then to answer_display element
-        // This handles legacy quizzes where answer_display.answer_type might be incorrect
-        let answerType = question.answer_type;
-        if (!answerType) {
-            // Try to get it from the associated answer_input element
-            const answerInput = page.elements.find(el => 
-                el.type === 'answer_input' && 
-                el.parent_id === questionId && 
-                el.view === 'participant'
-            );
-            if (answerInput && answerInput.answer_type) {
-                answerType = answerInput.answer_type;
-            } else if (answerDisplay.answer_type) {
-                // Last fallback to answer_display element's answer_type
-                answerType = answerDisplay.answer_type;
-            }
+        // Get question_type from question element's question_config
+        let answerType = (question.question_config && question.question_config.question_type) || 'text';
+        
+        // If not found, try to get it from the associated answer_input element
+        if (!answerType && page.views && page.views.participant && page.views.participant.local_element_configs) {
+            const participantLocalConfigs = page.views.participant.local_element_configs || {};
+            
+            Object.keys(participantLocalConfigs).forEach(elementId => {
+                const elementData = elementsDict[elementId];
+                if (elementData && elementData.type === 'answer_input') {
+                    const questionConfig = elementData.question_config || {};
+                    const parentId = questionConfig.parent_id || elementData.parent_id;
+                    if (parentId === questionId) {
+                        answerType = questionConfig.question_type || 'text';
+                    }
+                }
+            });
+        }
+        
+        // Last fallback to answer_display element's question_type
+        if (!answerType && answerDisplay) {
+            answerType = (answerDisplay.question_config && answerDisplay.question_config.question_type) || 'text';
         }
         
         // Get image source if image_click question (image is stored in the question element)
@@ -465,16 +681,21 @@ function updateAnswerDisplay(questionId) {
             imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
         }
         
+        // Extract question title from question_config first, then fallback to question_title
+        const questionTitle = (question.question_config && question.question_config.question_title) 
+            || question.question_title 
+            || 'Question';
+        
         RuntimeRenderer.ElementRenderer.renderElement(canvas, answerDisplay, {
             mode: 'control',
             answers: questionAnswers,
             participants: participants,
-            questionTitle: question.question_title || 'Question',
+            questionTitle: questionTitle,
             imageSrc: imageSrc,
             answerType: answerType, // Pass answerType to renderer
-            onMarkAnswer: saveAnswerMark
+            onMarkAnswer: saveAnswerMark,
+            question: question // Pass question element to access correct_answer
         });
-    }
 }
 
 function updateNavigationButtons() {

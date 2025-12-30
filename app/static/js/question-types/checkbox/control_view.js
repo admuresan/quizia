@@ -40,3 +40,4 @@ QuestionTypes.Checkbox.ControlView = (function() {
     return { render: render };
 })();
 
+

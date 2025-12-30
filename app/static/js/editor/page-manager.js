@@ -6,81 +6,198 @@
 
     Editor.PageManager = {
         addPage: function(type, currentQuiz, currentPageIndex, callbacks) {
-            // Generate default page name based on type
-            let defaultName = '';
+            // Convert type to page_type
+            let pageType = 'quiz_page';
             if (type === 'status') {
-                defaultName = 'Status Page';
+                pageType = 'status_page';
             } else if (type === 'results') {
+                pageType = 'result_page';
+            }
+            
+            // Generate default page name based on page_type
+            let defaultName = '';
+            if (pageType === 'status_page') {
+                defaultName = 'Status Page';
+            } else if (pageType === 'result_page') {
                 defaultName = 'Results Page';
             } else {
-                const pageNumber = currentQuiz.pages.filter(p => p.type === 'display').length + 1;
+                const pageNumber = currentQuiz.pages.filter(p => p.page_type === 'quiz_page').length + 1;
                 defaultName = `Page ${pageNumber}`;
             }
             
+            // Calculate page_order
+            const pageOrder = currentQuiz.pages.length + 1;
+            
+            // Get settings from last page if it exists, otherwise use defaults
+            let defaultBackground = {
+                type: 'gradient',
+                config: {
+                    colour1: '#667eea',
+                    colour2: '#764ba2',
+                    angle: 135
+                }
+            };
+            let defaultSize = {
+                width: 1920,
+                height: 1080
+            };
+            
+            // If there are existing pages, use the last page's settings
+            if (currentQuiz.pages && currentQuiz.pages.length > 0) {
+                const lastPage = currentQuiz.pages[currentQuiz.pages.length - 1];
+                if (lastPage.views) {
+                    // Use display view settings as template (or any view that exists)
+                    const templateView = lastPage.views.display || lastPage.views.participant || lastPage.views.control;
+                    if (templateView && templateView.view_config) {
+                        if (templateView.view_config.background) {
+                            // Deep copy the background config
+                            defaultBackground = JSON.parse(JSON.stringify(templateView.view_config.background));
+                        }
+                        if (templateView.view_config.size) {
+                            // Deep copy the size config
+                            defaultSize = JSON.parse(JSON.stringify(templateView.view_config.size));
+                        }
+                    }
+                }
+            }
+            
+            // Create page in new format with inherited settings
             const page = {
-                type: type,
                 name: defaultName,
-                elements: [],
-                background_color: currentQuiz.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                background_image: null
+                page_type: pageType,
+                page_order: pageOrder,
+                elements: {},
+                views: {
+                    display: {
+                        view_config: {
+                            background: JSON.parse(JSON.stringify(defaultBackground)),
+                            size: JSON.parse(JSON.stringify(defaultSize))
+                        },
+                        local_element_configs: {}
+                    },
+                    participant: {
+                        view_config: {
+                            background: JSON.parse(JSON.stringify(defaultBackground)),
+                            size: JSON.parse(JSON.stringify(defaultSize))
+                        },
+                        local_element_configs: {}
+                    },
+                    control: {
+                        view_config: {
+                            background: JSON.parse(JSON.stringify(defaultBackground)),
+                            size: JSON.parse(JSON.stringify(defaultSize))
+                        },
+                        local_element_configs: {}
+                    }
+                }
             };
             
             // Auto-populate status page with template
             if (type === 'status') {
-                page.elements.push({
-                    id: `status-podium-${Date.now()}`,
-                    type: 'text',
-                    x: 50,
-                    y: 50,
-                    width: 900,
-                    height: 300,
-                    text: 'PODIUM',
-                    html: '<div style="text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;">🥇 🥈 🥉<br>PODIUM</div>',
-                    visible: true,
-                    is_question: false
-                });
+                const podiumId = `status-podium-${Date.now()}`;
+                const tableId = `status-table-${Date.now()}`;
                 
-                page.elements.push({
-                    id: `status-table-${Date.now()}`,
-                    type: 'text',
-                    x: 50,
-                    y: 400,
-                    width: 900,
-                    height: 400,
-                    text: 'PARTICIPANT TABLE',
-                    html: '<div style="text-align: center; font-size: 36px; font-weight: bold;">📊 PARTICIPANT RANKINGS TABLE</div>',
-                    visible: true,
+                // Add element properties (global)
+                page.elements[podiumId] = {
+                    properties: {
+                        id: podiumId,
+                        type: 'text',
+                        text: 'PODIUM',
+                        html: '<div style="text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;">🥇 🥈 🥉<br>PODIUM</div>'
+                    },
+                    appearance_config: {
+                        appearance_order: 0
+                    },
                     is_question: false
-                });
+                };
+                
+                page.elements[tableId] = {
+                    properties: {
+                        id: tableId,
+                        type: 'text',
+                        text: 'PARTICIPANT TABLE',
+                        html: '<div style="text-align: center; font-size: 36px; font-weight: bold;">📊 PARTICIPANT RANKINGS TABLE</div>'
+                    },
+                    appearance_config: {
+                        appearance_order: 1
+                    },
+                    is_question: false
+                };
+                
+                // Add to display view local_element_configs
+                page.views.display.local_element_configs[podiumId] = {
+                    config: {
+                        x: 50,
+                        y: 50,
+                        width: 900,
+                        height: 300,
+                        rotation: 0
+                    }
+                };
+                
+                page.views.display.local_element_configs[tableId] = {
+                    config: {
+                        x: 50,
+                        y: 400,
+                        width: 900,
+                        height: 400,
+                        rotation: 0
+                    }
+                };
             }
             
             // Auto-populate results page with template
             if (type === 'results') {
-                page.elements.push({
-                    id: `results-winner-${Date.now()}`,
-                    type: 'text',
-                    x: 50,
-                    y: 50,
-                    width: 450,
-                    height: 700,
-                    text: 'WINNER',
-                    html: '<div style="text-align: center; padding: 2rem;"><div style="font-size: 120px;">🎉</div><div style="font-size: 64px; margin: 1rem 0;">👤</div><div style="font-size: 48px; font-weight: bold; margin: 1rem 0;">WINNER NAME</div><div style="font-size: 36px; margin-top: 1rem;">🏆 CHAMPION 🏆</div></div>',
-                    visible: true,
-                    is_question: false
-                });
+                const winnerId = `results-winner-${Date.now()}`;
+                const rankingsId = `results-rankings-${Date.now()}`;
                 
-                page.elements.push({
-                    id: `results-rankings-${Date.now()}`,
-                    type: 'text',
-                    x: 550,
-                    y: 50,
-                    width: 450,
-                    height: 700,
-                    text: 'RANKINGS',
-                    html: '<div style="padding: 2rem;"><div style="font-size: 36px; font-weight: bold; margin-bottom: 1rem;">📋 RANKINGS</div><div style="font-size: 24px; line-height: 2;">2nd Place - Name<br>3rd Place - Name<br>4th Place - Name<br>5th Place - Name<br>...</div></div>',
-                    visible: true,
+                // Add element properties (global)
+                page.elements[winnerId] = {
+                    properties: {
+                        id: winnerId,
+                        type: 'text',
+                        text: 'WINNER',
+                        html: '<div style="text-align: center; padding: 2rem;"><div style="font-size: 120px;">🎉</div><div style="font-size: 64px; margin: 1rem 0;">👤</div><div style="font-size: 48px; font-weight: bold; margin: 1rem 0;">WINNER NAME</div><div style="font-size: 36px; margin-top: 1rem;">🏆 CHAMPION 🏆</div></div>'
+                    },
+                    appearance_config: {
+                        appearance_order: 0
+                    },
                     is_question: false
-                });
+                };
+                
+                page.elements[rankingsId] = {
+                    properties: {
+                        id: rankingsId,
+                        type: 'text',
+                        text: 'RANKINGS',
+                        html: '<div style="padding: 2rem;"><div style="font-size: 36px; font-weight: bold; margin-bottom: 1rem;">📋 RANKINGS</div><div style="font-size: 24px; line-height: 2;">2nd Place - Name<br>3rd Place - Name<br>4th Place - Name<br>5th Place - Name<br>...</div></div>'
+                    },
+                    appearance_config: {
+                        appearance_order: 1
+                    },
+                    is_question: false
+                };
+                
+                // Add to display view local_element_configs
+                page.views.display.local_element_configs[winnerId] = {
+                    config: {
+                        x: 50,
+                        y: 50,
+                        width: 450,
+                        height: 700,
+                        rotation: 0
+                    }
+                };
+                
+                page.views.display.local_element_configs[rankingsId] = {
+                    config: {
+                        x: 550,
+                        y: 50,
+                        width: 450,
+                        height: 700,
+                        rotation: 0
+                    }
+                };
             }
             
             currentQuiz.pages.push(page);
@@ -99,12 +216,187 @@
             
             list.innerHTML = '';
             
+            // Shared drag state
+            let draggedIndex = null;
+            let draggedElement = null;
+            
+            // Helper function to determine drop position
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.page-item:not(.dragging)')];
+                
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+                    
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+            
             currentQuiz.pages.forEach((page, index) => {
                 const item = document.createElement('div');
                 item.className = 'page-item';
+                item.draggable = true;
+                item.dataset.pageIndex = index;
+                item.style.cursor = 'grab';
                 if (index === currentPageIndex) {
                     item.classList.add('active');
                 }
+                
+                // Drag start - prevent dragging when clicking on buttons or inputs
+                item.addEventListener('dragstart', (e) => {
+                    // Don't start drag if clicking on interactive elements
+                    const target = e.target;
+                    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || 
+                        target.closest('button') || target.closest('input')) {
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    draggedElement = item;
+                    draggedIndex = index;
+                    item.classList.add('dragging');
+                    item.style.opacity = '0.5';
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', index.toString());
+                });
+                
+                // Drag end
+                item.addEventListener('dragend', (e) => {
+                    item.classList.remove('dragging');
+                    item.style.opacity = '1';
+                    // Remove all drag-over classes
+                    list.querySelectorAll('.page-item').forEach(pageItem => {
+                        pageItem.classList.remove('drag-over');
+                    });
+                    draggedElement = null;
+                    draggedIndex = null;
+                });
+                
+                // Drag over
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    
+                    if (draggedElement && draggedElement !== item) {
+                        const afterElement = getDragAfterElement(list, e.clientY);
+                        
+                        if (afterElement == null) {
+                            list.appendChild(draggedElement);
+                        } else {
+                            list.insertBefore(draggedElement, afterElement);
+                        }
+                        
+                        // Add visual feedback
+                        item.classList.add('drag-over');
+                    }
+                });
+                
+                // Drag leave
+                item.addEventListener('dragleave', (e) => {
+                    item.classList.remove('drag-over');
+                });
+                
+                // Drop
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    item.classList.remove('drag-over');
+                    
+                    if (draggedIndex !== null && draggedIndex !== index) {
+                        // Find the new index after drop
+                        const items = Array.from(list.querySelectorAll('.page-item'));
+                        const newIndex = items.indexOf(draggedElement);
+                        
+                        if (newIndex !== -1 && newIndex !== draggedIndex) {
+                            // Reorder pages in the quiz data
+                            const [movedPage] = currentQuiz.pages.splice(draggedIndex, 1);
+                            currentQuiz.pages.splice(newIndex, 0, movedPage);
+                            
+                            // Update page_order for all pages to match their new positions
+                            currentQuiz.pages.forEach((page, idx) => {
+                                page.page_order = idx + 1;
+                            });
+                            
+                            // Update current page index if needed
+                            let newCurrentPageIndex = currentPageIndex;
+                            if (currentPageIndex === draggedIndex) {
+                                newCurrentPageIndex = newIndex;
+                            } else if (draggedIndex < currentPageIndex && newIndex >= currentPageIndex) {
+                                newCurrentPageIndex = currentPageIndex - 1;
+                            } else if (draggedIndex > currentPageIndex && newIndex <= currentPageIndex) {
+                                newCurrentPageIndex = currentPageIndex + 1;
+                            }
+                            
+                            // Trigger page move callback (which will handle rendering and saving)
+                            if (callbacks && callbacks.onMovePage) {
+                                callbacks.onMovePage(draggedIndex, newIndex);
+                            }
+                            
+                            // Update current page if it changed
+                            if (newCurrentPageIndex !== currentPageIndex && callbacks && callbacks.onPageSelected) {
+                                callbacks.onPageSelected(newCurrentPageIndex);
+                            }
+                        }
+                    }
+                });
+                
+                // Click handler for page item - select page when clicking anywhere on it
+                let clickStartX = 0;
+                let clickStartY = 0;
+                let hasMoved = false;
+                
+                item.addEventListener('mousedown', (e) => {
+                    // Don't track if clicking on buttons, inputs
+                    const target = e.target;
+                    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || 
+                        target.closest('button') || target.closest('input') ||
+                        target.closest('.arrow-btn')) {
+                        return;
+                    }
+                    clickStartX = e.clientX;
+                    clickStartY = e.clientY;
+                    hasMoved = false;
+                });
+                
+                item.addEventListener('mousemove', (e) => {
+                    if (clickStartX !== 0 || clickStartY !== 0) {
+                        const dx = Math.abs(e.clientX - clickStartX);
+                        const dy = Math.abs(e.clientY - clickStartY);
+                        if (dx > 5 || dy > 5) {
+                            hasMoved = true;
+                        }
+                    }
+                });
+                
+                item.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on buttons, inputs
+                    const target = e.target;
+                    if (target.tagName === 'BUTTON' || target.tagName === 'INPUT' || 
+                        target.closest('button') || target.closest('input') ||
+                        target.closest('.arrow-btn')) {
+                        return;
+                    }
+                    
+                    // Don't trigger if user moved the mouse (was dragging)
+                    if (hasMoved) {
+                        clickStartX = 0;
+                        clickStartY = 0;
+                        hasMoved = false;
+                        return;
+                    }
+                    
+                    // Select this page
+                    if (index !== currentPageIndex && callbacks && callbacks.onPageSelected) {
+                        callbacks.onPageSelected(index);
+                    }
+                    
+                    clickStartX = 0;
+                    clickStartY = 0;
+                    hasMoved = false;
+                });
                 
                 const pageContent = document.createElement('div');
                 pageContent.style.display = 'flex';
@@ -174,7 +466,9 @@
                 
                 const pageNameInput = document.createElement('input');
                 pageNameInput.type = 'text';
-                pageNameInput.value = page.name || `Page ${index + 1} (${page.type})`;
+                const pageTypeLabel = page.page_type === 'status_page' ? 'Status' : 
+                                     page.page_type === 'result_page' ? 'Results' : 'Quiz';
+                pageNameInput.value = page.name || `Page ${index + 1} (${pageTypeLabel})`;
                 pageNameInput.className = 'page-name-input';
                 pageNameInput.readOnly = true;
                 pageNameInput.style.cssText = 'width: 100%; padding: 0.25rem; border: 1px solid transparent; background: transparent; font-size: 0.9rem; cursor: pointer;';
@@ -198,7 +492,9 @@
                 const stopEditing = () => {
                     isEditing = false;
                     pageNameInput.readOnly = true;
-                    page.name = pageNameInput.value.trim() || pageNameInput.value || `Page ${index + 1} (${page.type})`;
+                    const pageTypeLabel = page.page_type === 'status_page' ? 'Status' : 
+                                         page.page_type === 'result_page' ? 'Results' : 'Quiz';
+                    page.name = pageNameInput.value.trim() || pageNameInput.value || `Page ${index + 1} (${pageTypeLabel})`;
                     pageNameInput.value = page.name;
                     pageNameInput.style.border = '1px solid transparent';
                     pageNameInput.style.background = 'transparent';
@@ -235,7 +531,9 @@
                             stopEditing();
                         } else if (e.key === 'Escape') {
                             e.preventDefault();
-                            pageNameInput.value = page.name || `Page ${index + 1} (${page.type})`;
+                            const pageTypeLabel = page.page_type === 'status_page' ? 'Status' : 
+                                     page.page_type === 'result_page' ? 'Results' : 'Quiz';
+                pageNameInput.value = page.name || `Page ${index + 1} (${pageTypeLabel})`;
                             stopEditing();
                         }
                     }

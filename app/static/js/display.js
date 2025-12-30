@@ -1,10 +1,12 @@
 // Display page (for large screen) - matches editor display view exactly
 const socket = io();
+window.socket = socket; // Make socket available globally
 let currentPageIndex = 0; // Track current page index to stay in sync
 let currentPage = null;
 let quiz = null;
 let participants = {};
 let scores = {}; // Store scores from room file
+let scaleContent = true; // Track if we should scale content to fit window
 
 // Avatar utilities are now in avatar-utils.js (getAvatarEmoji function)
 
@@ -21,32 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('display_join', { room_code: currentRoomCode });
     });
 
-    socket.on('display_state', (data) => {
-        console.log('Display state received:', data);
-        quiz = data.quiz || quiz;
-        // Always use server's current_page to stay in sync
-        if (data.current_page !== undefined) {
-            currentPageIndex = data.current_page;
-        }
-        // Update participants and scores
-        if (data.participants) {
-            participants = data.participants;
-        }
-        if (data.scores) {
-            scores = data.scores;
-        }
-        console.log('Quiz object:', quiz);
-        console.log('Page object:', data.page);
-        console.log('Current page index:', currentPageIndex);
-        renderPage(currentPageIndex, data.page);
-    });
-
-    socket.on('page_changed', (data) => {
+    // Unified handler for both display_state and page_changed
+    function handlePageUpdate(data) {
         if (data.quiz) {
             quiz = data.quiz;
         }
-        // Always use server's page_index to stay in sync
-        if (data.page_index !== undefined) {
+        // Always use server's page index to stay in sync
+        if (data.current_page !== undefined) {
+            currentPageIndex = data.current_page;
+        } else if (data.page_index !== undefined) {
             currentPageIndex = data.page_index;
         }
         // Update participants and scores if provided
@@ -56,9 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.scores) {
             scores = data.scores;
         }
-        console.log('Page changed to index:', currentPageIndex);
-        renderPage(currentPageIndex, data.page);
-    });
+        // Single render call
+        if (data.page) {
+            renderPage(currentPageIndex, data.page);
+        }
+    }
+
+    socket.on('display_state', handlePageUpdate);
+    socket.on('page_changed', handlePageUpdate);
 
     socket.on('element_control', (data) => {
         handleElementControl(data.element_id, data.action);
@@ -71,17 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const element = document.getElementById(`element-${elementId}`);
         if (element) {
             element.style.display = visible ? 'block' : 'none';
-            // Also update the element's appearance_visible property in quiz data
-            if (quiz && quiz.pages) {
+            
+            // Check if it's a question and notify server when it becomes visible
+            if (visible && quiz && quiz.pages) {
                 quiz.pages.forEach(page => {
-                    if (page.elements) {
-                        const el = page.elements.find(e => e.id === elementId);
-                        if (el) {
-                            el.appearance_visible = visible;
-                            // If this is a question and it's being shown, notify server for timing
-                            if (visible && el.is_question) {
-                                notifyQuestionVisible(elementId);
-                            }
+                    if (page.elements && page.elements[elementId]) {
+                        const elementProps = page.elements[elementId];
+                        if (elementProps.is_question) {
+                            notifyQuestionVisible(elementId);
                         }
                     }
                 });
@@ -101,17 +88,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.scores) {
             scores = data.scores;
         }
-        if (currentPage && currentPage.type === 'status') {
+        if (currentPage && currentPage.page_type === 'status_page') {
             updateStatusPage(scores);
         }
     });
 
     socket.on('final_scores_finalized', (data) => {
+        if (data.scores) {
+            scores = data.scores;
+        }
         if (data.final_rankings) {
             const content = document.getElementById('results-content');
             if (content) {
                 populateFinalResults(content, data.final_rankings);
-            } else if (currentPage && currentPage.type === 'results') {
+            } else if (currentPage && currentPage.page_type === 'result_page') {
                 // If we're on results page but content doesn't exist yet, render it
                 const container = document.getElementById('display-content');
                 renderFinalResultsPage(container, currentPage, quiz);
@@ -120,9 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     populateFinalResults(newContent, data.final_rankings);
                 }
             }
-        }
-        if (data.scores) {
-            scores = data.scores;
         }
     });
 
@@ -139,7 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('quiz_not_running', (data) => {
+        scaleContent = false; // Don't scale when quiz is not running
         showQuizNotRunning();
+    });
+
+    socket.on('answer_display_toggle', (data) => {
+        handleAnswerDisplayToggle(data);
     });
 });
 
@@ -153,87 +145,137 @@ function notifyQuestionVisible(elementId) {
     }
 }
 
+// Function to calculate and apply scaling to fit content in viewport
+function applyScalingToFit(container, canvasWidth, canvasHeight) {
+    if (!scaleContent) {
+        // Reset transform if scaling is disabled
+        container.style.transform = 'none';
+        container.style.transformOrigin = 'center center';
+        return;
+    }
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calculate scale to fit both width and height
+    const scaleX = viewportWidth / canvasWidth;
+    const scaleY = viewportHeight / canvasHeight;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Apply scaling
+    container.style.transform = `scale(${scale})`;
+    container.style.transformOrigin = 'center center';
+}
+
+// Handle window resize to recalculate scaling
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        if (currentPage && scaleContent) {
+            const container = document.getElementById('display-content');
+            const pageType = currentPage.page_type;
+            
+            // Only scale regular pages, not status/result pages
+            if (pageType !== 'status_page' && pageType !== 'result_page') {
+                let canvasWidth = 1920;
+                let canvasHeight = 1080;
+                if (currentPage && currentPage.views && currentPage.views.display && currentPage.views.display.view_config && currentPage.views.display.view_config.size) {
+                    canvasWidth = currentPage.views.display.view_config.size.width || 1920;
+                    canvasHeight = currentPage.views.display.view_config.size.height || 1080;
+                }
+                applyScalingToFit(container, canvasWidth, canvasHeight);
+            }
+        }
+    }, 100);
+});
+
 function renderPage(pageIndex, page) {
     const container = document.getElementById('display-content');
-    
-    console.log('renderPage called with:', { pageIndex, page, quiz, container });
     
     if (!page) {
         console.warn('No page provided to renderPage');
         container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; font-size: 2rem;">Waiting for quiz to start...</div>';
+        scaleContent = false;
+        container.style.transform = 'none';
         return;
     }
 
     if (!quiz) {
         console.error('No quiz object available for rendering');
         container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: red; font-size: 2rem;">Error: Quiz data not loaded</div>';
+        scaleContent = false;
+        container.style.transform = 'none';
         return;
     }
 
     currentPage = page;
+    scaleContent = true; // Enable scaling when quiz is running
 
     // Handle special page types
-    if (page.type === 'status') {
+    const pageType = page.page_type;
+    if (pageType === 'status_page') {
         renderStatusPage(container, page, quiz);
+        container.style.transform = 'none'; // Don't scale status pages
         return;
     }
 
-    if (page.type === 'results') {
+    if (pageType === 'result_page') {
         renderFinalResultsPage(container, page, quiz);
+        container.style.transform = 'none'; // Don't scale result pages
         return;
     }
 
     // Render regular display page - match editor display view exactly
     container.innerHTML = '';
     
-    // Set background FIRST (before sizing)
-    // Use page background if available, otherwise use quiz background
-    const bgColor = page?.background_color || quiz?.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    const bgImage = page?.background_image || quiz?.background_image;
-    
-    if (bgImage) {
-        container.style.backgroundImage = `url(${bgImage})`;
-        container.style.backgroundSize = 'cover';
-        container.style.backgroundPosition = 'center';
-        container.style.backgroundRepeat = 'no-repeat';
-        container.style.background = 'none'; // Clear any background color
-    } else {
-        container.style.background = bgColor;
-        container.style.backgroundImage = 'none';
+    // Get canvas dimensions from page view_config.size (new format)
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+    if (page && page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+        canvasWidth = page.views.display.view_config.size.width || 1920;
+        canvasHeight = page.views.display.view_config.size.height || 1080;
     }
     
-    // Get canvas dimensions from quiz view settings or use defaults
-    const viewSettings = quiz?.view_settings?.display || { canvas_width: 1920, canvas_height: 1080 };
-    const canvasWidth = viewSettings.canvas_width || 1920;
-    const canvasHeight = viewSettings.canvas_height || 1080;
-    
-    // Set container size to match canvas
+    // Set container size to match canvas FIRST
     container.style.position = 'relative';
     container.style.width = `${canvasWidth}px`;
     container.style.height = `${canvasHeight}px`;
     container.style.minWidth = `${canvasWidth}px`;
     container.style.minHeight = `${canvasHeight}px`;
-    container.style.maxWidth = '100vw';
-    container.style.maxHeight = '100vh';
+    container.style.maxWidth = 'none';
+    container.style.maxHeight = 'none';
     container.style.overflow = 'hidden';
-    container.style.margin = '0 auto';
+    container.style.margin = '0';
     container.style.display = 'block';
     
-    console.log('Container size set to:', canvasWidth, 'x', canvasHeight);
-    console.log('Container computed style:', window.getComputedStyle(container).width, 'x', window.getComputedStyle(container).height);
+    // Set background using shared utility function
+    // NO hardcoded fallbacks - only use what's in the saved quiz
+    if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
+        window.BackgroundUtils.applyBackground(container, page, quiz, 'display');
+    } else {
+        console.error('BackgroundUtils not available');
+    }
     
-    // Render elements - only display view elements (matching editor)
-    if (page.elements) {
-        console.log('Page has', page.elements.length, 'elements');
-        const displayElements = page.elements.filter(el => 
-            (!el.view || el.view === 'display') && 
-            el.type !== 'navigation_control' && 
-            el.type !== 'audio_control' && 
-            el.type !== 'answer_input' && 
-            el.type !== 'answer_display'
-        );
-        console.log('Display elements after filtering:', displayElements.length);
+        // Render elements - only display view elements (matching editor)
+        // Use helper function to get elements from new format
+        let displayElements = [];
+        if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+            displayElements = Editor.QuizStructure.getViewElements(page, 'display');
+        } else {
+            console.error('Editor.QuizStructure.getViewElements not available');
+        }
         
+        // Filter out non-display elements
+        displayElements = displayElements.filter(el => {
+            const elType = el.type || el.media_type;
+            return elType !== 'navigation_control' && 
+                   elType !== 'audio_control' && 
+                   elType !== 'answer_input' && 
+                   elType !== 'answer_display';
+        });
+        
+        if (displayElements.length > 0) {
         if (!RuntimeRenderer || !RuntimeRenderer.ElementRenderer || !RuntimeRenderer.ElementRenderer.renderElement) {
             console.error('RuntimeRenderer not available!', RuntimeRenderer);
             container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: red; font-size: 2rem;">Error: Renderer not loaded</div>';
@@ -242,19 +284,54 @@ function renderPage(pageIndex, page) {
         
         // Handle appearance modes and initial visibility
         const pageStartTime = Date.now();
-        const orderedElements = (page.appearance_order || displayElements.map(el => el.id))
-            .map(id => displayElements.find(el => el.id === id))
-            .filter(el => el);
+        
+        // Build orderedElements: use appearance_order from globals
+        let orderedElements;
+        let appearanceOrder = [];
+        
+        // Use helper function to get globals
+        if (Editor && Editor.QuizStructure && Editor.QuizStructure.getPageGlobals) {
+            const globals = Editor.QuizStructure.getPageGlobals(page);
+            appearanceOrder = globals.appearance_order || [];
+        } else {
+            console.error('Editor.QuizStructure.getPageGlobals not available');
+        }
+        if (appearanceOrder && appearanceOrder.length > 0) {
+            // Use appearance_order, but also include any elements not in the order
+            const orderedIds = appearanceOrder;
+            const ordered = orderedIds
+                .map(id => displayElements.find(el => el.id === id))
+                .filter(el => el);
+            
+            // Add any displayElements not in appearance_order
+            const orderedIdsSet = new Set(orderedIds);
+            const missing = displayElements.filter(el => !orderedIdsSet.has(el.id));
+            orderedElements = [...ordered, ...missing];
+        } else {
+            // No appearance_order, use all displayElements in their natural order
+            orderedElements = displayElements;
+        }
         
         orderedElements.forEach((element, index) => {
-            console.log(`Rendering element ${index}:`, element.type, element);
             try {
                 const el = RuntimeRenderer.ElementRenderer.renderElement(container, element, {
                     mode: 'display'
                 });
                 
+                if (!el) {
+                    console.error(`Failed to render element ${index}:`, element);
+                    return;
+                }
+                
+                // Check if element has visible: false set explicitly
+                if (element.visible === false) {
+                    el.style.display = 'none';
+                    return;
+                }
+                
                 // Handle initial visibility based on appearance mode
                 const appearanceMode = element.appearance_mode || 'on_load';
+                
                 if (appearanceMode === 'control') {
                     // Control mode: elements should be hidden by default and only shown when toggled on from control page
                     if (el) {
@@ -353,8 +430,9 @@ function renderPage(pageIndex, page) {
                 const delay = (element.appearance_delay || 0) * 1000;
                 
                 if (prevEl && el) {
-                    const observer = new MutationObserver((mutations) => {
-                        if (prevEl.style.display === 'block' && el.style.display === 'none') {
+                    // Function to show element after delay
+                    const showAfterDelay = () => {
+                        if (el && el.style.display === 'none') {
                             setTimeout(() => {
                                 if (el) {
                                     el.style.display = 'block';
@@ -373,6 +451,18 @@ function renderPage(pageIndex, page) {
                                     }
                                 }
                             }, delay);
+                        }
+                    };
+                    
+                    // Check initial state - if previous element is already visible, trigger immediately
+                    if (prevEl.style.display === 'block' || prevEl.style.display === '') {
+                        showAfterDelay();
+                    }
+                    
+                    // Watch for changes to previous element's visibility
+                    const observer = new MutationObserver((mutations) => {
+                        if (prevEl.style.display === 'block' && el.style.display === 'none') {
+                            showAfterDelay();
                         }
                     });
                     observer.observe(prevEl, { attributes: true, attributeFilter: ['style'] });
@@ -395,11 +485,14 @@ function renderPage(pageIndex, page) {
         console.warn('Page has no elements array');
     }
     
-    // Room code display in bottom left
+    // Apply scaling to fit viewport
+    applyScalingToFit(container, canvasWidth, canvasHeight);
+    
+    // Room code display in bottom left (positioned relative to viewport, not scaled content)
     const roomCodeEl = document.getElementById('room-code-display');
     if (roomCodeEl) {
         roomCodeEl.textContent = window.roomCode || '';
-        roomCodeEl.style.position = 'absolute';
+        roomCodeEl.style.position = 'fixed'; // Use fixed positioning so it's not affected by scaling
         roomCodeEl.style.bottom = '20px';
         roomCodeEl.style.left = '20px';
         roomCodeEl.style.zIndex = '10000';
@@ -423,7 +516,11 @@ function handleElementControl(elementId, action) {
             if (quiz && quiz.pages) {
                 quiz.pages.forEach(page => {
                     if (page.elements) {
-                        const el = page.elements.find(e => e.id === elementId);
+                        // Get element from new format
+                        const el = page.elements && page.elements[elementId] ? {
+                            id: elementId,
+                            ...page.elements[elementId]
+                        } : null;
                         if (el && el.is_question) {
                             notifyQuestionVisible(elementId);
                         }
@@ -461,20 +558,23 @@ function handleElementControl(elementId, action) {
 function renderStatusPage(container, page, quiz) {
     container.innerHTML = '';
     
-    // Use page background if available, otherwise use quiz background
-    const bgColor = page?.background_color || quiz?.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    const bgImage = page?.background_image || quiz?.background_image;
+    // Set container styles WITHOUT background (set background separately AFTER)
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'flex-start';
+    container.style.color = 'white';
+    container.style.padding = '2rem';
+    container.style.position = 'relative';
     
-    container.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; color: white; padding: 2rem; position: relative;';
-    
-    if (bgImage) {
-        container.style.backgroundImage = `url(${bgImage})`;
-        container.style.backgroundSize = 'cover';
-        container.style.backgroundPosition = 'center';
-        container.style.backgroundRepeat = 'no-repeat';
+    // Set background using shared utility function
+    // NO hardcoded fallbacks - only use what's in the saved quiz
+    if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
+        window.BackgroundUtils.applyBackground(container, page, quiz, 'display');
     } else {
-        container.style.background = bgColor;
-        container.style.backgroundImage = 'none';
+        console.error('BackgroundUtils not available');
     }
     
     const title = document.createElement('h1');
@@ -577,20 +677,23 @@ function updateStatusPage(currentScores) {
 function renderFinalResultsPage(container, page, quiz) {
     container.innerHTML = '';
     
-    // Use page background if available, otherwise use quiz background
-    const bgColor = page?.background_color || quiz?.background_color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    const bgImage = page?.background_image || quiz?.background_image;
+    // Set container styles WITHOUT background (we'll set that separately)
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'flex-start';
+    container.style.color = 'white';
+    container.style.padding = '2rem';
+    container.style.position = 'relative';
     
-    container.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; color: white; padding: 2rem; position: relative;';
-    
-    if (bgImage) {
-        container.style.backgroundImage = `url(${bgImage})`;
-        container.style.backgroundSize = 'cover';
-        container.style.backgroundPosition = 'center';
-        container.style.backgroundRepeat = 'no-repeat';
+    // Set background using shared utility function
+    // NO hardcoded fallbacks - only use what's in the saved quiz
+    if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
+        window.BackgroundUtils.applyBackground(container, page, quiz, 'display');
     } else {
-        container.style.background = bgColor;
-        container.style.backgroundImage = 'none';
+        console.error('BackgroundUtils not available');
     }
     
     const title = document.createElement('h1');
@@ -609,7 +712,8 @@ function showQuizNotRunning() {
     if (!container) return;
     
     container.innerHTML = '';
-    container.style.cssText = 'width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);';
+    container.style.cssText = 'width: 100%; height: 100vh; display: flex; align-items: center; justify-content: center; background: transparent;';
+    container.style.transform = 'none'; // Reset transform when quiz is not running
     
     const errorDiv = document.createElement('div');
     errorDiv.style.cssText = 'background: white; border-radius: 16px; padding: 3rem; max-width: 600px; width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);';
@@ -772,4 +876,319 @@ function populateFinalResults(content, rankings) {
     }
     
     content.appendChild(mainContainer);
+}
+
+function handleAnswerDisplayToggle(data) {
+    const visible = data.visible;
+    const questionId = data.question_id;
+    
+    // Remove existing overlay if any
+    let overlay = document.getElementById('answer-display-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+    
+    if (!visible) {
+        return; // Just hide if toggle is off
+    }
+    
+    // Create overlay
+    overlay = document.createElement('div');
+    overlay.id = 'answer-display-overlay';
+    overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); z-index: 100000; display: flex; align-items: center; justify-content: center;';
+    
+    // Create content container (75% of screen)
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = 'width: 75vw; height: 75vh; background: white; border-radius: 16px; padding: 2rem; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3); position: relative;';
+    
+    // Close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'position: absolute; top: 1rem; right: 1rem; width: 40px; height: 40px; border: none; background: #f0f0f0; border-radius: 50%; font-size: 2rem; cursor: pointer; line-height: 1; color: #666;';
+    closeBtn.onclick = () => {
+        overlay.remove();
+    };
+    contentContainer.appendChild(closeBtn);
+    
+    // Render answers based on answer type
+    const answerType = data.answerType || 'text';
+    const questionTitle = data.questionTitle || 'Question';
+    const answers = data.answers || {};
+    const participants = data.participants || {};
+    
+    // Title
+    const title = document.createElement('h2');
+    title.textContent = questionTitle;
+    title.style.cssText = 'font-size: 2rem; color: #2196F3; margin-bottom: 1.5rem; padding-right: 3rem;';
+    contentContainer.appendChild(title);
+    
+    // Get visibility state and correct answer
+    const answerVisibility = data.answerVisibility || {};
+    const visibleParticipantIds = answerVisibility.visibleParticipantIds || [];
+    const controlAnswerVisible = answerVisibility.controlAnswerVisible || false;
+    const correctAnswer = data.correctAnswer;
+    
+    // Render answers based on type
+    if (answerType === 'image_click') {
+        renderImageClickAnswersDisplay(contentContainer, answers, participants, data.imageSrc, visibleParticipantIds, controlAnswerVisible, correctAnswer);
+    } else {
+        renderTextAnswersDisplay(contentContainer, answers, participants, answerType, visibleParticipantIds, controlAnswerVisible, correctAnswer);
+    }
+    
+    overlay.appendChild(contentContainer);
+    document.body.appendChild(overlay);
+}
+
+function renderTextAnswersDisplay(container, answers, participants, answerType, visibleParticipantIds, controlAnswerVisible, correctAnswer) {
+    const answersList = document.createElement('div');
+    answersList.style.cssText = 'display: flex; flex-direction: column; gap: 1rem;';
+    
+    const allParticipantIds = Object.keys(participants || {});
+    // Filter to only show visible participant answers
+    const visibleParticipantIdsSet = new Set(visibleParticipantIds || []);
+    const submittedAnswers = allParticipantIds.filter(pid => 
+        answers[pid] && 
+        answers[pid].answer !== undefined && 
+        visibleParticipantIdsSet.has(pid)
+    );
+    
+    const hasAnswers = submittedAnswers.length > 0 || (controlAnswerVisible && correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '');
+    
+    if (!hasAnswers) {
+        const noAnswers = document.createElement('div');
+        noAnswers.style.cssText = 'color: #666; font-style: italic; padding: 2rem; text-align: center; font-size: 1.2rem;';
+        noAnswers.textContent = 'No answers to display';
+        answersList.appendChild(noAnswers);
+    } else {
+        submittedAnswers.forEach(participantId => {
+            const answerData = answers[participantId];
+            const participant = participants[participantId] || {};
+            
+            const answerRow = document.createElement('div');
+            answerRow.style.cssText = 'display: flex; align-items: flex-start; gap: 1rem; padding: 1.5rem; background: #f5f5f5; border-radius: 8px; border-left: 4px solid #2196F3;';
+            
+            // Avatar
+            const avatar = document.createElement('div');
+            avatar.textContent = window.getAvatarEmoji ? window.getAvatarEmoji(participant.avatar) : '👤';
+            avatar.style.cssText = 'font-size: 2rem; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: white; border-radius: 50%;';
+            answerRow.appendChild(avatar);
+            
+            // Name and answer
+            const info = document.createElement('div');
+            info.style.cssText = 'flex: 1;';
+            
+            const name = document.createElement('div');
+            name.textContent = participant.name || 'Unknown';
+            name.style.cssText = 'font-weight: bold; font-size: 1.3rem; color: #333; margin-bottom: 0.5rem;';
+            info.appendChild(name);
+            
+            const answerText = document.createElement('div');
+            answerText.style.cssText = 'font-size: 1.1rem; color: #666; line-height: 1.6;';
+            if (answerData && answerData.answer !== undefined) {
+                answerText.textContent = String(answerData.answer || '');
+            } else {
+                answerText.textContent = 'No answer';
+                answerText.style.color = '#999';
+            }
+            info.appendChild(answerText);
+            
+            answerRow.appendChild(info);
+            answersList.appendChild(answerRow);
+        });
+        
+        // Add control answer if visible
+        if (controlAnswerVisible && correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '') {
+            const controlAnswerRow = document.createElement('div');
+            controlAnswerRow.style.cssText = 'display: flex; align-items: flex-start; gap: 1rem; padding: 1.5rem; background: #f0f7ff; border-radius: 8px; border-left: 4px solid #2196F3;';
+            
+            // Control answer indicator
+            const controlIndicator = document.createElement('div');
+            controlIndicator.textContent = '✓';
+            controlIndicator.style.cssText = 'font-size: 2rem; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: #2196F3; border-radius: 50%; color: white; font-weight: bold;';
+            controlAnswerRow.appendChild(controlIndicator);
+            
+            // Label and answer
+            const info = document.createElement('div');
+            info.style.cssText = 'flex: 1;';
+            
+            const name = document.createElement('div');
+            name.textContent = 'Correct Answer';
+            name.style.cssText = 'font-weight: bold; font-size: 1.3rem; color: #333; margin-bottom: 0.5rem;';
+            info.appendChild(name);
+            
+            const answerText = document.createElement('div');
+            answerText.style.cssText = 'font-size: 1.1rem; color: #666; line-height: 1.6;';
+            answerText.textContent = String(correctAnswer || '');
+            info.appendChild(answerText);
+            
+            controlAnswerRow.appendChild(info);
+            answersList.appendChild(controlAnswerRow);
+        }
+    }
+    
+    container.appendChild(answersList);
+}
+
+function renderImageClickAnswersDisplay(container, answers, participants, imageSrc, visibleParticipantIds, controlAnswerVisible, correctAnswer) {
+    const Common = QuestionTypes ? QuestionTypes.Common : null;
+    
+    // Image container
+    const imageContainer = document.createElement('div');
+    imageContainer.style.cssText = 'position: relative; margin-bottom: 2rem; border: 2px solid #ddd; border-radius: 8px; overflow: auto; background: #f0f0f0; min-height: 300px; max-height: 400px; display: flex; justify-content: center; align-items: flex-start; padding: 1rem;';
+    
+    if (imageSrc) {
+        const imageWrapper = document.createElement('div');
+        imageWrapper.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
+        
+        const img = document.createElement('img');
+        img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
+        img.style.cssText = 'width: 100%; height: auto; display: block; max-width: 800px; object-fit: contain;';
+        
+        // Function to update highlights
+        const updateHighlights = () => {
+            const existingHighlights = imageWrapper.querySelectorAll('.click-highlight');
+            existingHighlights.forEach(h => h.remove());
+            
+            const rect = img.getBoundingClientRect();
+            const imgWidth = rect.width;
+            const imgHeight = rect.height;
+            const minDim = Math.min(imgWidth, imgHeight);
+            const radiusPx = minDim * 0.1;
+            
+            const visibleParticipantIdsSet = new Set(visibleParticipantIds || []);
+            const allParticipantIds = Object.keys(participants || {});
+            const participantIndexMap = {};
+            allParticipantIds.forEach((pid, idx) => {
+                participantIndexMap[pid] = idx;
+            });
+            
+            // Show highlights only for visible participant answers
+            Object.entries(answers || {}).forEach(([participantId, answerData]) => {
+                if (visibleParticipantIdsSet.has(participantId) &&
+                    answerData && answerData.answer && typeof answerData.answer === 'object' && 
+                    answerData.answer.x !== undefined && answerData.answer.y !== undefined) {
+                    const highlight = document.createElement('div');
+                    highlight.className = 'click-highlight';
+                    const colorIndex = participantIndexMap[participantId] !== undefined ? participantIndexMap[participantId] : 0;
+                    const color = Common ? Common.getParticipantColor(colorIndex) : '#FF0000';
+                    
+                    const leftPercent = answerData.answer.x;
+                    const topPercent = answerData.answer.y;
+                    
+                    highlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 3px solid ${color}; background: ${Common ? Common.hexToRgba(color, 0.2) : 'rgba(255,0,0,0.2)'}; left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 8px ${color}80;`;
+                    highlight.title = `${participants[participantId]?.name || 'Participant'}: (${leftPercent.toFixed(1)}%, ${topPercent.toFixed(1)}%)`;
+                    imageWrapper.appendChild(highlight);
+                }
+            });
+            
+            // Show control answer highlight if visible
+            if (controlAnswerVisible && correctAnswer && typeof correctAnswer === 'object' && 
+                correctAnswer.x !== undefined && correctAnswer.y !== undefined) {
+                const controlHighlight = document.createElement('div');
+                controlHighlight.className = 'click-highlight control-answer-highlight';
+                const color = '#2196F3'; // Blue for control answer
+                
+                const leftPercent = correctAnswer.x;
+                const topPercent = correctAnswer.y;
+                
+                controlHighlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 4px solid ${color}; background: rgba(33, 150, 243, 0.3); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px ${color}; z-index: 10;`;
+                controlHighlight.title = `Correct Answer: (${leftPercent.toFixed(1)}%, ${topPercent.toFixed(1)}%)`;
+                imageWrapper.appendChild(controlHighlight);
+            }
+        };
+        
+        img.onload = updateHighlights;
+        if (img.complete) {
+            img.onload();
+        }
+        
+        imageWrapper.appendChild(img);
+        imageContainer.appendChild(imageWrapper);
+    } else {
+        const placeholder = document.createElement('div');
+        placeholder.style.cssText = 'width: 100%; height: 300px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #999; font-size: 1.2rem;';
+        placeholder.textContent = 'Image not available';
+        imageContainer.appendChild(placeholder);
+    }
+    
+    container.appendChild(imageContainer);
+    
+    // Answers list below image
+    const answersList = document.createElement('div');
+    answersList.style.cssText = 'display: flex; flex-direction: column; gap: 1rem;';
+    
+    const visibleParticipantIdsSet = new Set(visibleParticipantIds || []);
+    const allParticipantIds = Object.keys(participants || {});
+    // Filter to only show visible participant answers
+    const submittedAnswers = allParticipantIds.filter(pid => 
+        answers[pid] && 
+        answers[pid].answer !== undefined && 
+        visibleParticipantIdsSet.has(pid)
+    );
+    
+    const hasAnswers = submittedAnswers.length > 0 || (controlAnswerVisible && correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '');
+    
+    if (!hasAnswers) {
+        const noAnswers = document.createElement('div');
+        noAnswers.style.cssText = 'color: #666; font-style: italic; padding: 2rem; text-align: center; font-size: 1.2rem;';
+        noAnswers.textContent = 'No answers to display';
+        answersList.appendChild(noAnswers);
+    } else {
+        const participantIndexMap = {};
+        allParticipantIds.forEach((pid, idx) => {
+            participantIndexMap[pid] = idx;
+        });
+        
+        submittedAnswers.forEach(participantId => {
+            const answerData = answers[participantId];
+            const participant = participants[participantId] || {};
+            const colorIndex = participantIndexMap[participantId] !== undefined ? participantIndexMap[participantId] : 0;
+            const color = Common ? Common.getParticipantColor(colorIndex) : '#FF0000';
+            
+            const answerRow = document.createElement('div');
+            answerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px; border-left: 4px solid ' + color + ';';
+            
+            // Color dot
+            const colorDot = document.createElement('div');
+            colorDot.style.cssText = `width: 30px; height: 30px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0;`;
+            answerRow.appendChild(colorDot);
+            
+            // Name
+            const name = document.createElement('div');
+            name.textContent = participant.name || 'Unknown';
+            name.style.cssText = 'font-weight: 500; font-size: 1.1rem; flex: 1;';
+            answerRow.appendChild(name);
+            
+            answersList.appendChild(answerRow);
+        });
+        
+        // Add control answer row if visible
+        if (controlAnswerVisible && correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '') {
+            const controlAnswerRow = document.createElement('div');
+            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f0f7ff; border-radius: 8px; border-left: 4px solid #2196F3;';
+            
+            // Control answer indicator dot
+            const controlDot = document.createElement('div');
+            controlDot.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: #2196F3; border: 2px solid #2196F3; flex-shrink: 0;';
+            controlAnswerRow.appendChild(controlDot);
+            
+            // Name
+            const name = document.createElement('div');
+            name.textContent = 'Correct Answer';
+            name.style.cssText = 'font-weight: 500; font-size: 1.1rem; flex: 1;';
+            controlAnswerRow.appendChild(name);
+            
+            // Answer display (coordinates)
+            if (typeof correctAnswer === 'object' && correctAnswer.x !== undefined && correctAnswer.y !== undefined) {
+                const answerText = document.createElement('div');
+                answerText.textContent = `(${correctAnswer.x.toFixed(1)}%, ${correctAnswer.y.toFixed(1)}%)`;
+                answerText.style.cssText = 'font-size: 1rem; color: #666;';
+                controlAnswerRow.appendChild(answerText);
+            }
+            
+            answersList.appendChild(controlAnswerRow);
+        }
+    }
+    
+    container.appendChild(answersList);
 }

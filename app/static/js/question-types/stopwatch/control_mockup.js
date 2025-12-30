@@ -17,9 +17,25 @@ QuestionTypes.Stopwatch.ControlMockup = (function() {
             'participant3': { name: 'Charlie', avatar: 'avatar_2' }
         };
         
+        // Get correct answer from question element (stopwatch answers are in milliseconds)
+        let correctAnswer = null;
+        if (options.question && options.question.question_config) {
+            correctAnswer = options.question.question_config.question_correct_answer;
+        }
+        
+        // Convert correct answer to milliseconds if it's a number (seconds) or use default
+        let participant1Answer = 12500; // default 12.5 seconds in milliseconds
+        if (correctAnswer !== null && correctAnswer !== undefined) {
+            const numAnswer = typeof correctAnswer === 'number' ? correctAnswer : parseFloat(correctAnswer);
+            if (!isNaN(numAnswer)) {
+                // If less than 1000, assume it's in seconds and convert to milliseconds
+                participant1Answer = numAnswer < 1000 ? numAnswer * 1000 : numAnswer;
+            }
+        }
+        
         const mockAnswers = {
             'participant1': {
-                answer: 12500, // milliseconds
+                answer: participant1Answer, // milliseconds
                 submission_time: 12.5,
                 correct: true,
                 bonus_points: 5
@@ -34,10 +50,11 @@ QuestionTypes.Stopwatch.ControlMockup = (function() {
         
         const mockOptions = {
             questionId: options.questionId || 'mock-question',
-            questionTitle: options.questionTitle || 'Question',
+            questionTitle: options.questionTitle || '', // Use actual question title, not "Question"
             answers: mockAnswers,
             participants: mockParticipants,
-            onMarkAnswer: null // No-op for mockup
+            onMarkAnswer: null, // No-op for mockup
+            question: options.question || null // Pass question element for correct_answer
         };
         
         // Use the control view renderer
@@ -50,4 +67,5 @@ QuestionTypes.Stopwatch.ControlMockup = (function() {
     
     return { render: render };
 })();
+
 

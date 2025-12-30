@@ -1,0 +1,299 @@
+{
+    "creator": "the user name of the quizmaster account that created the quiz",
+    "id": "a unique id for the quiz, cannot have conflict with any other quiz id",
+    "name": "the name of the quiz",
+    "public": true, // boolean value true if the quiz is public, false if it is private,
+    "pages": [ //"an array of pages, each page is an object with a name and type",
+        {
+            "name": "Intro",
+            "page_type": "quiz_page",
+            "page_order": 1,
+            "elements":{
+                    // elements are defined globally and their main properties are defined here, but each element can be displayed on different views of the page, and in the view section we define the specific size and positiooning of the element on each view (and any associated extra elements, note not all elements are shown on all views)
+                    "elemt1": {
+                        "type": "richtext",
+                        "properties": {
+                            "content": "Hello, world!",
+                            // any other properties for the element should be defined here
+                        },
+                        "appearance_config": {
+                            "appearance_type": "on_load",
+                            "appearance_order": 1,
+                            "config": {}
+                        },
+                        "is_question": false,
+                        "question_config":{// since this is not a question, this is empty
+                    }
+                    },
+                    "elemt2": {
+                        "type": "media",
+                        "properties": {
+                            "media_type": "image",
+                            "media_url": "https://via.placeholder.com/151",
+                            "file_name": "image.jpg",
+                        },
+                        "appearance_config": {
+                            "appearance_type": "control",
+                            "appearance_order": 2,
+                            "config": {}
+                        },
+                        "is_question": true,
+                        "question_config":{
+                            "question_type": "text",
+                            "question_title": "What is the capital of France?",
+                            "question_correct_answer": "Paris"
+                        }
+                    },
+                    "elemt3": {
+                        "type": "media",
+                        "properties": {
+                            "media_type": "video",
+                            "media_url": "https://via.placeholder.com/150",
+                            "file_name": "video.mp4",
+                        },
+                        "appearance_config": {
+                            "appearance_type": "timer",
+                            "appearance_order": 3,
+                             "config": {
+                                "delay": 10, //how many seconds to delay before displaying the element
+                                "trigger": "page load" // what triggers the timer to start, can be "page load" or "previous_element_displayed" ( this measn it displays x seconds after the eleent previous to it in the appearance order is displayed)
+                            }
+                        },
+                        "is_question": true,
+                        "question_config":{
+                            "question_type": "multiple_choice",
+                            "question_title": "What is the capital of France?",
+                            "question_correct_answer": "Paris",
+                            "options": [ // this exisst only for multiple choice and checkbox questions, it is an array of strings
+                                "Paris",
+                                "London",
+                                "Berlin",
+                                "Madrid"
+                            ]
+                        }
+                    }
+                },
+            "views": { // this section contains configurations specific to each view of the page
+                "display": {
+                    "view_config": {
+                       "background":{
+                            "type": "color", // options are "color", "image", gradient
+                            "config": {
+                                "color": "#000000",
+                                // for image type, the config has the key "image_url"
+                                // for gradient type, the config has the keys "colour1", "colour2", "angle"
+                            }
+                       },
+                       "size": {
+                            "width": 1920,
+                            "height": 1080
+                       }
+                    },
+                    "local_element_configs": {
+                        "elemt1": {
+                            "config": {
+                                    "x": 100,
+                                    "y": 100,
+                                    "width": 100,
+                                    "height": 100,
+                                    "rotation": 0,
+                                }
+                        },
+                        "elemt2": {
+                            "config": {
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0,
+                            }
+                        },
+                        "elemt3": {
+                            "config": {}
+                        }
+                    }
+                },
+                "participant": {
+                    "view_config": {
+                        "background": {
+                            "type": "gradient",
+                            "config": {
+                                "colour1": "#000000",
+                                "colour2": "#FFFFFF",
+                                "angle": 90,
+                            }
+                        }
+                    },
+                    "local_element_configs": {
+                        // only question elements have answer participant elements, every question should be defined here with a corresponding answer participant element
+                        "elemt2": {
+                            "config": {
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0,
+                            }
+                        },
+                        "elemt3": {
+                            "config": {
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0,
+                            }
+                        },
+                    },
+                },
+                "control": {
+                    "view_config": {
+                        "background": {
+                            "type": "image",
+                            "config": {
+                                "image_url": "https://via.placeholder.com/150",
+                            }
+                        }
+                    },
+                    "local_element_configs": {
+                        // only question elements have answer control elements, every question should be defined here
+                        "elemt2": {
+                            "answer_config": {
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0
+                            },
+                            "control_config": {}
+                        },
+                        "elemt3": {
+                            "answer_config": {
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0
+                            },
+                            "control_config": { // audio and video elements have a control config panel that can be used to control the audio and video playback, no other elements have this
+                                "x": 100,
+                                "y": 100,
+                                "width": 100,
+                                "height": 100,
+                                "rotation": 0
+                            }
+                        }
+                    },
+                    "appearance_control_modal": {
+                        "x": 100,
+                        "y": 100,
+                        "width": 100,
+                        "height": 100,
+                        "rotation": 0
+                    }
+                }
+            }
+
+        },
+        {
+            "name": "Check in on Scores",
+            "page_type": "status_page",
+            "page_order": 2,
+            // since the status page is a standard page with no custom elements, it is not necessary to define any elements or views for it, we only need to define the screen size and background color
+            "views": {
+                "display": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000",
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                },
+                "participant": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000",
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                },
+                "control": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000",
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "name": "Final Results",
+            "page_type": "result_page",
+            "page_order": 3,
+            // since the results page is a standard page with no custom elements, it is not necessary to define any elements or views for it, we only need to define the screen size and background color
+            "views": {
+                "display": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000",
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                },
+                "participant": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000",
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                },
+                "control": {
+                    "view_config": {
+                        "background": {
+                            "type": "color",
+                            "config": {
+                                "color": "#000000", 
+                            }
+                        },
+                        "size": {
+                            "width": 1920,
+                            "height": 1080,
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

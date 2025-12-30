@@ -14,8 +14,14 @@ def get_quizes_folder():
         # Fallback if not in app context
         return Path(__file__).parent.parent / 'quizes'
 
-def save_quiz(quiz_id, quiz_data):
-    """Save a quiz to a JSON file using its ID."""
+def save_quiz(quiz_id, quiz_data, force_recreate=False):
+    """Save a quiz to a JSON file using its ID.
+    
+    Args:
+        quiz_id: The ID of the quiz
+        quiz_data: The quiz data to save
+        force_recreate: If True, delete the old file and create a new one from scratch
+    """
     try:
         quizes_folder = get_quizes_folder()
         quizes_folder.mkdir(exist_ok=True)
@@ -29,6 +35,12 @@ def save_quiz(quiz_id, quiz_data):
         
         # Save to file using ID
         quiz_file = quizes_folder / f'{quiz_id}.json'
+        
+        # If force_recreate is True, delete the old file first
+        if force_recreate and quiz_file.exists():
+            quiz_file.unlink()
+        
+        # Write the quiz data to file
         with open(quiz_file, 'w', encoding='utf-8') as f:
             json.dump(quiz_data, f, indent=2, ensure_ascii=False)
         
@@ -36,8 +48,135 @@ def save_quiz(quiz_id, quiz_data):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
+def normalize_quiz_to_new_format(quiz_data):
+    """
+    Normalize quiz data to ensure it's in the new format.
+    Ensures all pages have the required structure: page_type, page_order, elements (dict), views.
+    """
+    if not quiz_data:
+        return quiz_data
+    
+    # Ensure pages exist
+    if 'pages' not in quiz_data:
+        quiz_data['pages'] = []
+    
+    if not isinstance(quiz_data['pages'], list):
+        return quiz_data
+    
+    # Default background config
+    default_background = {
+        'type': 'gradient',
+        'config': {
+            'colour1': '#667eea',
+            'colour2': '#764ba2',
+            'angle': 135
+        }
+    }
+    default_size = {
+        'width': 1920,
+        'height': 1080
+    }
+    
+    # Normalize each page
+    for index, page in enumerate(quiz_data['pages']):
+        if not isinstance(page, dict):
+            continue
+        
+        # Ensure page_type
+        if 'page_type' not in page:
+            page['page_type'] = 'quiz_page'
+        
+        # Ensure page_order
+        if 'page_order' not in page or page['page_order'] is None:
+            page['page_order'] = index + 1
+        
+        # Ensure name
+        if 'name' not in page or not page['name']:
+            page_type = page.get('page_type', 'quiz_page')
+            if page_type == 'status_page':
+                page['name'] = 'Status Page'
+            elif page_type == 'result_page':
+                page['name'] = 'Results Page'
+            else:
+                # Count quiz pages up to this point
+                quiz_page_count = sum(1 for p in quiz_data['pages'][:index + 1] 
+                                    if p.get('page_type') == 'quiz_page')
+                page['name'] = f'Page {quiz_page_count}'
+        
+        # Ensure elements is a dict (new format only - arrays not supported)
+        if 'elements' not in page:
+            page['elements'] = {}
+        elif isinstance(page['elements'], list):
+            # Old format not supported - reject arrays
+            raise ValueError(f'Page {index}: elements must be a dictionary, not an array. Old format is not supported.')
+        
+        # Ensure views structure
+        if 'views' not in page:
+            page['views'] = {}
+        
+        # Ensure each view exists with proper structure
+        for view_name in ['display', 'participant', 'control']:
+            if view_name not in page['views']:
+                page['views'][view_name] = {
+                    'view_config': {
+                        'background': json.loads(json.dumps(default_background)),
+                        'size': json.loads(json.dumps(default_size))
+                    },
+                    'local_element_configs': {}
+                }
+            else:
+                view = page['views'][view_name]
+                # Ensure view_config
+                if 'view_config' not in view:
+                    view['view_config'] = {
+                        'background': json.loads(json.dumps(default_background)),
+                        'size': json.loads(json.dumps(default_size))
+                    }
+                else:
+                    view_config = view['view_config']
+                    # Ensure background
+                    if 'background' not in view_config:
+                        view_config['background'] = json.loads(json.dumps(default_background))
+                    elif not isinstance(view_config['background'], dict):
+                        view_config['background'] = json.loads(json.dumps(default_background))
+                    else:
+                        # Ensure background has type and config
+                        if 'type' not in view_config['background']:
+                            view_config['background']['type'] = default_background['type']
+                        if 'config' not in view_config['background']:
+                            view_config['background']['config'] = json.loads(json.dumps(default_background['config']))
+                    # Ensure size
+                    if 'size' not in view_config:
+                        view_config['size'] = json.loads(json.dumps(default_size))
+                    elif not isinstance(view_config['size'], dict):
+                        view_config['size'] = json.loads(json.dumps(default_size))
+                    else:
+                        # Ensure size has width and height
+                        if 'width' not in view_config['size']:
+                            view_config['size']['width'] = default_size['width']
+                        if 'height' not in view_config['size']:
+                            view_config['size']['height'] = default_size['height']
+                
+                # Ensure local_element_configs
+                if 'local_element_configs' not in view:
+                    view['local_element_configs'] = {}
+        
+        # Special handling for control view - ensure appearance_control_modal exists if needed
+        if 'control' in page['views'] and 'appearance_control_modal' not in page['views']['control']:
+            # Only add if there are elements that might need it
+            if page.get('elements'):
+                page['views']['control']['appearance_control_modal'] = {
+                    'x': 0,
+                    'y': 0,
+                    'width': 360,
+                    'height': 300,
+                    'rotation': 0
+                }
+    
+    return quiz_data
+
 def load_quiz(quiz_id):
-    """Load a quiz from a JSON file by ID."""
+    """Load a quiz from a JSON file by ID and normalize it to the new format."""
     try:
         quizes_folder = get_quizes_folder()
         quiz_file = quizes_folder / f'{quiz_id}.json'
@@ -47,9 +186,13 @@ def load_quiz(quiz_id):
         
         with open(quiz_file, 'r', encoding='utf-8') as f:
             quiz_data = json.load(f)
-            # Ensure ID is set (for backwards compatibility)
+            # Ensure ID is set
             if 'id' not in quiz_data:
                 quiz_data['id'] = quiz_id
+            
+            # Normalize to new format
+            quiz_data = normalize_quiz_to_new_format(quiz_data)
+            
             return quiz_data
     except Exception as e:
         return None
@@ -160,7 +303,7 @@ def validate_quiz_json(quiz_data):
         if not isinstance(page, dict):
             return {'valid': False, 'error': f'Page {i} must be an object'}
         
-        if 'type' not in page:
+        if 'page_type' not in page:
             return {'valid': False, 'error': f'Page {i} must have a type'}
     
     return {'valid': True}

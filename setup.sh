@@ -16,3 +16,4 @@ echo "  1. Activate the virtual environment: source quizia/bin/activate"
 echo "  2. Run: python run.py"
 echo ""
 
+

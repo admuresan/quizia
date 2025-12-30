@@ -26,15 +26,18 @@ def _save_stats(data):
     with open(STATS_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
-def record_quiz_run(quiz_name, quizmaster_username, room_code, completed=False):
-    """Record a quiz run."""
+def record_quiz_run(quiz_id, quizmaster_username, room_code, completed=False):
+    """Record a quiz run. Uses quiz_id (not quiz_name) as the authoritative identifier."""
     stats = _load_stats()
     import time
     
     # Check if this run already exists (for completion tracking)
     existing_run = None
     for run in stats.get('quiz_runs', []):
-        if run.get('room_code') == room_code and run.get('quiz_name') == quiz_name:
+        # Support both quiz_id (new) and quiz_name (legacy) for backward compatibility
+        run_quiz_id = run.get('quiz_id')
+        run_room_code = run.get('room_code')
+        if run_room_code == room_code and (run_quiz_id == quiz_id or run.get('quiz_name') == quiz_id):
             existing_run = run
             break
     
@@ -43,10 +46,13 @@ def record_quiz_run(quiz_name, quizmaster_username, room_code, completed=False):
         if completed:
             existing_run['completed'] = True
             existing_run['completed_at'] = time.time()
+        # Migrate legacy runs to use quiz_id if needed
+        if 'quiz_id' not in existing_run and 'quiz_name' in existing_run:
+            existing_run['quiz_id'] = quiz_id
     else:
         # Create new run
         run = {
-            'quiz_name': quiz_name,
+            'quiz_id': quiz_id,
             'quizmaster': quizmaster_username,
             'room_code': room_code,
             'started_at': time.time(),
@@ -80,8 +86,9 @@ def get_quizmaster_stats(username):
     
     for run in stats.get('quiz_runs', []):
         if run.get('quizmaster') == username and run.get('completed', False):
-            # Count unique quiz runs (same quiz name counts as one run)
-            run_key = f"{run.get('quiz_name')}_{run.get('room_code')}"
+            # Count unique quiz runs (use quiz_id if available, fallback to quiz_name for legacy)
+            quiz_id = run.get('quiz_id') or run.get('quiz_name', 'unknown')
+            run_key = f"{quiz_id}_{run.get('room_code')}"
             if run_key not in completed_runs:
                 completed_runs.add(run_key)
                 quizzes_run += 1
