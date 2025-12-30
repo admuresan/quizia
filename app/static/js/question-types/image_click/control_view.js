@@ -268,23 +268,20 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 const legendRow = document.createElement('div');
                 legendRow.className = 'answer-row';
                 legendRow.id = `answer-${participantId}-${questionId}`;
-                legendRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;';
+                legendRow.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; background: #f5f5f5; border-radius: 4px; flex-wrap: nowrap;';
                 
                 // Color dot on left
                 const colorDot = document.createElement('div');
-                colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0; box-shadow: 0 0 4px ${color}80;`;
+                colorDot.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0; box-shadow: 0 0 4px ${color}80;`;
                 legendRow.appendChild(colorDot);
                 
                 // Name
                 const name = document.createElement('div');
-                name.style.cssText = 'font-weight: 500; font-size: 0.95rem; flex: 1;';
+                name.style.cssText = 'font-weight: 500; font-size: 0.85rem; min-width: 60px; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;';
                 name.textContent = participant.name || 'Unknown';
                 legendRow.appendChild(name);
                 
-                // Show this answer checkbox
-                const showAnswerContainer = document.createElement('div');
-                showAnswerContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;';
-                
+                // Show toggle (eye icon)
                 const showAnswerCheckbox = document.createElement('input');
                 showAnswerCheckbox.type = 'checkbox';
                 showAnswerCheckbox.className = 'show-answer-checkbox';
@@ -293,9 +290,15 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 // Default: checked (all participant answers checked by default)
                 const visibility = window.answerVisibility && window.answerVisibility[questionId] ? window.answerVisibility[questionId] : { visibleParticipants: new Set(Object.keys(participants || {})) };
                 showAnswerCheckbox.checked = visibility.visibleParticipants ? visibility.visibleParticipants.has(participantId) : true;
-                showAnswerCheckbox.style.cssText = 'cursor: pointer; width: 18px; height: 18px;';
+                showAnswerCheckbox.style.cssText = 'position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;';
                 
-                showAnswerCheckbox.addEventListener('change', () => {
+                const showAnswerLabel = document.createElement('div');
+                showAnswerLabel.textContent = showAnswerCheckbox.checked ? '👁️' : '👁️‍🗨️';
+                showAnswerLabel.style.cssText = 'font-size: 0.9rem; cursor: pointer; white-space: nowrap; display: flex; align-items: center; opacity: ' + (showAnswerCheckbox.checked ? '1' : '0.4') + '; flex-shrink: 0;';
+                showAnswerLabel.title = 'Toggle answer visibility';
+                
+                const toggleVisibility = () => {
+                    showAnswerCheckbox.checked = !showAnswerCheckbox.checked;
                     if (!window.answerVisibility[questionId]) {
                         window.answerVisibility[questionId] = {
                             visibleParticipants: new Set(),
@@ -304,8 +307,12 @@ QuestionTypes.ImageClick.ControlView = (function() {
                     }
                     if (showAnswerCheckbox.checked) {
                         window.answerVisibility[questionId].visibleParticipants.add(participantId);
+                        showAnswerLabel.textContent = '👁️';
+                        showAnswerLabel.style.opacity = '1';
                     } else {
                         window.answerVisibility[questionId].visibleParticipants.delete(participantId);
+                        showAnswerLabel.textContent = '👁️‍🗨️';
+                        showAnswerLabel.style.opacity = '0.4';
                     }
                     // Update highlights on image when participant answer visibility changes
                     if (imageSrc) {
@@ -316,18 +323,14 @@ QuestionTypes.ImageClick.ControlView = (function() {
                     }
                     // Update display if it's currently showing
                     updateDisplayIfVisible();
-                });
+                };
                 
-                const showAnswerLabel = document.createElement('label');
-                showAnswerLabel.textContent = 'show this answer';
-                showAnswerLabel.style.cssText = 'font-size: 0.85rem; color: #666; cursor: pointer; white-space: nowrap;';
-                showAnswerLabel.htmlFor = showAnswerCheckbox.id = `show-answer-${participantId}-${questionId}`;
+                showAnswerLabel.addEventListener('click', toggleVisibility);
                 
-                showAnswerContainer.appendChild(showAnswerCheckbox);
-                showAnswerContainer.appendChild(showAnswerLabel);
-                legendRow.appendChild(showAnswerContainer);
+                legendRow.appendChild(showAnswerCheckbox);
+                legendRow.appendChild(showAnswerLabel);
                 
-                // Correct checkbox
+                // Correct toggle (checkmark icon)
                 const correctCheck = document.createElement('input');
                 correctCheck.type = 'checkbox';
                 correctCheck.className = 'correct-checkbox';
@@ -335,23 +338,42 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 correctCheck.dataset.questionId = questionId;
                 correctCheck.checked = (answerData && answerData.correct) || false;
                 correctCheck.disabled = !answerData;
-                correctCheck.style.cssText = 'cursor: pointer; width: 18px; height: 18px;';
+                correctCheck.style.cssText = 'position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;';
+                
+                const correctToggle = document.createElement('div');
+                correctToggle.textContent = '✓';
+                correctToggle.style.cssText = 'font-size: 1.1rem; cursor: pointer; white-space: nowrap; flex-shrink: 0; color: ' + (correctCheck.checked ? '#4CAF50' : '#999') + '; opacity: ' + (correctCheck.checked ? '1' : '0.4') + ';';
+                correctToggle.title = 'Toggle correct answer';
+                
+                const toggleCorrect = () => {
+                    if (!answerData) return;
+                    correctCheck.checked = !correctCheck.checked;
+                    if (correctCheck.checked) {
+                        correctToggle.style.color = '#4CAF50';
+                        correctToggle.style.opacity = '1';
+                    } else {
+                        correctToggle.style.color = '#999';
+                        correctToggle.style.opacity = '0.4';
+                    }
+                };
+                
+                correctToggle.addEventListener('click', toggleCorrect);
                 if (!answerData) {
-                    correctCheck.style.opacity = '0.5';
+                    correctToggle.style.cursor = 'not-allowed';
                 }
+                
                 legendRow.appendChild(correctCheck);
+                legendRow.appendChild(correctToggle);
                 
-                // Bonus section (word above, box below - bonus box centered with checkbox and name height-wise)
+                // Bonus input with plus sign (inline)
                 const bonusContainer = document.createElement('div');
-                bonusContainer.style.cssText = 'display: flex; flex-direction: column; align-items: center; gap: 0.25rem;';
+                bonusContainer.style.cssText = 'display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0;';
                 
-                // Bonus label (above bonus box)
                 const bonusLabel = document.createElement('div');
-                bonusLabel.textContent = 'bonus';
-                bonusLabel.style.cssText = 'font-size: 0.85rem; color: #666;';
+                bonusLabel.textContent = '+';
+                bonusLabel.style.cssText = 'font-size: 0.9rem; color: #666; white-space: nowrap; flex-shrink: 0; font-weight: bold;';
                 bonusContainer.appendChild(bonusLabel);
                 
-                // Bonus input (centered with checkbox and name height-wise)
                 const bonusInput = document.createElement('input');
                 bonusInput.type = 'number';
                 bonusInput.className = 'bonus-points-input';
@@ -361,7 +383,7 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 bonusInput.min = '0';
                 bonusInput.value = (answerData && answerData.bonus_points) || 0;
                 bonusInput.disabled = !answerData;
-                bonusInput.style.cssText = 'width: 70px; padding: 0.35rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;';
+                bonusInput.style.cssText = 'width: 40px; padding: 0.1rem 0.2rem; border: 1px solid #ddd; border-radius: 3px; font-size: 0.8rem; flex-shrink: 0;';
                 if (!answerData) {
                     bonusInput.style.opacity = '0.5';
                 }
@@ -369,14 +391,15 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 
                 legendRow.appendChild(bonusContainer);
                 
-                // Save button
+                // Save button with floppy icon
                 if (onMarkAnswer && answerData) {
                     const saveBtn = document.createElement('button');
-                    saveBtn.textContent = 'Save';
+                    saveBtn.textContent = '💾';
                     saveBtn.className = 'save-answer-btn';
                     saveBtn.dataset.participantId = participantId;
                     saveBtn.dataset.questionId = questionId;
-                    saveBtn.style.cssText = 'padding: 0.35rem 0.75rem; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500;';
+                    saveBtn.style.cssText = 'padding: 0.1rem 0.4rem; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.9rem; font-weight: 500; flex-shrink: 0; display: flex; align-items: center; justify-content: center;';
+                    saveBtn.title = 'Save';
                     saveBtn.onclick = () => {
                         onMarkAnswer(participantId, questionId, correctCheck.checked, parseInt(bonusInput.value) || 0);
                     };
@@ -392,23 +415,23 @@ QuestionTypes.ImageClick.ControlView = (function() {
             const controlAnswerRow = document.createElement('div');
             controlAnswerRow.className = 'answer-row control-answer-row';
             controlAnswerRow.id = `control-answer-${questionId}`;
-            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: #f0f7ff; border-radius: 4px; border: 1px solid #2196F3; margin-top: 0.5rem;';
+            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; background: #e8f5e9; border-radius: 4px; border: 2px solid #4CAF50; margin-top: 0.5rem; flex-wrap: nowrap;';
             
             // Control answer indicator dot (similar to color dot)
             const controlDot = document.createElement('div');
-            controlDot.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #2196F3; border: 2px solid #2196F3; flex-shrink: 0; box-shadow: 0 0 4px #2196F380;';
+            controlDot.style.cssText = 'width: 20px; height: 20px; border-radius: 50%; background: #4CAF50; border: 2px solid #4CAF50; flex-shrink: 0; box-shadow: 0 0 4px #4CAF5080;';
             controlAnswerRow.appendChild(controlDot);
             
             // Label
             const controlLabel = document.createElement('div');
             controlLabel.textContent = 'Correct';
-            controlLabel.style.cssText = 'font-weight: 500; font-size: 0.95rem; flex-shrink: 0;';
+            controlLabel.style.cssText = 'font-weight: 600; font-size: 0.85rem; color: #2e7d32; flex-shrink: 0;';
             controlAnswerRow.appendChild(controlLabel);
             
             // Answer label
             const answerLabel = document.createElement('div');
             answerLabel.textContent = 'Answer:';
-            answerLabel.style.cssText = 'font-weight: 500; font-size: 0.95rem; flex-shrink: 0;';
+            answerLabel.style.cssText = 'font-weight: 500; font-size: 0.85rem; color: #2e7d32; flex-shrink: 0;';
             controlAnswerRow.appendChild(answerLabel);
             
             // Answer display (for image_click, show coordinates if object, otherwise show as string)
@@ -441,10 +464,10 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 }
             }
             controlAnswerText.textContent = answerDisplay;
-            controlAnswerText.style.cssText = 'font-size: 0.95rem; color: #666; flex: 1;';
+            controlAnswerText.style.cssText = 'font-size: 0.85rem; color: #2e7d32; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.3rem; border: 1px solid #4CAF50; border-radius: 3px; background: white;';
             controlAnswerRow.appendChild(controlAnswerText);
             
-            // Show this answer checkbox
+            // Show toggle (eye icon)
             const showControlAnswerContainer = document.createElement('div');
             showControlAnswerContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;';
             
@@ -456,9 +479,15 @@ QuestionTypes.ImageClick.ControlView = (function() {
             // Default: unchecked (control answer unchecked by default)
             const visibility = window.answerVisibility && window.answerVisibility[questionId] ? window.answerVisibility[questionId] : { controlAnswerVisible: false };
             showControlAnswerCheckbox.checked = visibility.controlAnswerVisible || false;
-            showControlAnswerCheckbox.style.cssText = 'cursor: pointer; width: 18px; height: 18px;';
+            showControlAnswerCheckbox.style.cssText = 'position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;';
             
-            showControlAnswerCheckbox.addEventListener('change', () => {
+            const showControlAnswerLabel = document.createElement('div');
+            showControlAnswerLabel.textContent = showControlAnswerCheckbox.checked ? '👁️' : '👁️‍🗨️';
+            showControlAnswerLabel.style.cssText = 'font-size: 0.9rem; cursor: pointer; white-space: nowrap; display: flex; align-items: center; opacity: ' + (showControlAnswerCheckbox.checked ? '1' : '0.4') + '; flex-shrink: 0;';
+            showControlAnswerLabel.title = 'Toggle answer visibility';
+            
+            const toggleControlVisibility = () => {
+                showControlAnswerCheckbox.checked = !showControlAnswerCheckbox.checked;
                 if (!window.answerVisibility[questionId]) {
                     window.answerVisibility[questionId] = {
                         visibleParticipants: new Set(),
@@ -466,6 +495,13 @@ QuestionTypes.ImageClick.ControlView = (function() {
                     };
                 }
                 window.answerVisibility[questionId].controlAnswerVisible = showControlAnswerCheckbox.checked;
+                if (showControlAnswerCheckbox.checked) {
+                    showControlAnswerLabel.textContent = '👁️';
+                    showControlAnswerLabel.style.opacity = '1';
+                } else {
+                    showControlAnswerLabel.textContent = '👁️‍🗨️';
+                    showControlAnswerLabel.style.opacity = '0.4';
+                }
                 // Update highlights on image when control answer visibility changes
                 if (imageSrc) {
                     const imageWrapper = document.getElementById(`image-wrapper-${questionId}`);
@@ -475,12 +511,9 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 }
                 // Update display if it's currently showing
                 updateDisplayIfVisible();
-            });
+            };
             
-            const showControlAnswerLabel = document.createElement('label');
-            showControlAnswerLabel.textContent = 'show this answer';
-            showControlAnswerLabel.style.cssText = 'font-size: 0.85rem; color: #666; cursor: pointer; white-space: nowrap;';
-            showControlAnswerLabel.htmlFor = showControlAnswerCheckbox.id = `show-control-answer-${questionId}`;
+            showControlAnswerLabel.addEventListener('click', toggleControlVisibility);
             
             showControlAnswerContainer.appendChild(showControlAnswerCheckbox);
             showControlAnswerContainer.appendChild(showControlAnswerLabel);
