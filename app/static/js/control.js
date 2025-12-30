@@ -321,6 +321,25 @@ function loadPage() {
     canvas.style.overflow = 'hidden';
     canvas.style.marginBottom = '2rem';
     
+    // Position in top-left when screen is larger than view (runtime mode only)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const canvasWrapper = document.getElementById('control-canvas-wrapper');
+    if (canvasWrapper && viewportWidth >= canvasWidth && viewportHeight >= canvasHeight) {
+        // Screen is larger - position in top-left
+        canvasWrapper.style.justifyContent = 'flex-start';
+        canvasWrapper.style.alignItems = 'flex-start';
+        canvasWrapper.style.padding = '0';
+        canvas.style.margin = '0';
+    } else {
+        // Screen is smaller or equal - use default behavior (centered)
+        if (canvasWrapper) {
+            canvasWrapper.style.justifyContent = 'center';
+            canvasWrapper.style.alignItems = 'center';
+            canvasWrapper.style.padding = '2rem';
+        }
+    }
+    
     console.log('[Control] Canvas element computed styles after setup:', {
         width: canvas.style.width,
         height: canvas.style.height,

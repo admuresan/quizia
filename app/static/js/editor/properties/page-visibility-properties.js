@@ -10,6 +10,9 @@
     }
     
     Editor.Properties.PageVisibilityProperties = {
+        // Global state to track if we're dragging in the visibility pane
+        isDraggingVisibilityItem: false,
+        
         render: function(container, getCurrentQuiz, getCurrentPageIndex, getCurrentView, autosaveQuiz, renderCanvas, getDragAfterElement, updateElementPropertiesInQuiz) {
             const currentQuiz = getCurrentQuiz();
             const currentPageIndex = getCurrentPageIndex();
@@ -160,24 +163,167 @@
             
             const visibilityList = document.createElement('div');
             visibilityList.className = 'visibility-list';
-            visibilityList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem;';
+            visibilityList.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; position: relative; min-height: 50px;';
+            
+            // Drag state variables
+            let draggedElement = null;
+            let isDragging = false;
+            let autoScrollInterval = null;
+            
+            // Find the scrollable parent container
+            const findScrollableParent = (element) => {
+                let parent = element.parentElement;
+                while (parent) {
+                    const style = window.getComputedStyle(parent);
+                    if (style.overflowY === 'auto' || style.overflowY === 'scroll' || 
+                        style.overflow === 'auto' || style.overflow === 'scroll') {
+                        return parent;
+                    }
+                    parent = parent.parentElement;
+                }
+                return null;
+            };
+            
+            const scrollableContainer = findScrollableParent(container);
+            
+            // Auto-scroll function
+            const handleAutoScroll = (clientY) => {
+                if (!scrollableContainer) return;
+                
+                const rect = scrollableContainer.getBoundingClientRect();
+                const scrollZoneHeight = 50; // Height of the scroll zone at top/bottom
+                const scrollSpeed = 10; // Pixels to scroll per frame
+                
+                const distanceFromTop = clientY - rect.top;
+                const distanceFromBottom = rect.bottom - clientY;
+                
+                // Clear any existing scroll interval
+                if (autoScrollInterval) {
+                    clearInterval(autoScrollInterval);
+                    autoScrollInterval = null;
+                }
+                
+                // Scroll up if near top
+                if (distanceFromTop < scrollZoneHeight && distanceFromTop > 0) {
+                    const scrollAmount = scrollSpeed * (1 - distanceFromTop / scrollZoneHeight);
+                    autoScrollInterval = setInterval(() => {
+                        if (scrollableContainer.scrollTop > 0) {
+                            scrollableContainer.scrollTop = Math.max(0, scrollableContainer.scrollTop - scrollAmount);
+                        } else {
+                            clearInterval(autoScrollInterval);
+                            autoScrollInterval = null;
+                        }
+                    }, 16); // ~60fps
+                }
+                // Scroll down if near bottom
+                else if (distanceFromBottom < scrollZoneHeight && distanceFromBottom > 0) {
+                    const scrollAmount = scrollSpeed * (1 - distanceFromBottom / scrollZoneHeight);
+                    autoScrollInterval = setInterval(() => {
+                        const maxScroll = scrollableContainer.scrollHeight - scrollableContainer.clientHeight;
+                        if (scrollableContainer.scrollTop < maxScroll) {
+                            scrollableContainer.scrollTop = Math.min(maxScroll, scrollableContainer.scrollTop + scrollAmount);
+                        } else {
+                            clearInterval(autoScrollInterval);
+                            autoScrollInterval = null;
+                        }
+                    }, 16); // ~60fps
+                }
+            };
+            
+            // Global mouse move handler for dragging
+            const handleMouseMove = (e) => {
+                if (!isDragging || !draggedElement) return;
+                
+                e.preventDefault();
+                
+                // Calculate current Y position
+                const currentY = e.clientY;
+                
+                // Handle auto-scrolling
+                handleAutoScroll(currentY);
+                
+                // Get the element after which we should place the dragged item
+                const afterElement = getDragAfterElement(visibilityList, currentY);
+                
+                // Move the dragged element in the DOM
+                if (afterElement == null) {
+                    // Dropping at the end
+                    visibilityList.appendChild(draggedElement);
+                } else {
+                    // Dropping before afterElement
+                    visibilityList.insertBefore(draggedElement, afterElement);
+                }
+            };
+            
+            // Global mouse up handler to end dragging
+            const handleMouseUp = (e) => {
+                if (!isDragging || !draggedElement) return;
+                
+                e.preventDefault();
+                
+                // Remove dragging class and reset styling
+                draggedElement.classList.remove('dragging');
+                draggedElement.style.opacity = '';
+                draggedElement.style.cursor = '';
+                draggedElement.style.position = '';
+                draggedElement.style.zIndex = '';
+                draggedElement.style.transform = '';
+                draggedElement.style.boxShadow = '';
+                
+                // Remove all drag-over classes
+                visibilityList.querySelectorAll('.drag-over').forEach(item => {
+                    item.classList.remove('drag-over');
+                });
+                
+                // Update appearance_order in each element's appearance_config
+                const newOrder = Array.from(visibilityList.querySelectorAll('.visibility-item'))
+                    .map(item => item.dataset.elementId);
+                
+                newOrder.forEach((elementId, index) => {
+                    if (page.elements && page.elements[elementId]) {
+                        if (!page.elements[elementId].appearance_config) {
+                            page.elements[elementId].appearance_config = {};
+                        }
+                        page.elements[elementId].appearance_config.appearance_order = index + 1;
+                    }
+                });
+                
+                // Clear auto-scroll interval
+                if (autoScrollInterval) {
+                    clearInterval(autoScrollInterval);
+                    autoScrollInterval = null;
+                }
+                
+                // Clear dragging flags
+                isDragging = false;
+                Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem = false;
+                const elementToReset = draggedElement;
+                draggedElement = null;
+                
+                // Remove global event listeners
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+                
+                // Save after drag ends
+                autosaveQuiz();
+                renderCanvas();
+            };
             
             orderedElements.forEach((element, index) => {
                 // Main container for the visibility item
                 const visibilityItem = document.createElement('div');
-                visibilityItem.className = 'visibility-item';
+                visibilityItem.className = 'visibility-item draggable-item';
                 visibilityItem.dataset.elementId = element.id;
-                visibilityItem.style.cssText = 'display: flex; flex-direction: column; padding: 0.75rem; background: white; border: 1px solid #ddd; border-radius: 4px;';
+                visibilityItem.style.cssText = 'display: flex; flex-direction: column; padding: 0.75rem; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: grab; user-select: none; transition: opacity 0.2s;';
                 
                 // Main row with drag handle, name, and mode selector
                 const mainRow = document.createElement('div');
-                mainRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; cursor: move;';
-                mainRow.draggable = true;
+                mainRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem;';
                 
                 // Drag handle icon
-                const dragHandle = document.createElement('span');
+                const dragHandle = document.createElement('div');
                 dragHandle.textContent = '☰';
-                dragHandle.style.cssText = 'font-size: 1.2rem; color: #999; cursor: grab; user-select: none;';
+                dragHandle.style.cssText = 'font-size: 1.2rem; color: #999; cursor: grab; user-select: none; flex-shrink: 0; padding: 0.25rem; display: flex; align-items: center; justify-content: center; min-width: 24px;';
                 mainRow.appendChild(dragHandle);
                 
                 // Element name - editable input
@@ -185,9 +331,39 @@
                 const currentName = element.element_name || element.appearance_name || elementNames[element.id] || element.type || 'element';
                 nameInput.type = 'text';
                 nameInput.value = currentName;
-                nameInput.style.cssText = 'flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; font-weight: 500;';
+                nameInput.name = `element-name-${element.id}`;
+                nameInput.id = `element-name-${element.id}`;
+                nameInput.style.cssText = 'flex: 1; padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; font-weight: 500; user-select: text; cursor: text;';
+                nameInput.draggable = false;
+                // Store original value to detect actual changes
+                let inputOriginalValue = currentName;
+                let inputBlurTimeout = null;
+                
+                // Prevent dragging when interacting with input - allow text selection
+                nameInput.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                });
+                
+                // Track when input gets focus
+                nameInput.addEventListener('focus', () => {
+                    inputOriginalValue = nameInput.value;
+                    // Clear any pending blur timeout
+                    if (inputBlurTimeout) {
+                        clearTimeout(inputBlurTimeout);
+                        inputBlurTimeout = null;
+                    }
+                });
+                
                 nameInput.onchange = () => {
+                    // Don't save if we're currently dragging (check both local and global state)
+                    if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
+                    
+                    // Only save if value actually changed
                     const newName = nameInput.value.trim() || currentName;
+                    if (newName === inputOriginalValue) return;
+                    
                     element.element_name = newName;
                     // Also update in the quiz structure
                     const page = currentQuiz.pages[currentPageIndex];
@@ -201,17 +377,31 @@
                     autosaveQuiz();
                     renderCanvas();
                 };
+                
                 nameInput.onblur = () => {
-                    // Ensure name is not empty
-                    if (!nameInput.value.trim()) {
-                        nameInput.value = currentName;
-                    }
+                    // Delay the blur handling to check if a drag is starting
+                    inputBlurTimeout = setTimeout(() => {
+                        // Don't process blur if we're currently dragging (check both local and global state)
+                        if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) {
+                            inputBlurTimeout = null;
+                            return;
+                        }
+                        
+                        // Ensure name is not empty
+                        if (!nameInput.value.trim()) {
+                            nameInput.value = currentName;
+                        }
+                        inputBlurTimeout = null;
+                    }, 150);
                 };
                 mainRow.appendChild(nameInput);
                 
                 // Visibility mode dropdown
                 const modeSelect = document.createElement('select');
-                modeSelect.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem;';
+                modeSelect.name = `element-mode-${element.id}`;
+                modeSelect.id = `element-mode-${element.id}`;
+                modeSelect.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; user-select: text; cursor: pointer;';
+                modeSelect.draggable = false;
                 const modes = [
                     { value: 'on_load', label: 'On Load' },
                     { value: 'control', label: 'Control' },
@@ -227,6 +417,9 @@
                     modeSelect.appendChild(option);
                 });
                 modeSelect.onchange = () => {
+                    // Don't save if we're currently dragging
+                    if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
+                    
                     const newMode = modeSelect.value;
                     element.appearance_mode = newMode;
                     if (element.appearance_mode === 'control') {
@@ -270,10 +463,13 @@
                 // Trigger dropdown
                 const triggerLabel = document.createElement('label');
                 triggerLabel.textContent = 'Trigger:';
+                triggerLabel.htmlFor = `element-timer-trigger-${element.id}`;
                 triggerLabel.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: #555;';
                 
                 const triggerSelect = document.createElement('select');
-                triggerSelect.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; flex: 1;';
+                triggerSelect.name = `element-timer-trigger-${element.id}`;
+                triggerSelect.id = `element-timer-trigger-${element.id}`;
+                triggerSelect.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; flex: 1; user-select: text; cursor: pointer;';
                 const triggers = [
                     { value: 'load', label: 'Load' },
                     { value: 'previous_element', label: 'Previous Element' }
@@ -288,6 +484,9 @@
                     triggerSelect.appendChild(option);
                 });
                 triggerSelect.onchange = () => {
+                    // Don't save if we're currently dragging
+                    if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
+                    
                     element.timer_trigger = triggerSelect.value;
                     const page = currentQuiz.pages[currentPageIndex];
                     if (page && page.elements && page.elements[element.id]) {
@@ -308,6 +507,7 @@
                 // Delay input
                 const delayLabel = document.createElement('label');
                 delayLabel.textContent = 'Delay (seconds):';
+                delayLabel.htmlFor = `element-timer-delay-${element.id}`;
                 delayLabel.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: #555;';
                 
                 const delayInput = document.createElement('input');
@@ -315,8 +515,13 @@
                 delayInput.min = '0';
                 delayInput.step = '1';
                 delayInput.value = element.timer_delay || 0;
-                delayInput.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 80px;';
+                delayInput.name = `element-timer-delay-${element.id}`;
+                delayInput.id = `element-timer-delay-${element.id}`;
+                delayInput.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; width: 80px; user-select: text; cursor: text;';
                 delayInput.onchange = () => {
+                    // Don't save if we're currently dragging
+                    if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
+                    
                     const delayValue = Math.max(0, parseInt(delayInput.value) || 0);
                     delayInput.value = delayValue;
                     element.timer_delay = delayValue;
@@ -340,7 +545,12 @@
                 
                 // Hover highlighting - highlight corresponding canvas element based on current view
                 let highlightedCanvasElement = null;
-                visibilityItem.addEventListener('mouseenter', () => {
+                const handleMouseEnter = () => {
+                    // Don't highlight if we're dragging
+                    if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) {
+                        return;
+                    }
+                    
                     // Determine which element to highlight based on current view and element type
                     let elementIdToHighlight = element.id;
                     const view = getCurrentView();
@@ -365,9 +575,14 @@
                         canvasElement.style.boxShadow = '0 0 0 3px rgba(255, 140, 66, 0.4), 0 0 12px rgba(255, 140, 66, 0.6), 0 0 20px rgba(255, 140, 66, 0.3)';
                         canvasElement.style.zIndex = '1000';
                     }
-                });
+                };
                 
-                visibilityItem.addEventListener('mouseleave', () => {
+                const handleMouseLeave = () => {
+                    // Don't clear highlight if we're dragging (only clear if it's not the dragged element)
+                    if (isDragging && draggedElement === visibilityItem) {
+                        return;
+                    }
+                    
                     if (highlightedCanvasElement) {
                         highlightedCanvasElement.style.outline = '';
                         highlightedCanvasElement.style.outlineOffset = '';
@@ -375,64 +590,88 @@
                         highlightedCanvasElement.style.zIndex = '';
                         highlightedCanvasElement = null;
                     }
-                });
+                };
                 
-                // Drag and drop handlers - attach to mainRow for dragging
-                mainRow.addEventListener('dragstart', (e) => {
-                    visibilityItem.classList.add('dragging');
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/html', visibilityItem.outerHTML);
-                    e.dataTransfer.setData('text/plain', element.id);
-                });
+                visibilityItem.addEventListener('mouseenter', handleMouseEnter);
+                visibilityItem.addEventListener('mouseleave', handleMouseLeave);
                 
-                mainRow.addEventListener('dragend', () => {
-                    visibilityItem.classList.remove('dragging');
-                });
+                // Custom drag implementation using mouse events
+                let isMouseDown = false;
+                let dragStartY = 0;
                 
-                // Allow drop on the whole visibility item
-                visibilityItem.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
-                    const afterElement = getDragAfterElement(visibilityList, e.clientY);
-                    const dragging = visibilityList.querySelector('.dragging');
-                    if (dragging && dragging !== visibilityItem) {
-                        if (afterElement == null) {
-                            visibilityList.appendChild(dragging);
-                        } else {
-                            visibilityList.insertBefore(dragging, afterElement);
+                visibilityItem.addEventListener('mousedown', (e) => {
+                    const target = e.target;
+                    // If clicking on input, select, or timer options container, don't start drag
+                    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || 
+                        target.closest('input') || target.closest('select') ||
+                        target.closest('.timer-options-container')) {
+                        return;
+                    }
+                    
+                    // Clear any pending input blur timeout to prevent onchange from firing
+                    if (inputBlurTimeout) {
+                        clearTimeout(inputBlurTimeout);
+                        inputBlurTimeout = null;
+                    }
+                    
+                    isMouseDown = true;
+                    dragStartY = e.clientY;
+                    
+                    // Handler to check if we should start dragging
+                    const handleMouseMoveCheck = (moveEvent) => {
+                        if (!isMouseDown) {
+                            document.removeEventListener('mousemove', handleMouseMoveCheck);
+                            document.removeEventListener('mouseup', handleMouseUpCheck);
+                            return;
                         }
-                    }
-                });
-                
-                visibilityItem.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    const draggedId = e.dataTransfer.getData('text/plain');
-                    const draggedItem = visibilityList.querySelector(`[data-element-id="${draggedId}"]`);
-                    if (!draggedItem || draggedItem === visibilityItem) return;
-                    
-                    const afterElement = getDragAfterElement(visibilityList, e.clientY);
-                    if (afterElement == null) {
-                        visibilityList.appendChild(draggedItem);
-                    } else {
-                        visibilityList.insertBefore(draggedItem, afterElement);
-                    }
-                    
-                    // Update appearance_order in each element's appearance_config
-                    const newOrder = Array.from(visibilityList.querySelectorAll('.visibility-item'))
-                        .map(item => item.dataset.elementId);
-                    
-                    // Update appearance_order in each element's appearance_config
-                    newOrder.forEach((elementId, index) => {
-                        if (page.elements && page.elements[elementId]) {
-                            if (!page.elements[elementId].appearance_config) {
-                                page.elements[elementId].appearance_config = {};
+                        
+                        const moveDistance = Math.abs(moveEvent.clientY - dragStartY);
+                        // Start drag if mouse moved more than 5px
+                        if (moveDistance > 5) {
+                            isMouseDown = false;
+                            
+                            // Set dragging flags
+                            isDragging = true;
+                            Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem = true;
+                            draggedElement = visibilityItem;
+                            
+                            // Add dragging class for styling
+                            visibilityItem.classList.add('dragging');
+                            visibilityItem.style.opacity = '0.6';
+                            visibilityItem.style.cursor = 'grabbing';
+                            visibilityItem.style.position = 'relative';
+                            visibilityItem.style.zIndex = '1000';
+                            visibilityItem.style.transform = 'scale(1.02)';
+                            visibilityItem.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                            
+                            // Clear any canvas highlights
+                            if (highlightedCanvasElement) {
+                                highlightedCanvasElement.style.outline = '';
+                                highlightedCanvasElement.style.outlineOffset = '';
+                                highlightedCanvasElement.style.boxShadow = '';
+                                highlightedCanvasElement.style.zIndex = '';
+                                highlightedCanvasElement = null;
                             }
-                            page.elements[elementId].appearance_config.appearance_order = index + 1;
+                            
+                            // Remove check listeners
+                            document.removeEventListener('mousemove', handleMouseMoveCheck);
+                            document.removeEventListener('mouseup', handleMouseUpCheck);
+                            
+                            // Add global event listeners for actual dragging
+                            document.addEventListener('mousemove', handleMouseMove);
+                            document.addEventListener('mouseup', handleMouseUp);
                         }
-                    });
+                    };
                     
-                    autosaveQuiz();
-                    renderCanvas();
+                    // Handler to cancel if mouse is released before drag starts
+                    const handleMouseUpCheck = () => {
+                        isMouseDown = false;
+                        document.removeEventListener('mousemove', handleMouseMoveCheck);
+                        document.removeEventListener('mouseup', handleMouseUpCheck);
+                    };
+                    
+                    document.addEventListener('mousemove', handleMouseMoveCheck);
+                    document.addEventListener('mouseup', handleMouseUpCheck);
                 });
                 
                 visibilityList.appendChild(visibilityItem);

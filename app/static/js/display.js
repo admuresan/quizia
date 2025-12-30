@@ -157,6 +157,20 @@ function applyScalingToFit(container, canvasWidth, canvasHeight) {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     
+    // If screen is larger than view, position in top-left corner (no scaling up)
+    if (viewportWidth >= canvasWidth && viewportHeight >= canvasHeight) {
+        container.style.transform = 'none';
+        container.style.transformOrigin = 'top left';
+        // Position container in top-left
+        const parentContainer = container.parentElement;
+        if (parentContainer) {
+            parentContainer.style.alignItems = 'flex-start';
+            parentContainer.style.justifyContent = 'flex-start';
+        }
+        return;
+    }
+    
+    // Screen is smaller than view - scale down to fit
     // Calculate scale to fit both width and height
     const scaleX = viewportWidth / canvasWidth;
     const scaleY = viewportHeight / canvasHeight;
@@ -165,6 +179,13 @@ function applyScalingToFit(container, canvasWidth, canvasHeight) {
     // Apply scaling
     container.style.transform = `scale(${scale})`;
     container.style.transformOrigin = 'center center';
+    
+    // Reset parent container alignment for centered scaling
+    const parentContainer = container.parentElement;
+    if (parentContainer) {
+        parentContainer.style.alignItems = 'center';
+        parentContainer.style.justifyContent = 'center';
+    }
 }
 
 // Handle window resize to recalculate scaling
@@ -248,6 +269,9 @@ function renderPage(pageIndex, page) {
     container.style.overflow = 'hidden';
     container.style.margin = '0';
     container.style.display = 'block';
+    
+    // Apply positioning based on screen size vs view size
+    applyScalingToFit(container, canvasWidth, canvasHeight);
     
     // Set background using shared utility function
     // NO hardcoded fallbacks - only use what's in the saved quiz

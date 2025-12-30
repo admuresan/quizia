@@ -626,6 +626,32 @@
     border-top: 2px solid rgba(255, 255, 255, 0.8);
 }
 
+/* Visibility item drag and drop styles */
+.visibility-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing !important;
+    transform: scale(0.98);
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.visibility-item.drag-over {
+    border-top: 3px solid #2196F3;
+    border-top-style: dashed;
+    margin-top: 0.5rem;
+    background: #f0f7ff;
+}
+
+.drag-placeholder {
+    height: auto;
+    background: #e3f2fd;
+    border: 2px dashed #2196F3;
+    border-radius: 4px;
+    margin: 0.25rem 0;
+    opacity: 0.8;
+    transition: all 0.2s;
+    pointer-events: none;
+}
+
 .page-move-btn {
     padding: 0.15rem 0.3rem;
     border: 1px solid #ddd;

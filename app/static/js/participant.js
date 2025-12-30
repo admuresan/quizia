@@ -232,6 +232,20 @@ function renderPage(pageIndex, page) {
     container.style.boxSizing = 'border-box';
     container.style.overflow = 'auto';
     
+    // Position in top-left when screen is larger than view (runtime mode only)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    if (viewportWidth >= canvasWidth && viewportHeight >= canvasHeight) {
+        // Screen is larger - position in top-left
+        container.style.margin = '0';
+        container.style.padding = '0';
+        container.style.alignSelf = 'flex-start';
+    } else {
+        // Screen is smaller or equal - use default behavior (centered with padding)
+        container.style.padding = '2rem';
+        container.style.margin = '0 auto';
+    }
+    
     // Set background using shared utility function
     // NO hardcoded fallbacks - only use what's in the saved quiz
     if (window.BackgroundUtils && window.BackgroundUtils.applyBackground) {
