@@ -24,12 +24,12 @@ function updateParticipantHeader() {
     
     if (nameEl) {
         nameEl.textContent = participantName || 'Participant';
-        nameEl.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333; flex: 1;';
+        nameEl.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333;';
     }
     
     if (scoreEl) {
         scoreEl.textContent = `Score: ${currentScore}`;
-        scoreEl.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3;';
+        scoreEl.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-left: 1rem;';
     }
 }
 

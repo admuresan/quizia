@@ -499,11 +499,6 @@ function loadPage() {
                     }
                 }
                 
-                console.log('[Control] Determined answerType:', answerType, 'for question:', questionViewElement.id, {
-                    questionElement: questionElement,
-                    questionConfig: questionElement ? questionElement.question_config : null
-                });
-                
                 // Get image source if image_click question (image is stored in the question element's properties)
                 let imageSrc = null;
                 if (answerType === 'image_click' && questionElement) {
@@ -712,7 +707,9 @@ function updateNavigationButtons() {
     // Update footer page indicator
     const pageIndicator = document.getElementById('page-indicator');
     if (pageIndicator) {
-        pageIndicator.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`;
+        const currentPage = quiz.pages[currentPageIndex];
+        const pageName = currentPage && currentPage.name ? currentPage.name : `Page ${currentPageIndex + 1}`;
+        pageIndicator.textContent = `Page ${currentPageIndex + 1} of ${totalPages} - ${pageName}`;
     }
 }
 

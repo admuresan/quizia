@@ -265,6 +265,7 @@
                         width: width,
                         height: height,
                         rotation: rotation,
+                        layer_order: elementData.layer_order || 1, // Inherit layer_order from parent
                         question_type: questionConfig.question_type || 'text',
                         answer_type: questionConfig.question_type || 'text',
                         options: questionConfig.options || []
@@ -284,7 +285,8 @@
                         y: controlConfig.y !== undefined ? controlConfig.y : 0,
                         width: controlConfig.width !== undefined ? controlConfig.width : 400,
                         height: controlConfig.height !== undefined ? controlConfig.height : 80,
-                        rotation: controlConfig.rotation !== undefined ? controlConfig.rotation : 0
+                        rotation: controlConfig.rotation !== undefined ? controlConfig.rotation : 0,
+                        layer_order: elementData.layer_order || 1 // Inherit layer_order from parent
                     };
                     result.push(controlElement);
                 }
@@ -315,6 +317,8 @@
                 // Use timer_delay for timer elements, otherwise use config.delay
                 appearance_delay: appearanceType === 'timer' ? timerDelay : (appearanceConfig.config?.delay || 0),
                 appearance_visible: initialVisible,
+                // Add layer_order for overlay/layering (separate from appearance_order)
+                layer_order: elementData.layer_order || 1,
                 // Add question properties if it's a question
                 question_title: questionConfig.question_title || '',
                 question_correct_answer: questionConfig.question_correct_answer || '',
@@ -330,21 +334,22 @@
                 // Generate answer_input element from parent question
                 // Read position/size from answer_input_config in local_element_configs (absolute pixel values)
                 const answerInputConfig = localConfig.answer_input_config || {};
-                const answerInputElement = {
-                    id: `${elementId}-answer-input`,
-                    type: 'answer_input',
-                    parent_id: elementId,
-                    view: 'participant',
-                    ...properties, // Inherit properties from parent
-                    x: answerInputConfig.x !== undefined ? answerInputConfig.x : 0,
-                    y: answerInputConfig.y !== undefined ? answerInputConfig.y : 0,
-                    width: answerInputConfig.width !== undefined ? answerInputConfig.width : 400,
-                    height: answerInputConfig.height !== undefined ? answerInputConfig.height : 100,
-                    rotation: answerInputConfig.rotation !== undefined ? answerInputConfig.rotation : 0,
-                    question_type: questionConfig.question_type || 'text',
-                    answer_type: questionConfig.question_type || 'text',
-                    options: questionConfig.options || []
-                };
+                    const answerInputElement = {
+                        id: `${elementId}-answer-input`,
+                        type: 'answer_input',
+                        parent_id: elementId,
+                        view: 'participant',
+                        ...properties, // Inherit properties from parent
+                        x: answerInputConfig.x !== undefined ? answerInputConfig.x : 0,
+                        y: answerInputConfig.y !== undefined ? answerInputConfig.y : 0,
+                        width: answerInputConfig.width !== undefined ? answerInputConfig.width : 400,
+                        height: answerInputConfig.height !== undefined ? answerInputConfig.height : 100,
+                        rotation: answerInputConfig.rotation !== undefined ? answerInputConfig.rotation : 0,
+                        layer_order: elementData.layer_order || 1, // Inherit layer_order from parent
+                        question_type: questionConfig.question_type || 'text',
+                        answer_type: questionConfig.question_type || 'text',
+                        options: questionConfig.options || []
+                    };
                 result.push(answerInputElement);
             }
         });
@@ -362,10 +367,19 @@
                 y: modalConfig.y || 100,
                 width: modalConfig.width || 400,
                 height: modalConfig.height || 300,
-                rotation: modalConfig.rotation || 0
+                rotation: modalConfig.rotation || 0,
+                layer_order: 1000 // High layer_order so appearance control appears on top
             };
             result.push(appearanceControlElement);
         }
+        
+        // Sort elements by layer_order to maintain correct overlay/layering
+        // Elements with lower layer_order render first (behind), higher values render last (on top)
+        result.sort((a, b) => {
+            const orderA = a.layer_order || 1;
+            const orderB = b.layer_order || 1;
+            return orderA - orderB;
+        });
         
         return result;
     }
@@ -465,6 +479,25 @@
             appearanceOrder = maxOrder + 1;
         }
         
+        // Calculate layer_order if not provided (for new elements)
+        // Preserve existing layer_order if element already exists
+        let layerOrder = element.layer_order;
+        if (!layerOrder && page.elements && page.elements[elementId] && page.elements[elementId].layer_order) {
+            // Preserve existing layer_order when updating
+            layerOrder = page.elements[elementId].layer_order;
+        } else if (!layerOrder) {
+            // Find the maximum layer_order among existing elements and add 1
+            let maxLayerOrder = 0;
+            if (page.elements && typeof page.elements === 'object') {
+                Object.values(page.elements).forEach(existingElement => {
+                    if (existingElement.layer_order) {
+                        maxLayerOrder = Math.max(maxLayerOrder, existingElement.layer_order);
+                    }
+                });
+            }
+            layerOrder = maxLayerOrder + 1;
+        }
+        
         // Build element data structure for page.elements dictionary
         const elementData = {
             type: element.type || 'richtext',
@@ -474,6 +507,7 @@
                 appearance_order: appearanceOrder,
                 config: {}
             },
+            layer_order: layerOrder, // Separate from appearance_order - controls visual layering
             is_question: element.is_question || false,
             question_config: {}
         };

@@ -62,7 +62,7 @@
     position: relative !important;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     min-height: 400px;
-    overflow: auto !important;
+    overflow: hidden !important; /* Clip elements outside the displayable area */
     margin: auto;
     flex-shrink: 0;
 }

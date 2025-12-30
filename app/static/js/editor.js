@@ -433,7 +433,7 @@ async function loadQuiz(quizId) {
     return Promise.resolve();
 }
 
-function updateCanvasSize() {
+function updateCanvasSize(skipZoom) {
     const settings = getCurrentViewSettings();
     const displayableArea = document.getElementById('displayable-area');
     const displayableAreaWrapper = document.getElementById('displayable-area-wrapper');
@@ -456,8 +456,10 @@ function updateCanvasSize() {
         displayableArea.style.boxSizing = 'border-box';
         // Background is set via CSS, no need to set inline styles
     }
-    // Apply zoom after setting size
-    Editor.ZoomControls.applyZoom(settings.zoom);
+    // Apply zoom after setting size (unless skipZoom is true, e.g., when called from renderCanvas)
+    if (!skipZoom) {
+        Editor.ZoomControls.applyZoom(settings.zoom);
+    }
 }
 
 // Zoom functions now in Editor.ZoomControls module
@@ -675,6 +677,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSidebarZoomControls();
         renderPages();
         renderCanvas();
+        // Auto-fit and center on initial load
+        setTimeout(() => {
+            if (Editor.ZoomControls && Editor.ZoomControls.zoomFit) {
+                Editor.ZoomControls.zoomFit();
+            }
+        }, 100);
     };
     
     if (quizId) {
@@ -812,7 +820,97 @@ document.addEventListener('DOMContentLoaded', () => {
             deselectElement();
         }
     });
-
+    
+    // Handle right-click on empty canvas space for paste
+    displayableArea.addEventListener('contextmenu', (e) => {
+        // Check if clicking on an element
+        const target = e.target;
+        const clickedElement = target.closest('.canvas-element') || 
+                               target.closest('.question-container') ||
+                               target.closest('[id^="element-nav-"]');
+        
+        // Don't handle if clicking on interactive elements
+        const isInteractiveElement = target.tagName === 'INPUT' || 
+                                     target.tagName === 'BUTTON' || 
+                                     target.tagName === 'SELECT' || 
+                                     target.tagName === 'TEXTAREA' ||
+                                     target.tagName === 'LABEL' ||
+                                     target.closest('input') ||
+                                     target.closest('button') ||
+                                     target.closest('select') ||
+                                     target.closest('textarea') ||
+                                     target.closest('label');
+        
+        // Only show paste menu if clicking on empty space and we have a copied element
+        if (!clickedElement && !isInteractiveElement && Editor.CopyPaste && Editor.CopyPaste.hasCopiedElement()) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Calculate canvas coordinates
+            const rect = displayableArea.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Show paste context menu
+            if (Editor.ContextMenu && Editor.ContextMenu.showPasteMenu) {
+                Editor.ContextMenu.showPasteMenu(e, x, y, () => currentQuiz, () => currentPageIndex, () => currentView, renderCanvas, selectElement, autosaveQuiz);
+            }
+        }
+    });
+    
+    // Keyboard shortcuts for copy/paste
+    document.addEventListener('keydown', (e) => {
+        // Only handle if not typing in an input field
+        const target = e.target;
+        const isInputField = target.tagName === 'INPUT' || 
+                            target.tagName === 'TEXTAREA' ||
+                            target.isContentEditable;
+        
+        if (isInputField) {
+            return; // Let the input field handle it
+        }
+        
+        // Ctrl+C or Cmd+C to copy selected element
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            if (selectedElement && Editor.CopyPaste && Editor.CopyPaste.copyElement) {
+                e.preventDefault();
+                Editor.CopyPaste.copyElement(selectedElement, () => currentQuiz, () => currentPageIndex);
+            }
+        }
+        
+        // Ctrl+V or Cmd+V to paste element
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            if (Editor.CopyPaste && Editor.CopyPaste.hasCopiedElement()) {
+                e.preventDefault();
+                
+                // Get the selected element's position or use center of canvas
+                let pasteX, pasteY;
+                if (selectedElement) {
+                    // Paste at x+10, y+10 from selected element
+                    pasteX = (selectedElement.x || 0) + 10;
+                    pasteY = (selectedElement.y || 0) + 10;
+                } else {
+                    // Paste at center of displayable area
+                    const rect = displayableArea.getBoundingClientRect();
+                    pasteX = rect.width / 2;
+                    pasteY = rect.height / 2;
+                }
+                
+                if (Editor.CopyPaste.pasteElement) {
+                    Editor.CopyPaste.pasteElement(
+                        pasteX, pasteY,
+                        () => currentQuiz,
+                        () => currentPageIndex,
+                        () => currentView,
+                        renderCanvas,
+                        selectElement,
+                        autosaveQuiz
+                    );
+                }
+            }
+        }
+    });
+    
     // Page management
     const pageCallbacks = {
         getCurrentQuiz: () => currentQuiz,
@@ -839,25 +937,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 100);
         },
         onMovePage: (fromIndex, toIndex) => {
-            // Check if page_order already matches array positions (indicates drag-and-drop already reordered)
-            // If page_order values match array indices, pages are already correctly positioned
-            const pagesAlreadyInOrder = currentQuiz.pages.every((page, idx) => 
-                page.page_order === idx + 1
-            );
+            // Always reorder the pages array based on the move
+            const [movedPage] = currentQuiz.pages.splice(fromIndex, 1);
+            currentQuiz.pages.splice(toIndex, 0, movedPage);
             
-            // Only swap if pages haven't been reordered yet (e.g., from arrow buttons)
-            // Arrow buttons move by exactly 1 position, and page_order won't match yet
-            if (!pagesAlreadyInOrder) {
-                // Swap pages (for arrow button moves)
-                [currentQuiz.pages[fromIndex], currentQuiz.pages[toIndex]] = 
-                    [currentQuiz.pages[toIndex], currentQuiz.pages[fromIndex]];
-            }
-            // If pagesAlreadyInOrder is true, drag-and-drop already moved them, so skip swap
-            
+            // Update current page index if needed
             if (currentPageIndex === fromIndex) {
                 currentPageIndex = toIndex;
-            } else if (currentPageIndex === toIndex) {
-                currentPageIndex = fromIndex;
+            } else if (fromIndex < currentPageIndex && toIndex >= currentPageIndex) {
+                currentPageIndex = currentPageIndex - 1;
+            } else if (fromIndex > currentPageIndex && toIndex <= currentPageIndex) {
+                currentPageIndex = currentPageIndex + 1;
             }
             
             // Update page_order for all pages to match their current positions
@@ -1135,25 +1225,17 @@ function renderPages() {
             }, 100);
         },
         onMovePage: (fromIndex, toIndex) => {
-            // Check if page_order already matches array positions (indicates drag-and-drop already reordered)
-            // If page_order values match array indices, pages are already correctly positioned
-            const pagesAlreadyInOrder = currentQuiz.pages.every((page, idx) => 
-                page.page_order === idx + 1
-            );
+            // Always reorder the pages array based on the move
+            const [movedPage] = currentQuiz.pages.splice(fromIndex, 1);
+            currentQuiz.pages.splice(toIndex, 0, movedPage);
             
-            // Only swap if pages haven't been reordered yet (e.g., from arrow buttons)
-            // Arrow buttons move by exactly 1 position, and page_order won't match yet
-            if (!pagesAlreadyInOrder) {
-                // Swap pages (for arrow button moves)
-                [currentQuiz.pages[fromIndex], currentQuiz.pages[toIndex]] = 
-                    [currentQuiz.pages[toIndex], currentQuiz.pages[fromIndex]];
-            }
-            // If pagesAlreadyInOrder is true, drag-and-drop already moved them, so skip swap
-            
+            // Update current page index if needed
             if (currentPageIndex === fromIndex) {
                 currentPageIndex = toIndex;
-            } else if (currentPageIndex === toIndex) {
-                currentPageIndex = fromIndex;
+            } else if (fromIndex < currentPageIndex && toIndex >= currentPageIndex) {
+                currentPageIndex = currentPageIndex - 1;
+            } else if (fromIndex > currentPageIndex && toIndex <= currentPageIndex) {
+                currentPageIndex = currentPageIndex + 1;
             }
             
             // Update page_order for all pages to match their current positions

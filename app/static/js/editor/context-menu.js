@@ -73,6 +73,8 @@
             
             // Create menu items
             const menuItems = [
+                { label: 'Copy', action: 'copy', enabled: true },
+                { label: '---', action: 'separator', enabled: true },
                 { label: 'Bring to Front', action: 'bringToFront', enabled: elementIndex < elementsArray.length - 1 },
                 { label: 'Send One Forward', action: 'sendForward', enabled: elementIndex < elementsArray.length - 1 },
                 { label: 'Send One Back', action: 'sendBack', enabled: elementIndex > 0 },
@@ -118,7 +120,7 @@
                     menuItem.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.hide();
-                        this.handleAction(item.action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz);
+                        this.handleAction(item.action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex);
                     });
                 }
                 
@@ -150,9 +152,93 @@
             }
         },
         
-        handleAction: function(action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz) {
+        showPasteMenu: function(event, x, y, getCurrentQuiz, getCurrentPageIndex, getCurrentView, renderCanvas, selectElement, autosaveQuiz) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Hide any existing menu first
+            this.hide();
+            
+            // Clear previous menu items
+            this.menuElement.innerHTML = '';
+            
+            // Only show paste if we have a copied element
+            if (!Editor.CopyPaste || !Editor.CopyPaste.hasCopiedElement()) {
+                return;
+            }
+            
+            // Create paste menu item
+            const menuItem = document.createElement('div');
+            menuItem.className = 'context-menu-item';
+            menuItem.textContent = 'Paste';
+            menuItem.style.cssText = `
+                padding: 8px 16px;
+                cursor: pointer;
+                color: #333;
+                font-size: 14px;
+                user-select: none;
+            `;
+            
+            menuItem.style.backgroundColor = 'transparent';
+            menuItem.addEventListener('mouseenter', () => {
+                menuItem.style.backgroundColor = '#f0f0f0';
+            });
+            menuItem.addEventListener('mouseleave', () => {
+                menuItem.style.backgroundColor = 'transparent';
+            });
+            
+            menuItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.hide();
+                
+                // Paste at the click location
+                if (Editor.CopyPaste && Editor.CopyPaste.pasteElement) {
+                    Editor.CopyPaste.pasteElement(
+                        x, y,
+                        getCurrentQuiz,
+                        getCurrentPageIndex,
+                        getCurrentView,
+                        renderCanvas,
+                        selectElement,
+                        autosaveQuiz
+                    );
+                }
+            });
+            
+            this.menuElement.appendChild(menuItem);
+            
+            // Position menu
+            const menuX = event.clientX;
+            const menuY = event.clientY;
+            this.menuElement.style.left = menuX + 'px';
+            this.menuElement.style.top = menuY + 'px';
+            this.menuElement.style.display = 'block';
+            
+            // Adjust position if menu goes off screen
+            setTimeout(() => {
+                const rect = this.menuElement.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    this.menuElement.style.left = (window.innerWidth - rect.width - 10) + 'px';
+                }
+                if (rect.bottom > window.innerHeight) {
+                    this.menuElement.style.top = (window.innerHeight - rect.height - 10) + 'px';
+                }
+            }, 0);
+        },
+        
+        handleAction: function(action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex) {
             const page = currentQuiz.pages[currentPageIndex];
             if (!page || !page.elements) return;
+            
+            // Handle copy action
+            if (action === 'copy') {
+                if (Editor.CopyPaste && Editor.CopyPaste.copyElement) {
+                    const getQuiz = getCurrentQuiz || (() => currentQuiz);
+                    const getPageIndex = getCurrentPageIndex || (() => currentPageIndex);
+                    Editor.CopyPaste.copyElement(element, getQuiz, getPageIndex);
+                }
+                return;
+            }
             
             // Get elements for current view
             let elementsArray = [];
@@ -228,25 +314,18 @@
                     return;
             }
             
-            // Update appearance_order for each element in newOrder
+            // Update layer_order for each element in newOrder
+            // layer_order controls visual layering/overlay order (separate from appearance_order)
             // In the new format, page.elements is an object (dict), not an array
-            // We need to update the appearance_order in each element's appearance_config
             const viewElementIds = new Set(elementIds);
             
-            // Update appearance_order for elements based on their position in newOrder
+            // Update layer_order for elements based on their position in newOrder
             newOrder.forEach((elementId, index) => {
                 const elementData = page.elements[elementId];
                 if (elementData) {
-                    // Set appearance_order to index + 1 (1-based ordering)
-                    if (!elementData.appearance_config) {
-                        elementData.appearance_config = {
-                            appearance_type: 'on_load',
-                            appearance_order: index + 1,
-                            config: {}
-                        };
-                    } else {
-                        elementData.appearance_config.appearance_order = index + 1;
-                    }
+                    // Set layer_order to index + 1 (1-based ordering)
+                    // Higher layer_order = appears on top
+                    elementData.layer_order = index + 1;
                 }
             });
             

@@ -42,6 +42,12 @@
                 return;
             }
             
+            // Don't re-render if rich text editor is currently being edited
+            const activeEditor = panel.querySelector('[contenteditable="true"][data-interacting="true"]');
+            if (activeEditor) {
+                return;
+            }
+            
             panel.innerHTML = '';
 
             // Create tabs container
@@ -73,54 +79,41 @@
             tabsContainer.appendChild(visibilityTab);
             panel.appendChild(tabsContainer);
             
-            // Create tab content container
-            const tabContent = document.createElement('div');
-            tabContent.className = 'properties-tab-content';
-            panel.appendChild(tabContent);
+            // Create content container
+            const contentContainer = document.createElement('div');
+            contentContainer.className = 'properties-content';
+            contentContainer.style.cssText = 'overflow-y: auto; max-height: calc(100vh - 200px);';
             
             const selectedElement = this.getSelectedElement();
             
+            // Render appropriate content based on active tab
             if (this.activeTab === 'general') {
-                if (!selectedElement) {
-                    this.renderPageProperties(tabContent);
-                    return;
+                if (selectedElement) {
+                    if (Editor.PropertiesPanel.renderGeneralProperties) {
+                        Editor.PropertiesPanel.renderGeneralProperties.call(this, contentContainer, selectedElement);
+                    }
+                } else {
+                    if (Editor.PropertiesPanel.renderPageProperties) {
+                        Editor.PropertiesPanel.renderPageProperties.call(this, contentContainer);
+                    }
                 }
-                this.renderGeneralProperties(tabContent, selectedElement);
             } else if (this.activeTab === 'visibility') {
-                // Always show the element visibility order regardless of selection
-                this.renderPageVisibilityProperties(tabContent);
+                if (selectedElement) {
+                    if (Editor.PropertiesPanel.renderVisibilityProperties) {
+                        Editor.PropertiesPanel.renderVisibilityProperties.call(this, contentContainer, selectedElement);
+                    }
+                } else {
+                    if (Editor.PropertiesPanel.renderPageVisibilityProperties) {
+                        Editor.PropertiesPanel.renderPageVisibilityProperties.call(this, contentContainer);
+                    }
+                }
             }
-        },
-        
-        addPropertyInput: function(container, label, value, onChange) {
-            const group = document.createElement('div');
-            group.className = 'property-group';
-            const labelEl = document.createElement('label');
-            labelEl.textContent = label;
-            const input = document.createElement('input');
-            input.type = 'number';
-            input.value = value;
-            input.onchange = () => onChange(input.value);
-            group.appendChild(labelEl);
-            group.appendChild(input);
-            container.appendChild(group);
-        },
-        
-        addPropertyTextarea: function(container, label, value, onChange) {
-            const group = document.createElement('div');
-            group.className = 'property-group';
-            const labelEl = document.createElement('label');
-            labelEl.textContent = label;
-            const textarea = document.createElement('textarea');
-            textarea.value = value;
-            textarea.onchange = () => onChange(textarea.value);
-            group.appendChild(labelEl);
-            group.appendChild(textarea);
-            container.appendChild(group);
+            
+            panel.appendChild(contentContainer);
         },
         
         getDragAfterElement: function(container, y) {
-            const draggableElements = [...container.querySelectorAll('.visibility-item:not(.dragging)')];
+            const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
             
             return draggableElements.reduce((closest, child) => {
                 const box = child.getBoundingClientRect();
@@ -134,33 +127,41 @@
             }, { offset: Number.NEGATIVE_INFINITY }).element;
         },
         
-        // Note: renderGeneralProperties, renderVisibilityProperties, renderPageProperties, 
-        // and renderPageVisibilityProperties are very large functions. They will be 
-        // extracted to separate files to keep each file under 500 lines.
-        // For now, we'll keep them as stubs that will be implemented in separate files.
-        
-        renderGeneralProperties: function(container, selectedElement) {
-            // Implementation in editor/properties/general-properties.js
-            // This function is overridden by the general-properties module
-            container.innerHTML = '<p>Loading general properties...</p>';
+        addPropertyInput: function(container, label, value, onChange) {
+            const group = document.createElement('div');
+            group.className = 'property-group';
+            
+            const labelEl = document.createElement('label');
+            labelEl.textContent = label;
+            labelEl.style.cssText = 'display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = value || '';
+            input.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;';
+            input.onchange = onChange;
+            
+            group.appendChild(labelEl);
+            group.appendChild(input);
+            container.appendChild(group);
         },
         
-        renderVisibilityProperties: function(container, selectedElement) {
-            // Implementation in editor/properties/visibility-properties.js
-            // This function is overridden by the visibility-properties module
-            container.innerHTML = '<p>Loading visibility properties...</p>';
-        },
-        
-        renderPageProperties: function(container) {
-            // Implementation in editor/properties/page-properties.js
-            // This function is overridden by the page-properties module
-            container.innerHTML = '<p>Loading page properties...</p>';
-        },
-        
-        renderPageVisibilityProperties: function(container) {
-            // This will be implemented in editor/properties/page-visibility-properties.js
-            console.warn('renderPageVisibilityProperties not yet extracted to separate module');
+        addPropertyTextarea: function(container, label, value, onChange) {
+            const group = document.createElement('div');
+            group.className = 'property-group';
+            
+            const labelEl = document.createElement('label');
+            labelEl.textContent = label;
+            labelEl.style.cssText = 'display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;';
+            
+            const textarea = document.createElement('textarea');
+            textarea.value = value || '';
+            textarea.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; min-height: 100px; resize: vertical;';
+            textarea.onchange = onChange;
+            
+            group.appendChild(labelEl);
+            group.appendChild(textarea);
+            container.appendChild(group);
         }
     };
 })();
-

@@ -101,30 +101,15 @@ Editor.InteractionHandlers = (function() {
         let dragThreshold = 5; // Pixels to move before starting drag (in viewport coordinates)
         let hasMoved = false;
         let rafId = null;
-        let lastClientX, lastClientY;
+        let clickOffsetX, clickOffsetY; // Offset from mouse click to element's top-left corner
         
         // Single global mousemove handler for all drag operations
         const globalMouseMove = (e) => {
             if (!activeDragElement || activeDragElement.element !== element) return;
             
-            // Get zoom factor
-            let zoom = 100;
-            if (getCurrentViewSettings) {
-                const settings = getCurrentViewSettings();
-                zoom = settings ? (settings.zoom || 100) : 100;
-            }
-            const zoomFactor = zoom / 100;
-            
             // Calculate mouse movement delta in viewport coordinates
-            if (lastClientX === undefined) {
-                lastClientX = e.clientX;
-                lastClientY = e.clientY;
-            }
-            
             const viewportDx = e.clientX - startClientX;
             const viewportDy = e.clientY - startClientY;
-            const viewportDeltaX = e.clientX - lastClientX;
-            const viewportDeltaY = e.clientY - lastClientY;
             
             const absDx = Math.abs(viewportDx);
             const absDy = Math.abs(viewportDy);
@@ -135,13 +120,13 @@ Editor.InteractionHandlers = (function() {
             }
             
             if (hasMoved) {
-                // Convert viewport delta to canvas delta by dividing by zoom factor
-                // At 50% zoom, moving 10px in viewport = 20px in canvas
-                const canvasDeltaX = viewportDeltaX / zoomFactor;
-                const canvasDeltaY = viewportDeltaY / zoomFactor;
+                // Convert current mouse position to canvas coordinates
+                const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
                 
-                const newX = startLeft + (viewportDx / zoomFactor);
-                const newY = startTop + (viewportDy / zoomFactor);
+                // Position element so the clicked point follows the mouse
+                // Subtract the offset to keep the same point under the mouse
+                const newX = canvasCoords.x - clickOffsetX;
+                const newY = canvasCoords.y - clickOffsetY;
                 
                 // Update element on canvas directly (immediate visual feedback - no RAF delay)
                 element.style.left = `${newX}px`;
@@ -168,9 +153,6 @@ Editor.InteractionHandlers = (function() {
                     });
                 }
             }
-            
-            lastClientX = e.clientX;
-            lastClientY = e.clientY;
         };
         
         // Single global mouseup handler for all drag operations
@@ -232,12 +214,16 @@ Editor.InteractionHandlers = (function() {
             // Store initial mouse position in viewport coordinates
             startClientX = e.clientX;
             startClientY = e.clientY;
-            lastClientX = e.clientX;
-            lastClientY = e.clientY;
             // Read initial position from elementData (source of truth) rather than style
             // This ensures we start from the correct position even if style is stale
             startLeft = elementData.x || parseInt(element.style.left) || 0;
             startTop = elementData.y || parseInt(element.style.top) || 0;
+            
+            // Calculate offset from mouse click to element's top-left corner in canvas coordinates
+            const clickCanvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
+            clickOffsetX = clickCanvasCoords.x - startLeft;
+            clickOffsetY = clickCanvasCoords.y - startTop;
+            
             e.preventDefault();
             e.stopPropagation();
             
@@ -330,50 +316,49 @@ Editor.InteractionHandlers = (function() {
             const handleMouseMove = (e) => {
                 if (!activeResizeHandle || activeResizeHandle.handle !== handle) return;
                 
-                // Get zoom factor
-                let zoom = 100;
-                if (getCurrentViewSettings) {
-                    const settings = getCurrentViewSettings();
-                    zoom = settings ? (settings.zoom || 100) : 100;
-                }
-                const zoomFactor = zoom / 100;
-                
-                // Calculate mouse movement delta in viewport coordinates
-                const viewportDx = (e.clientX - startClientX) / zoomFactor;
-                const viewportDy = (e.clientY - startClientY) / zoomFactor;
+                // Convert current mouse position to canvas coordinates
+                const canvasCoords = getCanvasCoordinates(e.clientX, e.clientY);
                 
                 // Handle corner resizing (both dimensions)
-                // viewportDx and viewportDy are already converted to canvas coordinates
+                // Position the handle at the mouse position
                 if (isCorner) {
                     if (pos.includes('e')) {
-                        elementData.width = Math.max(20, startWidth + viewportDx);
+                        // Right edge follows mouse X
+                        elementData.width = Math.max(20, canvasCoords.x - startLeft);
                     }
                     if (pos.includes('w')) {
-                        const newWidth = Math.max(20, startWidth - viewportDx);
-                        elementData.x = startLeft + (startWidth - newWidth);
+                        // Left edge follows mouse X
+                        const newWidth = Math.max(20, (startLeft + startWidth) - canvasCoords.x);
+                        elementData.x = canvasCoords.x;
                         elementData.width = newWidth;
                     }
                     if (pos.includes('s')) {
-                        elementData.height = Math.max(20, startHeight + viewportDy);
+                        // Bottom edge follows mouse Y
+                        elementData.height = Math.max(20, canvasCoords.y - startTop);
                     }
                     if (pos.includes('n')) {
-                        const newHeight = Math.max(20, startHeight - viewportDy);
-                        elementData.y = startTop + (startHeight - newHeight);
+                        // Top edge follows mouse Y
+                        const newHeight = Math.max(20, (startTop + startHeight) - canvasCoords.y);
+                        elementData.y = canvasCoords.y;
                         elementData.height = newHeight;
                     }
                 } else if (isEdge) {
                     // Handle edge-only resizing (single dimension)
                     if (pos === 'e') {
-                        elementData.width = Math.max(20, startWidth + viewportDx);
+                        // Right edge follows mouse X
+                        elementData.width = Math.max(20, canvasCoords.x - startLeft);
                     } else if (pos === 'w') {
-                        const newWidth = Math.max(20, startWidth - viewportDx);
-                        elementData.x = startLeft + (startWidth - newWidth);
+                        // Left edge follows mouse X
+                        const newWidth = Math.max(20, (startLeft + startWidth) - canvasCoords.x);
+                        elementData.x = canvasCoords.x;
                         elementData.width = newWidth;
                     } else if (pos === 's') {
-                        elementData.height = Math.max(20, startHeight + viewportDy);
+                        // Bottom edge follows mouse Y
+                        elementData.height = Math.max(20, canvasCoords.y - startTop);
                     } else if (pos === 'n') {
-                        const newHeight = Math.max(20, startHeight - viewportDy);
-                        elementData.y = startTop + (startHeight - newHeight);
+                        // Top edge follows mouse Y
+                        const newHeight = Math.max(20, (startTop + startHeight) - canvasCoords.y);
+                        elementData.y = canvasCoords.y;
                         elementData.height = newHeight;
                     }
                 }

@@ -311,33 +311,10 @@
                         const newIndex = items.indexOf(draggedElement);
                         
                         if (newIndex !== -1 && newIndex !== draggedIndex) {
-                            // Reorder pages in the quiz data
-                            const [movedPage] = currentQuiz.pages.splice(draggedIndex, 1);
-                            currentQuiz.pages.splice(newIndex, 0, movedPage);
-                            
-                            // Update page_order for all pages to match their new positions
-                            currentQuiz.pages.forEach((page, idx) => {
-                                page.page_order = idx + 1;
-                            });
-                            
-                            // Update current page index if needed
-                            let newCurrentPageIndex = currentPageIndex;
-                            if (currentPageIndex === draggedIndex) {
-                                newCurrentPageIndex = newIndex;
-                            } else if (draggedIndex < currentPageIndex && newIndex >= currentPageIndex) {
-                                newCurrentPageIndex = currentPageIndex - 1;
-                            } else if (draggedIndex > currentPageIndex && newIndex <= currentPageIndex) {
-                                newCurrentPageIndex = currentPageIndex + 1;
-                            }
-                            
-                            // Trigger page move callback (which will handle rendering and saving)
+                            // Trigger page move callback (which will handle reordering, rendering and saving)
+                            // Don't reorder here - let onMovePage handle it to avoid double-reordering
                             if (callbacks && callbacks.onMovePage) {
                                 callbacks.onMovePage(draggedIndex, newIndex);
-                            }
-                            
-                            // Update current page if it changed
-                            if (newCurrentPageIndex !== currentPageIndex && callbacks && callbacks.onPageSelected) {
-                                callbacks.onPageSelected(newCurrentPageIndex);
                             }
                         }
                     }

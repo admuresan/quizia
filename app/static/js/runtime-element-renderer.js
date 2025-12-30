@@ -66,6 +66,13 @@ RuntimeRenderer.ElementRenderer = (function() {
         // Set box-sizing for consistent sizing
         el.style.boxSizing = 'border-box';
         
+        // Set z-index based on layer_order to maintain correct overlay/layering in runtime
+        // Higher layer_order = higher z-index (appears on top)
+        if (!insideContainer) {
+            const layerOrder = element.layer_order || 1;
+            el.style.zIndex = layerOrder.toString();
+        }
+        
         // Render content based on element type
         const elementType = element.type || element.media_type;
         
@@ -169,7 +176,7 @@ RuntimeRenderer.ElementRenderer = (function() {
         img.src = imageSrc;
         img.style.width = '100%';
         img.style.height = '100%';
-        img.style.objectFit = 'contain';
+        img.style.objectFit = 'fill';
         img.onerror = () => {
             console.error('[RuntimeRenderer] Failed to load image:', imageSrc, element);
             el.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #999; border: 2px dashed #ccc;">Image failed to load</div>';
@@ -393,15 +400,6 @@ RuntimeRenderer.ElementRenderer = (function() {
             answerType = 'image_click';
         }
         
-        console.log('[RuntimeRenderer] renderAnswerDisplay called:', {
-            answerType: answerType,
-            elementId: element.id,
-            elementType: element.type,
-            optionsAnswerType: options.answerType,
-            elementQuestionConfig: element.question_config,
-            willUseImageClick: (answerType === 'image_click' || answerType === 'image')
-        });
-        
         // Create inner container - width/height are already set by applyElementPosition
         const container = document.createElement('div');
         container.style.cssText = 'background-color: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: 100%; box-sizing: border-box;';
@@ -433,10 +431,8 @@ RuntimeRenderer.ElementRenderer = (function() {
         
         // Check for image_click or image type (both should use image_click control view)
         if ((answerType === 'image_click' || answerType === 'image') && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ControlView) {
-            console.log('[RuntimeRenderer] Using ImageClick.ControlView for answerType:', answerType);
             QuestionTypes.ImageClick.ControlView.render(container, renderOptions);
         } else if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ControlView) {
-            console.log('[RuntimeRenderer] Using Text.ControlView for answerType:', answerType);
             QuestionTypes.Text.ControlView.render(container, renderOptions);
         } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ControlView) {
             QuestionTypes.Radio.ControlView.render(container, renderOptions);

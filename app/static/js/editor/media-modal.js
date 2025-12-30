@@ -121,7 +121,7 @@
                 publicList.innerHTML = '';
                 
                 const fileTypes = {
-                    images: ['jpg', 'jpeg', 'png', 'gif', 'svg'],
+                    images: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
                     audio: ['mp3', 'wav', 'ogg'],
                     video: ['mp4', 'webm']
                 };

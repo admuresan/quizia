@@ -20,7 +20,7 @@ Editor.ElementRenderer = (function() {
             img.src = element.src || '/api/media/serve/' + (element.filename || '');
             img.style.width = '100%';
             img.style.height = '100%';
-            img.style.objectFit = 'contain';
+            img.style.objectFit = 'fill';
             el.appendChild(img);
         } else if (element.media_type === 'video' || (!element.media_type && element.type === 'video')) {
             // Show play icon initially
@@ -72,6 +72,10 @@ Editor.ElementRenderer = (function() {
             // Ensure no margin or padding that could affect positioning
             el.style.margin = '0';
             el.style.padding = '0';
+            // Set z-index based on layer_order to maintain correct overlay/layering
+            // Higher layer_order = higher z-index (appears on top)
+            const layerOrder = element.layer_order || 1;
+            el.style.zIndex = layerOrder.toString();
         } else {
             // When inside a container, use relative positioning and full width
             el.style.position = 'relative';
@@ -152,7 +156,7 @@ Editor.ElementRenderer = (function() {
                 img.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : 'placeholder.png');
                 img.style.width = '100%';
                 img.style.height = '100%';
-                img.style.objectFit = 'contain';
+                img.style.objectFit = 'fill';
                 el.appendChild(img);
                 el.style.border = 'none';
                 break;
@@ -696,8 +700,10 @@ Editor.ElementRenderer = (function() {
                     // Ensure no margin or padding that could affect positioning
                     el.style.margin = '0';
                     el.style.padding = '0';
-                    // Ensure elements can overlap by allowing them to have the same z-index
-                    el.style.zIndex = '100';
+                    // Set z-index based on layer_order to maintain correct overlay/layering
+                    // Higher layer_order = higher z-index (appears on top)
+                    const layerOrder = element.layer_order || 1;
+                    el.style.zIndex = layerOrder.toString();
                 } else {
                     el.style.overflowY = 'auto';
                     el.style.overflowX = 'hidden';

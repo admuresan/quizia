@@ -248,21 +248,48 @@
             const editor = document.createElement('div');
             editor.contentEditable = true;
             editor.innerHTML = selectedElement.content || '<p>Enter your text here</p>';
-            editor.style.cssText = 'min-height: 200px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white; overflow-y: auto; font-size: 14px; line-height: 1.5;';
+            const backgroundColor = selectedElement.background_color || 'transparent';
+            editor.style.cssText = 'min-height: 200px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: ' + backgroundColor + '; overflow-y: auto; font-size: 14px; line-height: 1.5;';
             editor.style.fontSize = `${selectedElement.font_size || 16}px`;
             editor.style.color = selectedElement.text_color || '#000000';
+            // Background color matches the element's background color
             
-            // Update content function - immediate display update
+            // Mark editor as interacting to prevent panel re-renders while typing
+            editor.dataset.interacting = 'false';
+            editor.addEventListener('focus', () => {
+                editor.dataset.interacting = 'true';
+            });
+            editor.addEventListener('blur', () => {
+                editor.dataset.interacting = 'false';
+            });
+            
+            // Update content function - updates display and canvas
             const updateRichTextDisplay = () => {
-                selectedElement.content = editor.innerHTML;
+                // Get the HTML content from the editor
+                const htmlContent = editor.innerHTML;
+                // Save it to the element
+                selectedElement.content = htmlContent;
+                
+                // Debug: log the content being saved
+                console.log('[RichText] Saving content:', htmlContent.substring(0, 100));
+                
                 if (self.updateElementPropertiesInQuiz) {
                     self.updateElementPropertiesInQuiz(selectedElement);
                 }
                 self.updateElementDisplay();
+                // Update canvas to show changes
+                if (self.renderCanvas) {
+                    self.renderCanvas();
+                }
             };
             
-            // Debounced save function - only for autosave
+            // Debounced save function - only for autosave (saves to storage without updating display)
             const saveRichText = self.debounce(() => {
+                // Only save the content to the element, don't update display
+                selectedElement.content = editor.innerHTML;
+                if (self.updateElementPropertiesInQuiz) {
+                    self.updateElementPropertiesInQuiz(selectedElement);
+                }
                 self.autosaveQuiz();
             }, 500);
             
@@ -270,6 +297,87 @@
             const updateRichTextContent = () => {
                 updateRichTextDisplay();
                 saveRichText();
+                // Canvas update is handled in updateRichTextDisplay
+            };
+            
+            // Store the last selection range globally for this editor
+            let lastSelectionRange = null;
+            
+            // Track selection changes in the editor
+            editor.addEventListener('mouseup', () => {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const container = range.commonAncestorContainer;
+                    const containerNode = container.nodeType === 3 ? container.parentNode : container;
+                    if (editor.contains(containerNode) || containerNode === editor) {
+                        lastSelectionRange = range.cloneRange();
+                    }
+                }
+            });
+            
+            editor.addEventListener('keyup', () => {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const container = range.commonAncestorContainer;
+                    const containerNode = container.nodeType === 3 ? container.parentNode : container;
+                    if (editor.contains(containerNode) || containerNode === editor) {
+                        lastSelectionRange = range.cloneRange();
+                    }
+                }
+            });
+            
+            // Helper function to apply formatting command and save
+            const applyFormattingCommand = (command, value = null) => {
+                // Focus the editor first
+                editor.focus();
+                
+                // Restore the last known selection
+                const selection = window.getSelection();
+                if (lastSelectionRange) {
+                    try {
+                        selection.removeAllRanges();
+                        selection.addRange(lastSelectionRange);
+                    } catch (e) {
+                        // If range is invalid, try to find current selection
+                        if (selection.rangeCount === 0) {
+                            const range = document.createRange();
+                            range.selectNodeContents(editor);
+                            range.collapse(false);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        }
+                    }
+                } else {
+                    // If no saved selection, try to get current one or place at end
+                    if (selection.rangeCount === 0) {
+                        const range = document.createRange();
+                        range.selectNodeContents(editor);
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                }
+                
+                // Execute the command immediately
+                let commandExecuted = false;
+                if (value !== null) {
+                    commandExecuted = document.execCommand(command, false, value);
+                } else {
+                    commandExecuted = document.execCommand(command, false, null);
+                }
+                
+                // Update the saved selection after command execution
+                if (selection.rangeCount > 0) {
+                    lastSelectionRange = selection.getRangeAt(0).cloneRange();
+                }
+                
+                // Use setTimeout to ensure DOM is updated before saving
+                setTimeout(() => {
+                    // Save the formatted content
+                    updateRichTextContent();
+                }, 0);
             };
             
             // Formatting toolbar
@@ -280,39 +388,51 @@
             const boldBtn = document.createElement('button');
             boldBtn.innerHTML = '<strong>B</strong>';
             boldBtn.title = 'Bold';
+            boldBtn.type = 'button'; // Prevent form submission
             boldBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-weight: bold;';
-            boldBtn.onclick = (e) => {
+            boldBtn.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                editor.focus();
-                document.execCommand('bold', false, null);
-                updateRichTextContent();
-            };
+                e.stopPropagation();
+            });
+            boldBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyFormattingCommand('bold');
+            });
             toolbar.appendChild(boldBtn);
             
             // Italic button
             const italicBtn = document.createElement('button');
             italicBtn.innerHTML = '<em>I</em>';
             italicBtn.title = 'Italic';
+            italicBtn.type = 'button';
             italicBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-style: italic;';
-            italicBtn.onclick = (e) => {
+            italicBtn.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                editor.focus();
-                document.execCommand('italic', false, null);
-                updateRichTextContent();
-            };
+                e.stopPropagation();
+            });
+            italicBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyFormattingCommand('italic');
+            });
             toolbar.appendChild(italicBtn);
             
             // Underline button
             const underlineBtn = document.createElement('button');
             underlineBtn.innerHTML = '<u>U</u>';
             underlineBtn.title = 'Underline';
+            underlineBtn.type = 'button';
             underlineBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; text-decoration: underline;';
-            underlineBtn.onclick = (e) => {
+            underlineBtn.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                editor.focus();
-                document.execCommand('underline', false, null);
-                updateRichTextContent();
-            };
+                e.stopPropagation();
+            });
+            underlineBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                applyFormattingCommand('underline');
+            });
             toolbar.appendChild(underlineBtn);
             
             // Font size dropdown
@@ -355,11 +475,16 @@
                             span.appendChild(range.extractContents());
                             range.insertNode(span);
                         }
-                        updateRichTextContent();
+                        // Use requestAnimationFrame to ensure DOM is updated before saving
+                        requestAnimationFrame(() => {
+                            updateRichTextContent();
+                        });
                     } else {
                         editor.style.fontSize = fontSizeSelect.value + 'px';
                         selectedElement.font_size = parseInt(fontSizeSelect.value);
-                        updateRichTextContent();
+                        requestAnimationFrame(() => {
+                            updateRichTextContent();
+                        });
                     }
                 }
                 fontSizeSelect.dataset.interacting = 'false';
@@ -381,42 +506,83 @@
                 editor.focus();
                 const selection = window.getSelection();
                 if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                    // Preserve selection
+                    const range = selection.getRangeAt(0);
                     document.execCommand('foreColor', false, colorInput.value);
+                    // Use requestAnimationFrame to ensure DOM is updated before saving
+                    requestAnimationFrame(() => {
+                        updateRichTextContent();
+                    });
                 } else {
                     editor.style.color = colorInput.value;
                     selectedElement.text_color = colorInput.value;
                     if (self.updateElementPropertiesInQuiz) {
                         self.updateElementPropertiesInQuiz(selectedElement);
                     }
+                    requestAnimationFrame(() => {
+                        updateRichTextContent();
+                    });
                 }
-                updateRichTextContent();
             };
             toolbar.appendChild(colorInput);
             
+            // Background color picker
+            const bgColorLabel = document.createElement('label');
+            bgColorLabel.textContent = 'BG:';
+            bgColorLabel.style.marginLeft = '0.5rem';
+            bgColorLabel.style.marginRight = '0.25rem';
+            toolbar.appendChild(bgColorLabel);
+            
+            const bgColorInput = document.createElement('input');
+            bgColorInput.type = 'color';
+            bgColorInput.value = selectedElement.background_color || '#ffffff';
+            bgColorInput.style.cssText = 'width: 40px; height: 24px; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;';
+            bgColorInput.onchange = () => {
+                selectedElement.background_color = bgColorInput.value;
+                // Update the editor background color to match
+                editor.style.backgroundColor = bgColorInput.value;
+                // Background color applies to the element on canvas and editor preview
+                if (self.updateElementPropertiesInQuiz) {
+                    self.updateElementPropertiesInQuiz(selectedElement);
+                }
+                self.updateElementDisplay();
+                // Update canvas to show background color change immediately
+                if (self.renderCanvas) {
+                    self.renderCanvas();
+                }
+                self.autosaveQuiz();
+            };
+            toolbar.appendChild(bgColorInput);
+            
             contentGroup.appendChild(toolbar);
             
-            // Update display immediately as user types, but debounce autosave
+            // Only save content while typing (debounced), but don't update display/canvas
+            // This prevents the panel from updating and keeps focus on the editor
             editor.addEventListener('input', () => {
-                updateRichTextDisplay();
+                // Only save content, don't update display or canvas while typing
                 saveRichText();
             });
-            editor.addEventListener('blur', updateRichTextContent);
+            
+            // Update display and canvas when user clicks away from text box (loses focus)
+            editor.addEventListener('blur', () => {
+                // Update everything when focus is lost
+                updateRichTextDisplay();
+                // Ensure autosave happens
+                self.autosaveQuiz();
+            });
             
             // Prevent default behavior for formatting buttons
             editor.addEventListener('keydown', (e) => {
                 if (e.ctrlKey || e.metaKey) {
                     if (e.key === 'b') {
                         e.preventDefault();
-                        document.execCommand('bold', false, null);
-                        updateRichTextContent();
+                        applyFormattingCommand('bold');
                     } else if (e.key === 'i') {
                         e.preventDefault();
-                        document.execCommand('italic', false, null);
-                        updateRichTextContent();
+                        applyFormattingCommand('italic');
                     } else if (e.key === 'u') {
                         e.preventDefault();
-                        document.execCommand('underline', false, null);
-                        updateRichTextContent();
+                        applyFormattingCommand('underline');
                     }
                 }
             });

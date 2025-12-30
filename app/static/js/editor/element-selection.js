@@ -20,13 +20,14 @@
             const el = document.getElementById(`element-${element.id}`);
             if (el) {
                 // Read actual position from inline styles (absolute positioning)
+                // These are in canvas coordinates, not affected by zoom
                 const computedLeft = parseInt(el.style.left) || 0;
                 const computedTop = parseInt(el.style.top) || 0;
                 
-                // Read actual size from getBoundingClientRect (actual rendered size)
-                const rect = el.getBoundingClientRect();
-                const computedWidth = Math.round(rect.width) || parseInt(el.style.width) || element.width || 100;
-                const computedHeight = Math.round(rect.height) || parseInt(el.style.height) || element.height || 100;
+                // Read size from inline styles (canvas coordinates, not affected by zoom)
+                // DO NOT use getBoundingClientRect() as it returns viewport size which is affected by zoom
+                const computedWidth = parseInt(el.style.width) || element.width || 100;
+                const computedHeight = parseInt(el.style.height) || element.height || 100;
                 
                 // Update element data with actual DOM position and size
                 element.x = computedLeft;
@@ -39,7 +40,6 @@
                     y: computedTop,
                     width: computedWidth,
                     height: computedHeight,
-                    rect: { width: rect.width, height: rect.height },
                     style: { width: el.style.width, height: el.style.height }
                 });
             }
@@ -148,13 +148,14 @@
             const el = document.getElementById(`element-${element.id}`);
             if (el) {
                 // Read actual position from inline styles (absolute positioning)
+                // These are in canvas coordinates, not affected by zoom
                 const computedLeft = parseInt(el.style.left) || 0;
                 const computedTop = parseInt(el.style.top) || 0;
                 
-                // Read actual size from getBoundingClientRect (actual rendered size)
-                const rect = el.getBoundingClientRect();
-                const computedWidth = Math.round(rect.width) || parseInt(el.style.width) || element.width || 100;
-                const computedHeight = Math.round(rect.height) || parseInt(el.style.height) || element.height || 100;
+                // Read size from inline styles (canvas coordinates, not affected by zoom)
+                // DO NOT use getBoundingClientRect() as it returns viewport size which is affected by zoom
+                const computedWidth = parseInt(el.style.width) || element.width || 100;
+                const computedHeight = parseInt(el.style.height) || element.height || 100;
                 
                 // Update element data with actual DOM position and size
                 element.x = computedLeft;
@@ -167,7 +168,6 @@
                     y: computedTop,
                     width: computedWidth,
                     height: computedHeight,
-                    rect: { width: rect.width, height: rect.height },
                     style: { width: el.style.width, height: el.style.height }
                 });
             }

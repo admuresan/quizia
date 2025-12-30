@@ -21,11 +21,42 @@
             const displayableArea = document.getElementById('displayable-area');
             if (!displayableArea) return;
             
+            // Preserve scroll position and zoom before clearing
+            const scrollArea = document.querySelector('.canvas-scroll-area');
+            const displayableAreaWrapper = document.getElementById('displayable-area-wrapper');
+            let savedScrollLeft = 0;
+            let savedScrollTop = 0;
+            let savedZoom = null;
+            
+            if (scrollArea) {
+                savedScrollLeft = scrollArea.scrollLeft;
+                savedScrollTop = scrollArea.scrollTop;
+            }
+            
+            // Preserve current zoom from visual state (transform scale)
+            if (displayableAreaWrapper) {
+                const transform = displayableAreaWrapper.style.transform;
+                if (transform && transform.includes('scale(')) {
+                    const match = transform.match(/scale\(([\d.]+)\)/);
+                    if (match) {
+                        savedZoom = parseFloat(match[1]) * 100; // Convert to percentage
+                    }
+                }
+            }
+            
+            // If no zoom found in transform, get from settings
+            if (savedZoom === null) {
+                const settings = this.getCurrentViewSettings ? this.getCurrentViewSettings() : null;
+                if (settings && settings.zoom) {
+                    savedZoom = settings.zoom;
+                }
+            }
+            
             // Clear displayable area content first
             displayableArea.innerHTML = '';
             
-            // Ensure displayable area size is set
-            this.updateCanvasSize();
+            // Ensure displayable area size is set (skip zoom application since we'll restore it later)
+            this.updateCanvasSize(true);
             
             const currentQuiz = this.getCurrentQuiz();
             const currentPageIndex = this.getCurrentPageIndex();
@@ -184,6 +215,24 @@
                     displayableArea.removeEventListener('contextmenu', this.globalContextMenuHandler, true);
                     this.globalContextMenuHandler = null;
                 }
+            }
+            
+            // Restore scroll position and zoom after rendering
+            if (scrollArea || savedZoom !== null) {
+                // Use requestAnimationFrame to ensure DOM has updated
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // Restore zoom first (if we saved one)
+                        if (savedZoom !== null && Editor.ZoomControls && Editor.ZoomControls.applyZoom) {
+                            Editor.ZoomControls.applyZoom(savedZoom);
+                        }
+                        // Then restore scroll position (so it's correct for the zoom level)
+                        if (scrollArea) {
+                            scrollArea.scrollLeft = savedScrollLeft;
+                            scrollArea.scrollTop = savedScrollTop;
+                        }
+                    });
+                });
             }
             
             // Render properties
@@ -373,6 +422,40 @@
             let startX, startY, startLeft, startTop;
             let dragThreshold = 5;
             let hasMoved = false;
+            let clickOffsetX, clickOffsetY;
+            
+            // Helper to convert viewport coordinates to canvas coordinates
+            const getCanvasCoords = (clientX, clientY) => {
+                const displayableArea = document.getElementById('displayable-area');
+                if (!displayableArea) return { x: clientX, y: clientY };
+                
+                const settings = this.getCurrentViewSettings ? this.getCurrentViewSettings() : null;
+                const zoom = settings ? (settings.zoom || 100) : 100;
+                const zoomFactor = zoom / 100;
+                const canvasWidth = settings ? (settings.canvas_width || 1920) : 1920;
+                const canvasHeight = settings ? (settings.canvas_height || 1080) : 1080;
+                
+                const areaRect = displayableArea.getBoundingClientRect();
+                const mouseXRelativeToArea = clientX - areaRect.left;
+                const mouseYRelativeToArea = clientY - areaRect.top;
+                
+                const visibleCenterX = areaRect.width / 2;
+                const visibleCenterY = areaRect.height / 2;
+                
+                const mouseXFromVisibleCenter = mouseXRelativeToArea - visibleCenterX;
+                const mouseYFromVisibleCenter = mouseYRelativeToArea - visibleCenterY;
+                
+                const canvasXFromCenter = mouseXFromVisibleCenter / zoomFactor;
+                const canvasYFromCenter = mouseYFromVisibleCenter / zoomFactor;
+                
+                const canvasCenterX = canvasWidth / 2;
+                const canvasCenterY = canvasHeight / 2;
+                
+                return {
+                    x: canvasCenterX + canvasXFromCenter,
+                    y: canvasCenterY + canvasYFromCenter
+                };
+            };
             
             container.addEventListener('mousedown', (e) => {
                 const target = e.target;
@@ -388,6 +471,12 @@
                 startY = e.clientY;
                 startLeft = question.x || 50;
                 startTop = question.y || 50;
+                
+                // Calculate offset from mouse click to container's top-left corner in canvas coordinates
+                const clickCanvasCoords = getCanvasCoords(e.clientX, e.clientY);
+                clickOffsetX = clickCanvasCoords.x - startLeft;
+                clickOffsetY = clickCanvasCoords.y - startTop;
+                
                 e.preventDefault();
             });
             
@@ -402,10 +491,12 @@
                 }
                 
                 if (hasMoved) {
-                    const totalDx = e.clientX - startX;
-                    const totalDy = e.clientY - startY;
-                    const newX = startLeft + totalDx;
-                    const newY = startTop + totalDy;
+                    // Convert current mouse position to canvas coordinates
+                    const canvasCoords = getCanvasCoords(e.clientX, e.clientY);
+                    
+                    // Position container so the clicked point follows the mouse
+                    const newX = canvasCoords.x - clickOffsetX;
+                    const newY = canvasCoords.y - clickOffsetY;
                     
                     question.x = newX;
                     question.y = newY;
@@ -680,11 +771,42 @@
             const displayableArea = document.getElementById('displayable-area');
             if (!displayableArea) return;
             
+            // Preserve scroll position and zoom before clearing
+            const scrollArea = document.querySelector('.canvas-scroll-area');
+            const displayableAreaWrapper = document.getElementById('displayable-area-wrapper');
+            let savedScrollLeft = 0;
+            let savedScrollTop = 0;
+            let savedZoom = null;
+            
+            if (scrollArea) {
+                savedScrollLeft = scrollArea.scrollLeft;
+                savedScrollTop = scrollArea.scrollTop;
+            }
+            
+            // Preserve current zoom from visual state (transform scale)
+            if (displayableAreaWrapper) {
+                const transform = displayableAreaWrapper.style.transform;
+                if (transform && transform.includes('scale(')) {
+                    const match = transform.match(/scale\(([\d.]+)\)/);
+                    if (match) {
+                        savedZoom = parseFloat(match[1]) * 100; // Convert to percentage
+                    }
+                }
+            }
+            
+            // If no zoom found in transform, get from settings
+            if (savedZoom === null) {
+                const settings = this.getCurrentViewSettings ? this.getCurrentViewSettings() : null;
+                if (settings && settings.zoom) {
+                    savedZoom = settings.zoom;
+                }
+            }
+            
             // Clear displayable area content first
             displayableArea.innerHTML = '';
             
-            // Ensure displayable area size is set
-            this.updateCanvasSize();
+            // Ensure displayable area size is set (skip zoom application since we'll restore it later)
+            this.updateCanvasSize(true);
             
             const currentQuiz = this.getCurrentQuiz();
             const currentPageIndex = this.getCurrentPageIndex();
@@ -843,6 +965,24 @@
                     displayableArea.removeEventListener('contextmenu', this.globalContextMenuHandler, true);
                     this.globalContextMenuHandler = null;
                 }
+            }
+            
+            // Restore scroll position and zoom after rendering
+            if (scrollArea || savedZoom !== null) {
+                // Use requestAnimationFrame to ensure DOM has updated
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // Restore zoom first (if we saved one)
+                        if (savedZoom !== null && Editor.ZoomControls && Editor.ZoomControls.applyZoom) {
+                            Editor.ZoomControls.applyZoom(savedZoom);
+                        }
+                        // Then restore scroll position (so it's correct for the zoom level)
+                        if (scrollArea) {
+                            scrollArea.scrollLeft = savedScrollLeft;
+                            scrollArea.scrollTop = savedScrollTop;
+                        }
+                    });
+                });
             }
             
             // Render properties
@@ -1032,6 +1172,40 @@
             let startX, startY, startLeft, startTop;
             let dragThreshold = 5;
             let hasMoved = false;
+            let clickOffsetX, clickOffsetY;
+            
+            // Helper to convert viewport coordinates to canvas coordinates
+            const getCanvasCoords = (clientX, clientY) => {
+                const displayableArea = document.getElementById('displayable-area');
+                if (!displayableArea) return { x: clientX, y: clientY };
+                
+                const settings = this.getCurrentViewSettings ? this.getCurrentViewSettings() : null;
+                const zoom = settings ? (settings.zoom || 100) : 100;
+                const zoomFactor = zoom / 100;
+                const canvasWidth = settings ? (settings.canvas_width || 1920) : 1920;
+                const canvasHeight = settings ? (settings.canvas_height || 1080) : 1080;
+                
+                const areaRect = displayableArea.getBoundingClientRect();
+                const mouseXRelativeToArea = clientX - areaRect.left;
+                const mouseYRelativeToArea = clientY - areaRect.top;
+                
+                const visibleCenterX = areaRect.width / 2;
+                const visibleCenterY = areaRect.height / 2;
+                
+                const mouseXFromVisibleCenter = mouseXRelativeToArea - visibleCenterX;
+                const mouseYFromVisibleCenter = mouseYRelativeToArea - visibleCenterY;
+                
+                const canvasXFromCenter = mouseXFromVisibleCenter / zoomFactor;
+                const canvasYFromCenter = mouseYFromVisibleCenter / zoomFactor;
+                
+                const canvasCenterX = canvasWidth / 2;
+                const canvasCenterY = canvasHeight / 2;
+                
+                return {
+                    x: canvasCenterX + canvasXFromCenter,
+                    y: canvasCenterY + canvasYFromCenter
+                };
+            };
             
             container.addEventListener('mousedown', (e) => {
                 const target = e.target;
@@ -1047,6 +1221,12 @@
                 startY = e.clientY;
                 startLeft = question.x || 50;
                 startTop = question.y || 50;
+                
+                // Calculate offset from mouse click to container's top-left corner in canvas coordinates
+                const clickCanvasCoords = getCanvasCoords(e.clientX, e.clientY);
+                clickOffsetX = clickCanvasCoords.x - startLeft;
+                clickOffsetY = clickCanvasCoords.y - startTop;
+                
                 e.preventDefault();
             });
             
@@ -1061,10 +1241,12 @@
                 }
                 
                 if (hasMoved) {
-                    const totalDx = e.clientX - startX;
-                    const totalDy = e.clientY - startY;
-                    const newX = startLeft + totalDx;
-                    const newY = startTop + totalDy;
+                    // Convert current mouse position to canvas coordinates
+                    const canvasCoords = getCanvasCoords(e.clientX, e.clientY);
+                    
+                    // Position container so the clicked point follows the mouse
+                    const newX = canvasCoords.x - clickOffsetX;
+                    const newY = canvasCoords.y - clickOffsetY;
                     
                     question.x = newX;
                     question.y = newY;

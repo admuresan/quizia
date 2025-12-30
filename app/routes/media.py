@@ -12,7 +12,7 @@ from app.utils.media_storage import (
 
 bp = Blueprint('media', __name__, url_prefix='/api/media')
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf', 'svg'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mp3', 'wav', 'ogg', 'pdf', 'svg'}
 
 def allowed_file(filename):
     """Check if file extension is allowed."""

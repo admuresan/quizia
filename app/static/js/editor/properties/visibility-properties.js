@@ -123,6 +123,10 @@
                     self.updateElementPropertiesInQuiz(selectedElement);
                 }
                 self.updateElementDisplay();
+                // Update canvas to show background color change immediately
+                if (self.renderCanvas) {
+                    self.renderCanvas();
+                }
                 self.autosaveQuiz();
             };
             bgColorGroup.appendChild(bgColorLabel);
@@ -131,4 +135,5 @@
         }
     };
 })();
+
 

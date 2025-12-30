@@ -658,7 +658,7 @@ function formatFileSize(bytes) {
 
 function getFileType(filename) {
     const ext = filename.split('.').pop().toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'svg'].includes(ext)) return 'Image';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'Image';
     if (['mp4', 'webm'].includes(ext)) return 'Video';
     if (['mp3', 'wav', 'ogg'].includes(ext)) return 'Audio';
     if (ext === 'pdf') return 'PDF';
