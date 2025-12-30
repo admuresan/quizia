@@ -124,11 +124,25 @@ Editor.ElementRenderer = (function() {
                 // For answer_display and audio_control in control view, check if clicking on interactive elements
                 if (isAnswerDisplayInControl || isAudioControlInControl) {
                     const target = e.target;
+                    // Allow textarea to show context menu for copy text functionality
+                    const isTextarea = target.tagName === 'TEXTAREA' || target.closest('textarea');
+                    if (isTextarea) {
+                        // Show context menu for textarea
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        
+                        if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                            if (typeof window.showElementContextMenu === 'function') {
+                                window.showElementContextMenu(e, element);
+                            }
+                        }
+                        return;
+                    }
                     // If clicking directly on an interactive element (not the container), let browser handle it
                     if (target !== el && target !== document && 
                         (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
                         target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
-                        target.tagName === 'TEXTAREA' || 
                         target.closest('button') || target.closest('input') || 
                         target.closest('label') || target.closest('select'))) {
                         return; // Let browser handle interactive elements - don't prevent default
@@ -1066,6 +1080,11 @@ Editor.ElementRenderer = (function() {
                 el.style.border = 'none';
                 el.style.display = 'flex';
                 el.style.flexDirection = 'column';
+                // Enable text selection
+                el.style.userSelect = 'text';
+                el.style.webkitUserSelect = 'text';
+                el.style.mozUserSelect = 'text';
+                el.style.msUserSelect = 'text';
                 // Vertical alignment for container
                 const vAlign = element.text_align_vertical || 'top';
                 if (vAlign === 'middle') {

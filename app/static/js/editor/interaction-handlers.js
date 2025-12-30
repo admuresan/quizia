@@ -37,6 +37,11 @@ Editor.InteractionHandlers = (function() {
         getSelectedElementCallback = getSelectedElementCb;
         renderPropertiesCallback = renderPropertiesCb;
     }
+    
+    // Store state before operations for undo
+    let dragStartState = null;
+    let resizeStartState = null;
+    let rotateStartState = null;
 
     // Helper function to convert viewport mouse coordinates to canvas coordinates
     // Returns absolute pixel values from top-left corner of canvas (0,0 = top-left)
@@ -165,6 +170,15 @@ Editor.InteractionHandlers = (function() {
                 }
                 
                 if (isDragging && hasMoved) {
+                    // Save state after move for undo
+                    if (dragStartState && Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                        const afterState = Editor.UndoRedo.captureElementState(elementData.id);
+                        if (afterState) {
+                            Editor.UndoRedo.saveState('move', elementData.id, dragStartState, afterState);
+                        }
+                        dragStartState = null;
+                    }
+                    
                     // Update element config in quiz structure
                     if (updateElementConfigCallback) {
                         updateElementConfigCallback(elementData);
@@ -186,6 +200,9 @@ Editor.InteractionHandlers = (function() {
                     if (autosaveCallback) {
                         autosaveCallback();
                     }
+                } else {
+                    // If we didn't move, clear the drag start state
+                    dragStartState = null;
                 }
                 isDragging = false;
                 hasMoved = false;
@@ -207,6 +224,11 @@ Editor.InteractionHandlers = (function() {
             
             // Don't start if another element is being manipulated
             if (activeResizeHandle || activeRotateElement) return;
+            
+            // Capture state before drag for undo
+            if (Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                dragStartState = Editor.UndoRedo.captureElementState(elementData.id);
+            }
             
             isDragging = true;
             hasMoved = false;
@@ -413,6 +435,15 @@ Editor.InteractionHandlers = (function() {
                         rafId = null;
                     }
                     
+                    // Save state after resize for undo
+                    if (resizeStartState && Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                        const afterState = Editor.UndoRedo.captureElementState(elementData.id);
+                        if (afterState) {
+                            Editor.UndoRedo.saveState('resize', elementData.id, resizeStartState, afterState);
+                        }
+                        resizeStartState = null;
+                    }
+                    
                     // Update element config in quiz structure
                     if (updateElementConfigCallback) {
                         updateElementConfigCallback(elementData);
@@ -434,6 +465,11 @@ Editor.InteractionHandlers = (function() {
                 
                 // Don't start if another element is being manipulated
                 if (activeDragElement || activeRotateElement) return;
+                
+                // Capture state before resize for undo
+                if (Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                    resizeStartState = Editor.UndoRedo.captureElementState(elementData.id);
+                }
                 
                 activeResizeHandle = { element, elementData, handle, pos };
                 // Store initial mouse position in viewport coordinates
@@ -509,6 +545,15 @@ Editor.InteractionHandlers = (function() {
         
         const handleMouseUp = () => {
             if (activeRotateElement && activeRotateElement.element === element) {
+                // Save state after rotate for undo
+                if (rotateStartState && Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                    const afterState = Editor.UndoRedo.captureElementState(elementData.id);
+                    if (afterState) {
+                        Editor.UndoRedo.saveState('resize', elementData.id, rotateStartState, afterState);
+                    }
+                    rotateStartState = null;
+                }
+                
                 // Update element config in quiz structure
                 if (updateElementConfigCallback) {
                     updateElementConfigCallback(elementData);
@@ -530,6 +575,11 @@ Editor.InteractionHandlers = (function() {
             
             // Don't start if another element is being manipulated
             if (activeDragElement || activeResizeHandle) return;
+            
+            // Capture state before rotate for undo
+            if (Editor.UndoRedo && Editor.UndoRedo.captureElementState) {
+                rotateStartState = Editor.UndoRedo.captureElementState(elementData.id);
+            }
             
             activeRotateElement = { element, elementData };
             const rect = element.getBoundingClientRect();

@@ -228,7 +228,7 @@ QuestionTypes.Text.ControlView = (function() {
             // Answer text box (scrollable)
             const answerTextBox = document.createElement('textarea');
             answerTextBox.readOnly = true;
-            answerTextBox.style.cssText = 'flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; min-height: 60px; max-height: 200px; overflow-y: auto; resize: none; background: white;';
+            answerTextBox.style.cssText = 'flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; min-height: 60px; max-height: 200px; overflow-y: auto; resize: none; background: white; user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text;';
             if (answerData && answerData.answer !== undefined) {
                 answerTextBox.value = String(answerData.answer || '');
             } else {

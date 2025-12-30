@@ -174,14 +174,28 @@
                     
                     // Only handle if it's a valid element type for this view
                     if (currentView === 'control' && (isAnswerDisplay || isAudioControl || isAppearanceControl || isMainElement)) {
-                        // Check if clicking on interactive elements
-                        if (target !== canvasElement && 
+                        // Check if clicking on interactive elements (but allow textarea for copy text functionality)
+                        const isTextarea = target.tagName === 'TEXTAREA' || target.closest('textarea');
+                        if (target !== canvasElement && !isTextarea &&
                             (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
                             target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
-                            target.tagName === 'TEXTAREA' || 
                             target.closest('button') || target.closest('input') || 
                             target.closest('label') || target.closest('select'))) {
-                            return; // Let browser handle interactive elements
+                            return; // Let browser handle interactive elements (except textarea)
+                        }
+                        
+                        // For textarea, show context menu with copy text option
+                        if (isTextarea) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            
+                            if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                                if (typeof window.showElementContextMenu === 'function') {
+                                    window.showElementContextMenu(e, element);
+                                }
+                            }
+                            return;
                         }
                         
                         e.preventDefault();
@@ -924,14 +938,28 @@
                     
                     // Only handle if it's a valid element type for this view
                     if (currentView === 'control' && (isAnswerDisplay || isAudioControl || isAppearanceControl || isMainElement)) {
-                        // Check if clicking on interactive elements
-                        if (target !== canvasElement && 
+                        // Check if clicking on interactive elements (but allow textarea for copy text functionality)
+                        const isTextarea = target.tagName === 'TEXTAREA' || target.closest('textarea');
+                        if (target !== canvasElement && !isTextarea &&
                             (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
                             target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
-                            target.tagName === 'TEXTAREA' || 
                             target.closest('button') || target.closest('input') || 
                             target.closest('label') || target.closest('select'))) {
-                            return; // Let browser handle interactive elements
+                            return; // Let browser handle interactive elements (except textarea)
+                        }
+                        
+                        // For textarea, show context menu with copy text option
+                        if (isTextarea) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+                            
+                            if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                                if (typeof window.showElementContextMenu === 'function') {
+                                    window.showElementContextMenu(e, element);
+                                }
+                            }
+                            return;
                         }
                         
                         e.preventDefault();

@@ -71,9 +71,25 @@
             const elementIndex = elementsArray.findIndex(el => el.id === element.id);
             if (elementIndex === -1) return;
             
+            // Check if this is a text-related element that can have text copied
+            const isTextElement = element.type === 'richtext' || element.type === 'text';
+            const target = event.target;
+            const isTextarea = target.tagName === 'TEXTAREA' || target.closest('textarea');
+            
+            // Store event for use in menu item click handlers
+            const contextEvent = event;
+            
             // Create menu items
             const menuItems = [
-                { label: 'Copy', action: 'copy', enabled: true },
+                { label: 'Copy', action: 'copy', enabled: true }
+            ];
+            
+            // Add "Copy Text" option for text-related elements or when clicking on textarea
+            if (isTextElement || isTextarea) {
+                menuItems.push({ label: 'Copy Text', action: 'copyText', enabled: true });
+            }
+            
+            menuItems.push(
                 { label: '---', action: 'separator', enabled: true },
                 { label: 'Bring to Front', action: 'bringToFront', enabled: elementIndex < elementsArray.length - 1 },
                 { label: 'Send One Forward', action: 'sendForward', enabled: elementIndex < elementsArray.length - 1 },
@@ -82,7 +98,7 @@
                 { label: '---', action: 'separator', enabled: true },
                 { label: 'Align Horizontal', action: 'alignHorizontal', enabled: true },
                 { label: 'Align Vertical', action: 'alignVertical', enabled: true }
-            ];
+            );
             
             menuItems.forEach(item => {
                 // Handle separator
@@ -120,7 +136,7 @@
                     menuItem.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.hide();
-                        this.handleAction(item.action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex);
+                        this.handleAction(item.action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex, contextEvent);
                     });
                 }
                 
@@ -226,7 +242,7 @@
             }, 0);
         },
         
-        handleAction: function(action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex) {
+        handleAction: function(action, element, currentQuiz, currentPageIndex, currentView, renderCanvas, autosaveQuiz, getCurrentQuiz, getCurrentPageIndex, event) {
             const page = currentQuiz.pages[currentPageIndex];
             if (!page || !page.elements) return;
             
@@ -237,6 +253,12 @@
                     const getPageIndex = getCurrentPageIndex || (() => currentPageIndex);
                     Editor.CopyPaste.copyElement(element, getQuiz, getPageIndex);
                 }
+                return;
+            }
+            
+            // Handle copy text action
+            if (action === 'copyText') {
+                this.copyTextFromElement(element, event);
                 return;
             }
             
@@ -595,6 +617,117 @@
             });
             
             console.log('[ContextMenu] Alignment complete. Updated', elementsToAlign.length, 'elements');
+        },
+        
+        copyTextFromElement: function(element, event) {
+            let textToCopy = '';
+            
+            // Check if we're clicking on a textarea directly
+            const target = event ? event.target : null;
+            if (target && (target.tagName === 'TEXTAREA' || target.closest('textarea'))) {
+                const textarea = target.tagName === 'TEXTAREA' ? target : target.closest('textarea');
+                if (textarea && textarea.value !== undefined) {
+                    // If there's a selection, copy that; otherwise copy all text
+                    const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                    textToCopy = selectedText || textarea.value;
+                }
+            } else if (element.type === 'richtext') {
+                // For richtext elements, extract text from HTML content
+                const elementId = `element-${element.id}`;
+                const domElement = document.getElementById(elementId);
+                if (domElement) {
+                    // Get selected text if any, otherwise get all text
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0 && domElement.contains(selection.anchorNode)) {
+                        textToCopy = selection.toString();
+                    } else {
+                        // Extract plain text from HTML
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = element.content || '';
+                        textToCopy = tempDiv.textContent || tempDiv.innerText || '';
+                    }
+                } else {
+                    // Fallback: extract text from element.content HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = element.content || '';
+                    textToCopy = tempDiv.textContent || tempDiv.innerText || '';
+                }
+            } else if (element.type === 'text') {
+                // For text elements, get text content
+                const elementId = `element-${element.id}`;
+                const domElement = document.getElementById(elementId);
+                if (domElement) {
+                    // Get selected text if any, otherwise get all text
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0 && domElement.contains(selection.anchorNode)) {
+                        textToCopy = selection.toString();
+                    } else {
+                        textToCopy = domElement.textContent || domElement.innerText || '';
+                    }
+                } else {
+                    textToCopy = element.content || '';
+                }
+            } else {
+                // For other elements, try to find textarea inside
+                const elementId = `element-${element.id}`;
+                const domElement = document.getElementById(elementId);
+                if (domElement) {
+                    const textarea = domElement.querySelector('textarea');
+                    if (textarea && textarea.value !== undefined) {
+                        const selectedText = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+                        textToCopy = selectedText || textarea.value;
+                    } else {
+                        // Try to get selected text from the element
+                        const selection = window.getSelection();
+                        if (selection && selection.rangeCount > 0 && domElement.contains(selection.anchorNode)) {
+                            textToCopy = selection.toString();
+                        } else {
+                            textToCopy = domElement.textContent || domElement.innerText || '';
+                        }
+                    }
+                }
+            }
+            
+            // Copy to clipboard
+            if (textToCopy) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        // Optional: Show a brief notification
+                        console.log('Text copied to clipboard');
+                    }).catch(err => {
+                        console.error('Failed to copy text:', err);
+                        // Fallback to older method
+                        this.fallbackCopyTextToClipboard(textToCopy);
+                    });
+                } else {
+                    // Fallback for older browsers
+                    this.fallbackCopyTextToClipboard(textToCopy);
+                }
+            }
+        },
+        
+        fallbackCopyTextToClipboard: function(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    console.log('Text copied to clipboard (fallback method)');
+                } else {
+                    console.error('Fallback copy command failed');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            
+            document.body.removeChild(textArea);
         }
     };
 })();

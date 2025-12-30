@@ -25,10 +25,16 @@
                 defaultName = `Page ${pageNumber}`;
             }
             
-            // Calculate page_order
-            const pageOrder = currentQuiz.pages.length + 1;
+            // Determine insertion position: after the currently selected page
+            // If currentPageIndex is -1 or invalid, insert at the end
+            const insertIndex = (currentPageIndex >= 0 && currentPageIndex < currentQuiz.pages.length) 
+                ? currentPageIndex + 1 
+                : currentQuiz.pages.length;
             
-            // Get settings from last page if it exists, otherwise use defaults
+            // Calculate page_order based on insertion position
+            const pageOrder = insertIndex + 1;
+            
+            // Get settings from currently selected page if it exists, otherwise use defaults
             let defaultBackground = {
                 type: 'gradient',
                 config: {
@@ -42,12 +48,15 @@
                 height: 1080
             };
             
-            // If there are existing pages, use the last page's settings
+            // If there are existing pages, use the currently selected page's settings (or last page if no selection)
             if (currentQuiz.pages && currentQuiz.pages.length > 0) {
-                const lastPage = currentQuiz.pages[currentQuiz.pages.length - 1];
-                if (lastPage.views) {
+                const templatePageIndex = (currentPageIndex >= 0 && currentPageIndex < currentQuiz.pages.length) 
+                    ? currentPageIndex 
+                    : currentQuiz.pages.length - 1;
+                const templatePage = currentQuiz.pages[templatePageIndex];
+                if (templatePage && templatePage.views) {
                     // Use display view settings as template (or any view that exists)
-                    const templateView = lastPage.views.display || lastPage.views.participant || lastPage.views.control;
+                    const templateView = templatePage.views.display || templatePage.views.participant || templatePage.views.control;
                     if (templateView && templateView.view_config) {
                         if (templateView.view_config.background) {
                             // Deep copy the background config
@@ -200,8 +209,14 @@
                 };
             }
             
-            currentQuiz.pages.push(page);
-            const newPageIndex = currentQuiz.pages.length - 1;
+            // Insert the page at the calculated position
+            currentQuiz.pages.splice(insertIndex, 0, page);
+            const newPageIndex = insertIndex;
+            
+            // Update page_order for all pages after the insertion point
+            for (let i = newPageIndex + 1; i < currentQuiz.pages.length; i++) {
+                currentQuiz.pages[i].page_order = i + 1;
+            }
             
             if (callbacks && callbacks.onPageAdded) {
                 callbacks.onPageAdded(newPageIndex);

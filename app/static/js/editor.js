@@ -566,6 +566,19 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
     
+    // Initialize undo-redo manager
+    if (Editor.UndoRedo && Editor.UndoRedo.init) {
+        Editor.UndoRedo.init(
+            () => currentQuiz,
+            () => currentPageIndex,
+            () => currentView,
+            renderCanvas,
+            autosaveQuiz,
+            () => selectedElement,
+            selectElement
+        );
+    }
+    
     // Initialize element selection
     if (Editor.ElementSelection && Editor.ElementSelection.init) {
         Editor.ElementSelection.init(
@@ -689,6 +702,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (quizId) {
         // Load quiz and restore state after it loads
         loadQuiz(quizId).then(() => {
+            // Clear undo history when loading a new quiz
+            if (Editor.UndoRedo && Editor.UndoRedo.clearHistory) {
+                Editor.UndoRedo.clearHistory();
+            }
             // Restore saved page index for this quiz from cookie
             const savedPageIndex = getCookie(`editor_page_index_${quizId}`);
             
@@ -1084,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update element items state on initial load
     updateElementItemsState();
     
-    // Keyboard shortcuts - Delete key to delete selected element
+    // Keyboard shortcuts - Delete key to delete selected element, Ctrl+Z for undo
     document.addEventListener('keydown', (e) => {
         // Only handle if no input/textarea is focused (to avoid deleting text while editing)
         const activeElement = document.activeElement;
@@ -1093,6 +1110,24 @@ document.addEventListener('DOMContentLoaded', () => {
             activeElement.tagName === 'TEXTAREA' || 
             activeElement.isContentEditable
         );
+        
+        // Ctrl+Z or Cmd+Z for undo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            if (!isInputFocused && Editor.UndoRedo && Editor.UndoRedo.undo) {
+                e.preventDefault();
+                Editor.UndoRedo.undo();
+            }
+            return;
+        }
+        
+        // Ctrl+Shift+Z or Cmd+Shift+Z for redo
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+            if (!isInputFocused && Editor.UndoRedo && Editor.UndoRedo.redo) {
+                e.preventDefault();
+                Editor.UndoRedo.redo();
+            }
+            return;
+        }
         
         if (!isInputFocused && selectedElement && (e.key === 'Delete' || e.key === 'Backspace')) {
             e.preventDefault();
@@ -1390,6 +1425,14 @@ function deselectElement() {
 }
 
 function deleteSelectedElement() {
+    // Capture state before deletion for undo
+    if (selectedElement && Editor.UndoRedo && Editor.UndoRedo.captureFullElementState) {
+        const beforeState = Editor.UndoRedo.captureFullElementState(selectedElement.id);
+        if (beforeState) {
+            Editor.UndoRedo.saveState('delete', selectedElement.id, beforeState, null);
+        }
+    }
+    
     Editor.ElementSelection.deleteSelectedElement(
         () => currentQuiz,
         () => currentPageIndex,
