@@ -282,12 +282,32 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.style.color = element.color || element.text_color || '#fff';
         el.style.backgroundColor = element.background_color || 'transparent';
         el.style.display = 'flex';
-        el.style.alignItems = 'center';
-        el.style.justifyContent = 'center';
+        
+        // Apply vertical alignment
+        const vAlign = element.text_align_vertical || 'middle';
+        if (vAlign === 'top') {
+            el.style.alignItems = 'flex-start';
+        } else if (vAlign === 'bottom') {
+            el.style.alignItems = 'flex-end';
+        } else {
+            el.style.alignItems = 'center'; // middle or default
+        }
+        
+        // Apply horizontal alignment
+        const hAlign = element.text_align_horizontal || element.text_align || 'center';
+        if (hAlign === 'left') {
+            el.style.justifyContent = 'flex-start';
+        } else if (hAlign === 'right') {
+            el.style.justifyContent = 'flex-end';
+        } else {
+            el.style.justifyContent = 'center'; // center or default
+        }
+        
         el.style.padding = '0.5rem';
         el.style.wordWrap = 'break-word';
         el.style.overflow = 'hidden';
         el.style.border = 'none';
+        // textAlign affects text within the flex container, not the container itself
         el.style.textAlign = element.text_align || 'center';
     }
     
@@ -301,14 +321,28 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.style.border = 'none';
         el.style.display = 'flex';
         el.style.flexDirection = 'column';
+        
         // Vertical alignment for container
+        // Note: For vertical centering to work, the container must have a defined height
+        // The height is set by applyElementPosition() before this function is called
+        // Properties should be merged into element object by getViewElements() in quiz-structure.js
         const vAlign = element.text_align_vertical || 'top';
         if (vAlign === 'middle') {
             el.style.justifyContent = 'center';
         } else if (vAlign === 'bottom') {
             el.style.justifyContent = 'flex-end';
         } else {
-            el.style.justifyContent = 'flex-start';
+            el.style.justifyContent = 'flex-start'; // top or default
+        }
+        
+        // Horizontal alignment for container (aligns content horizontally within the flex container)
+        const hAlign = element.text_align_horizontal || 'left';
+        if (hAlign === 'center') {
+            el.style.alignItems = 'center';
+        } else if (hAlign === 'right') {
+            el.style.alignItems = 'flex-end';
+        } else {
+            el.style.alignItems = 'flex-start'; // left or default
         }
     }
     

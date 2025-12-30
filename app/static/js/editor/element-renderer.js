@@ -1092,7 +1092,16 @@ Editor.ElementRenderer = (function() {
                 } else if (vAlign === 'bottom') {
                     el.style.justifyContent = 'flex-end';
                 } else {
-                    el.style.justifyContent = 'flex-start';
+                    el.style.justifyContent = 'flex-start'; // top or default
+                }
+                // Horizontal alignment for container (aligns content horizontally within the flex container)
+                const hAlign = element.text_align_horizontal || 'left';
+                if (hAlign === 'center') {
+                    el.style.alignItems = 'center';
+                } else if (hAlign === 'right') {
+                    el.style.alignItems = 'flex-end';
+                } else {
+                    el.style.alignItems = 'flex-start'; // left or default
                 }
                 break;
         }

@@ -91,27 +91,6 @@
                 });
                 
                 allDisplayElements = Array.from(allElementsMap.values());
-            } else if (page.views) {
-                // Legacy fallback: combine elements from all views
-                const allElementsMap = new Map();
-                Object.keys(page.views).forEach(viewName => {
-                    const view = page.views[viewName];
-                    if (view && view.elements) {
-                        view.elements.forEach(el => {
-                            if (el && 
-                                el.type !== 'navigation_control' && 
-                                el.type !== 'audio_control' && 
-                                el.type !== 'answer_input' && 
-                                el.type !== 'answer_display' &&
-                                !el.parent_id) {
-                                if (!allElementsMap.has(el.id)) {
-                                    allElementsMap.set(el.id, el);
-                                }
-                            }
-                        });
-                    }
-                });
-                allDisplayElements = Array.from(allElementsMap.values());
             }
             
             // Final filter to ensure we only have display elements

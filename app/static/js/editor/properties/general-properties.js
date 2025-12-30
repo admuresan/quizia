@@ -253,6 +253,26 @@
             // Simple editor styling - no complex property management
             editor.style.cssText = 'border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; min-height: 200px; max-height: 300px; padding: 15px; background: ' + backgroundColor + '; font-family: inherit; overflow-y: auto; display: flex; flex-direction: column;';
             
+            // Initialize vertical alignment from element properties
+            const vAlign = selectedElement.text_align_vertical || 'top';
+            if (vAlign === 'middle') {
+                editor.style.justifyContent = 'center';
+            } else if (vAlign === 'bottom') {
+                editor.style.justifyContent = 'flex-end';
+            } else {
+                editor.style.justifyContent = 'flex-start'; // top or default
+            }
+            
+            // Initialize horizontal alignment from element properties
+            const hAlign = selectedElement.text_align_horizontal || 'left';
+            if (hAlign === 'center') {
+                editor.style.alignItems = 'center';
+            } else if (hAlign === 'right') {
+                editor.style.alignItems = 'flex-end';
+            } else {
+                editor.style.alignItems = 'flex-start'; // left or default
+            }
+            
             // Mark editor as interacting to prevent panel re-renders while typing
             editor.dataset.interacting = 'false';
             
@@ -272,6 +292,16 @@
                         selectedElement.text_align_vertical = 'bottom';
                     } else {
                         selectedElement.text_align_vertical = 'top';
+                    }
+                }
+                // Save horizontal alignment if changed
+                if (editor.style.alignItems) {
+                    if (editor.style.alignItems === 'center') {
+                        selectedElement.text_align_horizontal = 'center';
+                    } else if (editor.style.alignItems === 'flex-end') {
+                        selectedElement.text_align_horizontal = 'right';
+                    } else {
+                        selectedElement.text_align_horizontal = 'left';
                     }
                 }
                 // Update quiz structure
@@ -474,6 +504,9 @@
                 e.preventDefault();
                 e.stopPropagation();
                 formatText('justifyLeft');
+                editor.style.alignItems = 'flex-start';
+                selectedElement.text_align_horizontal = 'left';
+                // Don't save - wait for Apply button
                 alignDropdown.style.display = 'none';
             };
             alignDropdown.appendChild(alignLeftOption);
@@ -487,6 +520,9 @@
                 e.preventDefault();
                 e.stopPropagation();
                 formatText('justifyCenter');
+                editor.style.alignItems = 'center';
+                selectedElement.text_align_horizontal = 'center';
+                // Don't save - wait for Apply button
                 alignDropdown.style.display = 'none';
             };
             alignDropdown.appendChild(alignCenterOption);
@@ -500,6 +536,9 @@
                 e.preventDefault();
                 e.stopPropagation();
                 formatText('justifyRight');
+                editor.style.alignItems = 'flex-end';
+                selectedElement.text_align_horizontal = 'right';
+                // Don't save - wait for Apply button
                 alignDropdown.style.display = 'none';
             };
             alignDropdown.appendChild(alignRightOption);
@@ -1045,7 +1084,7 @@
                     
                     if (!wasQuestion) {
                         // Store child element positions in parent element's view configs (not separate entries)
-                        const childElements = Editor.ElementCreator.createQuestionChildElements(selectedElement);
+                        const childElements = Editor.ElementCreator.createQuestionChildElements(selectedElement, currentPage);
                         
                         // Find answer_input and answer_display child elements
                         const answerInput = childElements.find(el => el.type === 'answer_input');
@@ -1064,10 +1103,10 @@
                                 currentPage.views.participant.local_element_configs[selectedElement.id] = { config: {} };
                             }
                             currentPage.views.participant.local_element_configs[selectedElement.id].answer_input_config = {
-                                x: answerInput.x || 0,
+                                x: answerInput.x || 5,
                                 y: answerInput.y || 0,
-                                width: answerInput.width || 400,
-                                height: answerInput.height || 100,
+                                width: answerInput.width || 380,
+                                height: answerInput.height || 175,
                                 rotation: answerInput.rotation || 0
                             };
                         }

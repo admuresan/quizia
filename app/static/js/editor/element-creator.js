@@ -3,12 +3,91 @@
 (function(Editor) {
     'use strict';
 
+    /**
+     * Find the next non-overlapping position below existing elements for a given view
+     * @param {Object} page - The page object
+     * @param {string} viewName - The view name ('participant' or 'control')
+     * @param {number} defaultX - Default x position
+     * @param {number} defaultY - Default y position if no elements exist
+     * @param {number} elementWidth - Width of the element to place
+     * @param {number} elementHeight - Height of the element to place
+     * @param {string} excludeElementId - Optional element ID to exclude from calculations (e.g., parent element)
+     * @returns {Object} Object with x and y coordinates
+     */
+    function findNonOverlappingPosition(page, viewName, defaultX, defaultY, elementWidth, elementHeight, excludeElementId) {
+        if (!page || !page.views || !page.views[viewName]) {
+            return { x: defaultX, y: defaultY };
+        }
+
+        // Get all existing elements for this view
+        let existingElements = [];
+        if (Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+            existingElements = Editor.QuizStructure.getViewElements(page, viewName);
+            // Filter out excluded element if provided
+            if (excludeElementId) {
+                existingElements = existingElements.filter(el => {
+                    // Exclude if it's the excluded element or if it's a child of the excluded element
+                    return el.id !== excludeElementId && el.parent_id !== excludeElementId;
+                });
+            }
+        } else {
+            // Fallback: try to get elements from local_element_configs
+            const view = page.views[viewName];
+            if (view && view.local_element_configs) {
+                Object.keys(view.local_element_configs).forEach(elementId => {
+                    if (excludeElementId && elementId === excludeElementId) {
+                        return; // Skip excluded element
+                    }
+                    const localConfig = view.local_element_configs[elementId];
+                    if (localConfig) {
+                        // Check for answer_input_config, answer_display_config, or regular config
+                        let config = localConfig.config || localConfig.answer_input_config || localConfig.answer_display_config || localConfig.control_config;
+                        if (config && (config.x !== undefined || config.y !== undefined)) {
+                            existingElements.push({
+                                id: elementId,
+                                x: config.x || 0,
+                                y: config.y || 0,
+                                width: config.width || 100,
+                                height: config.height || 100
+                            });
+                        }
+                    }
+                });
+            }
+        }
+
+        // Find the bottom-most y position
+        let maxBottom = defaultY;
+        existingElements.forEach(el => {
+            // Elements from getViewElements have x, y, width, height directly
+            // Elements from fallback have them in the object
+            const y = typeof el.y === 'number' ? el.y : (parseFloat(el.y) || 0);
+            const height = typeof el.height === 'number' ? el.height : (parseFloat(el.height) || 0);
+            const bottom = y + height;
+            if (bottom > maxBottom) {
+                maxBottom = bottom;
+            }
+        });
+
+        // Return position below all existing elements with some spacing
+        const spacing = 20;
+        return {
+            x: defaultX,
+            y: maxBottom + spacing
+        };
+    }
+
     Editor.ElementCreator = {
-        createMediaControlElement: function(parentElement) {
+        createMediaControlElement: function(parentElement, page) {
             const isAudio = parentElement.type === 'audio' || parentElement.media_type === 'audio';
             const isVideo = parentElement.type === 'video' || parentElement.media_type === 'video';
             
             if (!isAudio && !isVideo) return null;
+            
+            // Find non-overlapping position for control view
+            const defaultX = 50;
+            const defaultY = 50;
+            const position = page ? findNonOverlappingPosition(page, 'control', defaultX, defaultY, 400, 80, parentElement.id) : { x: defaultX, y: defaultY };
             
             return {
                 id: `element-${Date.now()}-control`,
@@ -16,8 +95,8 @@
                 media_type: isAudio ? 'audio' : 'video',
                 parent_id: parentElement.id,
                 view: 'control',
-                x: 50,
-                y: 50,
+                x: position.x,
+                y: position.y,
                 width: 400,
                 height: 80,
                 filename: parentElement.filename,
@@ -25,9 +104,15 @@
             };
         },
 
-        createAnswerDisplayElement: function(parentQuestion) {
+        createAnswerDisplayElement: function(parentQuestion, page) {
             // Always use parent question's question_type to ensure they match
             const answerType = (parentQuestion.question_config && parentQuestion.question_config.question_type) || parentQuestion.answer_type || 'text';
+            
+            // Find non-overlapping position for control view
+            const defaultX = parentQuestion.x || 50;
+            const defaultY = (parentQuestion.y || 50) + (parentQuestion.height || 100) + 20;
+            const position = page ? findNonOverlappingPosition(page, 'control', defaultX, defaultY, 600, 300, parentQuestion.id) : { x: defaultX, y: defaultY };
+            
             return {
                 id: `element-${Date.now()}-answer-display`,
                 type: 'answer_display',
@@ -35,8 +120,8 @@
                 view: 'control',
                 question_config: { question_type: answerType }, // New format
                 answer_type: answerType, // Backwards compatibility
-                x: parentQuestion.x || 50,
-                y: (parentQuestion.y || 50) + (parentQuestion.height || 100) + 20,
+                x: position.x,
+                y: position.y,
                 width: 600,
                 height: 300,
                 options: parentQuestion.options || (parentQuestion.question_config && parentQuestion.question_config.options) || [],
@@ -63,11 +148,19 @@
             };
         },
 
-        createQuestionChildElements: function(parentElement) {
+        createQuestionChildElements: function(parentElement, page) {
             const childElements = [];
             
             const answerType = (parentElement.question_config && parentElement.question_config.question_type) || parentElement.answer_type || 'text';
             const options = parentElement.options || (parentElement.question_config && parentElement.question_config.options) || [];
+            
+            // Find non-overlapping position for answer_input on participant view
+            // Default: x=5, width=380, height=175
+            const defaultAnswerInputX = 5;
+            const defaultAnswerInputY = 100;
+            const answerInputWidth = 380;
+            const answerInputHeight = 175;
+            const answerInputPosition = page ? findNonOverlappingPosition(page, 'participant', defaultAnswerInputX, defaultAnswerInputY, answerInputWidth, answerInputHeight, parentElement.id) : { x: defaultAnswerInputX, y: defaultAnswerInputY };
             
             const answerElement = {
                 id: `element-${Date.now()}-answer`,
@@ -76,13 +169,20 @@
                 view: 'participant',
                 question_config: { question_type: answerType, options: options }, // New format
                 answer_type: answerType, // Backwards compatibility
-                x: 50,
-                y: 100,
-                width: 400,
-                height: 100,
+                x: answerInputPosition.x,
+                y: answerInputPosition.y,
+                width: answerInputWidth,
+                height: answerInputHeight,
                 options: options
             };
             childElements.push(answerElement);
+            
+            // Find non-overlapping position for answer_display on control view
+            const defaultAnswerDisplayX = 50;
+            const defaultAnswerDisplayY = 200;
+            const answerDisplayWidth = 600;
+            const answerDisplayHeight = 300;
+            const answerDisplayPosition = page ? findNonOverlappingPosition(page, 'control', defaultAnswerDisplayX, defaultAnswerDisplayY, answerDisplayWidth, answerDisplayHeight, parentElement.id) : { x: defaultAnswerDisplayX, y: defaultAnswerDisplayY };
             
             const answerDisplayElement = {
                 id: `element-${Date.now()}-answer-display`,
@@ -91,10 +191,10 @@
                 view: 'control',
                 question_config: { question_type: answerType, options: options }, // New format
                 answer_type: answerType, // Backwards compatibility
-                x: 50,
-                y: 200,
-                width: 600,
-                height: 300
+                x: answerDisplayPosition.x,
+                y: answerDisplayPosition.y,
+                width: answerDisplayWidth,
+                height: answerDisplayHeight
             };
             childElements.push(answerDisplayElement);
             
@@ -154,7 +254,7 @@
                                     }
                                     
                                     // Store media control position in parent element's control view config (not separate entry)
-                                    const controlElement = this.createMediaControlElement(element);
+                                    const controlElement = this.createMediaControlElement(element, currentPage);
                                     if (controlElement) {
                                         if (!currentPage.views) {
                                             currentPage.views = {
@@ -211,7 +311,7 @@
                                     }
                                     
                                     // Store media control position in parent element's control view config (not separate entry)
-                                    const controlElement = this.createMediaControlElement(element);
+                                    const controlElement = this.createMediaControlElement(element, currentPage);
                                     if (controlElement) {
                                         if (!currentPage.views) {
                                             currentPage.views = {
@@ -267,10 +367,10 @@
                                     page = updatedPage; // Update local reference
                                 }
                                 
-                                const controlElement = this.createMediaControlElement(element);
+                                const controlElement = this.createMediaControlElement(element, updatedPage);
                                 if (controlElement) {
-                                    const updatedPage2 = Editor.QuizStructure.setPageElement(page, controlElement);
-                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === page) {
+                                    const updatedPage2 = Editor.QuizStructure.setPageElement(updatedPage, controlElement);
+                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === updatedPage) {
                                         currentQuiz.pages[currentPageIndex] = updatedPage2;
                                         page = updatedPage2; // Update local reference
                                     }

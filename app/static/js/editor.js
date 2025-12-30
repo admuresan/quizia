@@ -213,7 +213,7 @@ function updateElementPropertiesInQuiz(element) {
     // Note: For richtext, formatting (font size, font family, colors, etc.) is stored in the HTML content itself
     const propertyKeys = [
         'fill_color', 'border_color', 'border_width', 'arrow_body_thickness', 'arrow_head_length',
-        'content', 'background_color', 'text_align_vertical', // text_align_vertical is container-level
+        'content', 'background_color', 'text_align_vertical', 'text_align_horizontal', // alignment properties are container-level
         'media_type', 'media_url', 'file_name', 'src', 'filename'
     ];
     
@@ -261,10 +261,10 @@ function updateElementConfigInQuiz(element) {
                 view.local_element_configs[parentId].answer_input_config = {};
             }
             // Save coordinates as absolute pixel values from top-left corner of canvas (0,0 = top-left)
-            view.local_element_configs[parentId].answer_input_config.x = element.x || 0;
+            view.local_element_configs[parentId].answer_input_config.x = element.x || 5;
             view.local_element_configs[parentId].answer_input_config.y = element.y || 0;
-            view.local_element_configs[parentId].answer_input_config.width = element.width || 400;
-            view.local_element_configs[parentId].answer_input_config.height = element.height || 100;
+            view.local_element_configs[parentId].answer_input_config.width = element.width || 380;
+            view.local_element_configs[parentId].answer_input_config.height = element.height || 175;
             view.local_element_configs[parentId].answer_input_config.rotation = element.rotation || 0;
         } else if (element.type === 'answer_display' && element.view === 'control') {
             const view = page.views.control;
@@ -1527,7 +1527,7 @@ function updateElementDisplay() {
             }
         }
         
-        // Update richtext properties - only background color and vertical alignment
+        // Update richtext properties - only background color and alignment
         // Formatting (font size, font family, colors, etc.) is stored in the HTML content itself
         if (selectedElement.type === 'richtext') {
             if (selectedElement.background_color) {
@@ -1541,6 +1541,41 @@ function updateElementDisplay() {
                     el.style.justifyContent = 'flex-end';
                 } else {
                     el.style.justifyContent = 'flex-start';
+                }
+            }
+            // Horizontal alignment
+            if (selectedElement.text_align_horizontal) {
+                const hAlign = selectedElement.text_align_horizontal;
+                if (hAlign === 'center') {
+                    el.style.alignItems = 'center';
+                } else if (hAlign === 'right') {
+                    el.style.alignItems = 'flex-end';
+                } else {
+                    el.style.alignItems = 'flex-start';
+                }
+            }
+        }
+        
+        // Update text element alignment
+        if (selectedElement.type === 'text') {
+            if (selectedElement.text_align_vertical) {
+                const vAlign = selectedElement.text_align_vertical;
+                if (vAlign === 'top') {
+                    el.style.alignItems = 'flex-start';
+                } else if (vAlign === 'bottom') {
+                    el.style.alignItems = 'flex-end';
+                } else {
+                    el.style.alignItems = 'center'; // middle or default
+                }
+            }
+            if (selectedElement.text_align_horizontal || selectedElement.text_align) {
+                const hAlign = selectedElement.text_align_horizontal || selectedElement.text_align;
+                if (hAlign === 'left') {
+                    el.style.justifyContent = 'flex-start';
+                } else if (hAlign === 'right') {
+                    el.style.justifyContent = 'flex-end';
+                } else {
+                    el.style.justifyContent = 'center'; // center or default
                 }
             }
         }

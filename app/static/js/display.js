@@ -506,7 +506,8 @@ function renderPage(pageIndex, page) {
             }
         });
     } else {
-        console.warn('Page has no elements array');
+        // No elements to render - this is normal for empty pages
+        // displayElements is an array returned by getViewElements, which converts page.elements (object) to an array
     }
     
     // Apply scaling to fit viewport
