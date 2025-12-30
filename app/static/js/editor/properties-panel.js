@@ -98,14 +98,9 @@
                     }
                 }
             } else if (this.activeTab === 'visibility') {
-                if (selectedElement) {
-                    if (Editor.PropertiesPanel.renderVisibilityProperties) {
-                        Editor.PropertiesPanel.renderVisibilityProperties.call(this, contentContainer, selectedElement);
-                    }
-                } else {
-                    if (Editor.PropertiesPanel.renderPageVisibilityProperties) {
-                        Editor.PropertiesPanel.renderPageVisibilityProperties.call(this, contentContainer);
-                    }
+                // Always show visibility order, regardless of element selection
+                if (Editor.PropertiesPanel.renderPageVisibilityProperties) {
+                    Editor.PropertiesPanel.renderPageVisibilityProperties.call(this, contentContainer);
                 }
             }
             

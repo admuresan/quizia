@@ -292,15 +292,24 @@ RuntimeRenderer.ElementRenderer = (function() {
     }
     
     function renderRichText(el, element) {
+        // Simple approach - just render the HTML content as-is (formatting is in HTML)
         el.innerHTML = element.content || '';
-        el.style.fontSize = `${element.font_size || 16}px`;
-        el.style.color = element.text_color || '#000000';
         el.style.backgroundColor = element.background_color || 'transparent';
         el.style.padding = '8px';
         el.style.overflow = 'auto';
         el.style.wordWrap = 'break-word';
         el.style.border = 'none';
-        el.style.textAlign = 'left';
+        el.style.display = 'flex';
+        el.style.flexDirection = 'column';
+        // Vertical alignment for container
+        const vAlign = element.text_align_vertical || 'top';
+        if (vAlign === 'middle') {
+            el.style.justifyContent = 'center';
+        } else if (vAlign === 'bottom') {
+            el.style.justifyContent = 'flex-end';
+        } else {
+            el.style.justifyContent = 'flex-start';
+        }
     }
     
     function renderAudioControl(el, element, options) {

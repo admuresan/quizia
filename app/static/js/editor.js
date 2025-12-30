@@ -210,9 +210,10 @@ function updateElementPropertiesInQuiz(element) {
     
     // Update properties that are stored in elementData.properties
     // These are properties that are not position/size/rotation (which go in view configs)
+    // Note: For richtext, formatting (font size, font family, colors, etc.) is stored in the HTML content itself
     const propertyKeys = [
         'fill_color', 'border_color', 'border_width', 'arrow_body_thickness', 'arrow_head_length',
-        'content', 'font_size', 'text_color', 'background_color',
+        'content', 'background_color', 'text_align_vertical', // text_align_vertical is container-level
         'media_type', 'media_url', 'file_name', 'src', 'filename'
     ];
     
@@ -1480,6 +1481,24 @@ function updateElementDisplay() {
             const svg = el.querySelector('svg');
             if (svg) {
                 svg.setAttribute('viewBox', `0 0 ${selectedElement.width} ${selectedElement.height}`);
+            }
+        }
+        
+        // Update richtext properties - only background color and vertical alignment
+        // Formatting (font size, font family, colors, etc.) is stored in the HTML content itself
+        if (selectedElement.type === 'richtext') {
+            if (selectedElement.background_color) {
+                el.style.backgroundColor = selectedElement.background_color;
+            }
+            if (selectedElement.text_align_vertical) {
+                const vAlign = selectedElement.text_align_vertical;
+                if (vAlign === 'middle') {
+                    el.style.justifyContent = 'center';
+                } else if (vAlign === 'bottom') {
+                    el.style.justifyContent = 'flex-end';
+                } else {
+                    el.style.justifyContent = 'flex-start';
+                }
             }
         }
     }

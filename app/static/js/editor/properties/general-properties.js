@@ -234,7 +234,7 @@
             container.appendChild(borderWidthGroup);
         }
         
-        // Rich text editor with toolbar
+        // Rich text editor with toolbar - completely rewritten using deltabooks approach
         if (selectedElement.type === 'richtext') {
             const contentGroup = document.createElement('div');
             contentGroup.className = 'property-group';
@@ -244,103 +244,146 @@
             contentLabel.style.display = 'block';
             contentGroup.appendChild(contentLabel);
             
-            // Contenteditable div for rich text editing
+            // Contenteditable div for rich text editing - declare early so it can be referenced
             const editor = document.createElement('div');
             editor.contentEditable = true;
             editor.innerHTML = selectedElement.content || '<p>Enter your text here</p>';
             const backgroundColor = selectedElement.background_color || 'transparent';
-            editor.style.cssText = 'min-height: 200px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: ' + backgroundColor + '; overflow-y: auto; font-size: 14px; line-height: 1.5;';
-            editor.style.fontSize = `${selectedElement.font_size || 16}px`;
-            editor.style.color = selectedElement.text_color || '#000000';
-            // Background color matches the element's background color
+            
+            // Simple editor styling - no complex property management
+            editor.style.cssText = 'border: 1px solid #ddd; border-top: none; border-radius: 0 0 4px 4px; min-height: 200px; max-height: 300px; padding: 15px; background: ' + backgroundColor + '; font-family: inherit; overflow-y: auto; display: flex; flex-direction: column;';
             
             // Mark editor as interacting to prevent panel re-renders while typing
             editor.dataset.interacting = 'false';
-            editor.addEventListener('focus', () => {
-                editor.dataset.interacting = 'true';
-            });
-            editor.addEventListener('blur', () => {
-                editor.dataset.interacting = 'false';
-            });
             
-            // Update content function - updates display and canvas
-            const updateRichTextDisplay = () => {
-                // Get the HTML content from the editor
-                const htmlContent = editor.innerHTML;
-                // Save it to the element
-                selectedElement.content = htmlContent;
-                
-                // Debug: log the content being saved
-                console.log('[RichText] Saving content:', htmlContent.substring(0, 100));
-                
+            // Simple save function - just save the HTML content (declared early so it can be referenced)
+            let bgColorInput = null; // Will be set later
+            const saveRichTextContent = () => {
+                selectedElement.content = editor.innerHTML;
+                // Save background color if changed
+                if (bgColorInput) {
+                    selectedElement.background_color = bgColorInput.value;
+                }
+                // Save vertical alignment if changed
+                if (editor.style.justifyContent) {
+                    if (editor.style.justifyContent === 'center') {
+                        selectedElement.text_align_vertical = 'middle';
+                    } else if (editor.style.justifyContent === 'flex-end') {
+                        selectedElement.text_align_vertical = 'bottom';
+                    } else {
+                        selectedElement.text_align_vertical = 'top';
+                    }
+                }
+                // Update quiz structure
                 if (self.updateElementPropertiesInQuiz) {
                     self.updateElementPropertiesInQuiz(selectedElement);
                 }
-                self.updateElementDisplay();
-                // Update canvas to show changes
+                // Update canvas
                 if (self.renderCanvas) {
                     self.renderCanvas();
                 }
-            };
-            
-            // Debounced save function - only for autosave (saves to storage without updating display)
-            const saveRichText = self.debounce(() => {
-                // Only save the content to the element, don't update display
-                selectedElement.content = editor.innerHTML;
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
+                // Autosave
                 self.autosaveQuiz();
-            }, 500);
-            
-            // Combined update function for toolbar buttons (immediate update + debounced save)
-            const updateRichTextContent = () => {
-                updateRichTextDisplay();
-                saveRichText();
-                // Canvas update is handled in updateRichTextDisplay
             };
             
-            // Store the last selection range globally for this editor
-            let lastSelectionRange = null;
+            // Simple format function - just use execCommand like deltabooks
+            // No automatic saving - only Apply button saves
+            const formatText = (command, value = null) => {
+                editor.focus();
+                document.execCommand(command, false, value);
+                // Update toolbar to reflect formatting changes (will be defined later)
+                if (typeof updateToolbarFromContent === 'function') {
+                    setTimeout(updateToolbarFromContent, 0);
+                }
+                // Don't save - wait for Apply button
+            };
             
-            // Track selection changes in the editor
-            editor.addEventListener('mouseup', () => {
+            // Toolbar container with two rows
+            const toolbarContainer = document.createElement('div');
+            toolbarContainer.style.cssText = 'border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; background: #f5f5f5;';
+            
+            // First row - main formatting controls
+            const toolbar = document.createElement('div');
+            toolbar.style.cssText = 'padding: 4px; display: flex; gap: 3px; align-items: center; flex-wrap: nowrap;';
+            
+            // Bold button
+            const boldBtn = document.createElement('button');
+            boldBtn.innerHTML = '<strong>B</strong>';
+            boldBtn.title = 'Bold';
+            boldBtn.type = 'button';
+            boldBtn.style.cssText = 'padding: 4px 8px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; font-weight: 500; min-width: 28px;';
+            boldBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formatText('bold');
+            };
+            toolbar.appendChild(boldBtn);
+            
+            // Italic button
+            const italicBtn = document.createElement('button');
+            italicBtn.innerHTML = '<em>I</em>';
+            italicBtn.title = 'Italic';
+            italicBtn.type = 'button';
+            italicBtn.style.cssText = 'padding: 4px 8px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; font-style: italic; min-width: 28px;';
+            italicBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formatText('italic');
+            };
+            toolbar.appendChild(italicBtn);
+            
+            // Underline button
+            const underlineBtn = document.createElement('button');
+            underlineBtn.innerHTML = '<u>U</u>';
+            underlineBtn.title = 'Underline';
+            underlineBtn.type = 'button';
+            underlineBtn.style.cssText = 'padding: 4px 8px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; text-decoration: underline; min-width: 28px;';
+            underlineBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formatText('underline');
+            };
+            toolbar.appendChild(underlineBtn);
+            
+            // Separator
+            const separator1 = document.createElement('div');
+            separator1.style.cssText = 'width: 1px; height: 20px; background: #dee2e6; margin: 0 2px;';
+            toolbar.appendChild(separator1);
+            
+            // Text color picker
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = '#000000';
+            colorInput.title = 'Text Color';
+            colorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0;';
+            
+            // Store selection before clicking color input
+            let savedSelection = null;
+            colorInput.onmousedown = (e) => {
+                e.stopPropagation();
+                // Save current selection before focus is lost
                 const selection = window.getSelection();
                 if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     const container = range.commonAncestorContainer;
                     const containerNode = container.nodeType === 3 ? container.parentNode : container;
                     if (editor.contains(containerNode) || containerNode === editor) {
-                        lastSelectionRange = range.cloneRange();
+                        savedSelection = range.cloneRange();
                     }
                 }
-            });
+            };
             
-            editor.addEventListener('keyup', () => {
-                const selection = window.getSelection();
-                if (selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    const container = range.commonAncestorContainer;
-                    const containerNode = container.nodeType === 3 ? container.parentNode : container;
-                    if (editor.contains(containerNode) || containerNode === editor) {
-                        lastSelectionRange = range.cloneRange();
-                    }
-                }
-            });
-            
-            // Helper function to apply formatting command and save
-            const applyFormattingCommand = (command, value = null) => {
-                // Focus the editor first
+            colorInput.onchange = () => {
                 editor.focus();
                 
-                // Restore the last known selection
+                // Restore selection if we had one
                 const selection = window.getSelection();
-                if (lastSelectionRange) {
+                if (savedSelection) {
                     try {
                         selection.removeAllRanges();
-                        selection.addRange(lastSelectionRange);
+                        selection.addRange(savedSelection);
                     } catch (e) {
-                        // If range is invalid, try to find current selection
+                        // If range is invalid, try to get current selection
                         if (selection.rangeCount === 0) {
                             const range = document.createRange();
                             range.selectNodeContents(editor);
@@ -360,101 +403,208 @@
                     }
                 }
                 
-                // Execute the command immediately
-                let commandExecuted = false;
-                if (value !== null) {
-                    commandExecuted = document.execCommand(command, false, value);
-                } else {
-                    commandExecuted = document.execCommand(command, false, null);
-                }
-                
-                // Update the saved selection after command execution
+                // Apply color to selection
                 if (selection.rangeCount > 0) {
-                    lastSelectionRange = selection.getRangeAt(0).cloneRange();
+                    const range = selection.getRangeAt(0);
+                    if (!range.collapsed) {
+                        // Apply to selected text
+                        document.execCommand('foreColor', false, colorInput.value);
+                    } else {
+                        // No selection - apply to entire editor as default
+                        editor.style.color = colorInput.value;
+                    }
+                } else {
+                    // No selection - apply to entire editor
+                    editor.style.color = colorInput.value;
                 }
                 
-                // Use setTimeout to ensure DOM is updated before saving
-                setTimeout(() => {
-                    // Save the formatted content
-                    updateRichTextContent();
-                }, 0);
+                // Update toolbar to reflect changes
+                setTimeout(updateToolbarFromContent, 0);
+                // Don't save - wait for Apply button
+                savedSelection = null; // Clear saved selection
             };
             
-            // Formatting toolbar
-            const toolbar = document.createElement('div');
-            toolbar.style.cssText = 'display: flex; gap: 0.25rem; margin-bottom: 0.5rem; flex-wrap: wrap; padding: 0.5rem; background: #f5f5f5; border-radius: 4px;';
+            toolbar.appendChild(colorInput);
             
-            // Bold button
-            const boldBtn = document.createElement('button');
-            boldBtn.innerHTML = '<strong>B</strong>';
-            boldBtn.title = 'Bold';
-            boldBtn.type = 'button'; // Prevent form submission
-            boldBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-weight: bold;';
-            boldBtn.addEventListener('mousedown', (e) => {
-                e.preventDefault();
+            // Background color picker
+            bgColorInput = document.createElement('input');
+            bgColorInput.type = 'color';
+            bgColorInput.value = selectedElement.background_color || '#ffffff';
+            bgColorInput.title = 'Background Color';
+            bgColorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0;';
+            bgColorInput.onclick = (e) => {
                 e.stopPropagation();
-            });
-            boldBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                applyFormattingCommand('bold');
-            });
-            toolbar.appendChild(boldBtn);
+            };
+            bgColorInput.onchange = () => {
+                editor.style.backgroundColor = bgColorInput.value;
+                // Don't save - wait for Apply button
+            };
+            toolbar.appendChild(bgColorInput);
             
-            // Italic button
-            const italicBtn = document.createElement('button');
-            italicBtn.innerHTML = '<em>I</em>';
-            italicBtn.title = 'Italic';
-            italicBtn.type = 'button';
-            italicBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; font-style: italic;';
-            italicBtn.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-            });
-            italicBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                applyFormattingCommand('italic');
-            });
-            toolbar.appendChild(italicBtn);
+            // Separator
+            const separator3 = document.createElement('div');
+            separator3.style.cssText = 'width: 1px; height: 20px; background: #dee2e6; margin: 0 2px;';
+            toolbar.appendChild(separator3);
             
-            // Underline button
-            const underlineBtn = document.createElement('button');
-            underlineBtn.innerHTML = '<u>U</u>';
-            underlineBtn.title = 'Underline';
-            underlineBtn.type = 'button';
-            underlineBtn.style.cssText = 'padding: 0.25rem 0.5rem; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 3px; text-decoration: underline;';
-            underlineBtn.addEventListener('mousedown', (e) => {
+            // Alignment dropdown button with menu
+            const alignContainer = document.createElement('div');
+            alignContainer.style.cssText = 'position: relative; display: inline-block;';
+            
+            const alignBtn = document.createElement('button');
+            alignBtn.innerHTML = '⬌ ⬍';
+            alignBtn.title = 'Alignment';
+            alignBtn.type = 'button';
+            alignBtn.style.cssText = 'padding: 4px 8px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; min-width: 28px;';
+            
+            const alignDropdown = document.createElement('div');
+            alignDropdown.style.cssText = 'display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #dee2e6; border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; margin-top: 2px; min-width: 120px;';
+            
+            // Horizontal alignment options
+            const hAlignLabel = document.createElement('div');
+            hAlignLabel.textContent = 'Horizontal:';
+            hAlignLabel.style.cssText = 'padding: 4px 8px; font-size: 11px; font-weight: bold; color: #666; border-bottom: 1px solid #eee;';
+            alignDropdown.appendChild(hAlignLabel);
+            
+            const alignLeftOption = document.createElement('div');
+            alignLeftOption.innerHTML = '⬅ Left';
+            alignLeftOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignLeftOption.onmouseover = () => alignLeftOption.style.background = '#f0f0f0';
+            alignLeftOption.onmouseout = () => alignLeftOption.style.background = 'white';
+            alignLeftOption.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-            });
-            underlineBtn.addEventListener('click', (e) => {
+                formatText('justifyLeft');
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignLeftOption);
+            
+            const alignCenterOption = document.createElement('div');
+            alignCenterOption.innerHTML = '⬌ Center';
+            alignCenterOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignCenterOption.onmouseover = () => alignCenterOption.style.background = '#f0f0f0';
+            alignCenterOption.onmouseout = () => alignCenterOption.style.background = 'white';
+            alignCenterOption.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                applyFormattingCommand('underline');
+                formatText('justifyCenter');
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignCenterOption);
+            
+            const alignRightOption = document.createElement('div');
+            alignRightOption.innerHTML = '➡ Right';
+            alignRightOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignRightOption.onmouseover = () => alignRightOption.style.background = '#f0f0f0';
+            alignRightOption.onmouseout = () => alignRightOption.style.background = 'white';
+            alignRightOption.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formatText('justifyRight');
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignRightOption);
+            
+            // Vertical alignment options
+            const vAlignLabel = document.createElement('div');
+            vAlignLabel.textContent = 'Vertical:';
+            vAlignLabel.style.cssText = 'padding: 4px 8px; font-size: 11px; font-weight: bold; color: #666; border-top: 1px solid #eee; border-bottom: 1px solid #eee; margin-top: 2px;';
+            alignDropdown.appendChild(vAlignLabel);
+            
+            const alignTopOption = document.createElement('div');
+            alignTopOption.innerHTML = '▲ Top';
+            alignTopOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignTopOption.onmouseover = () => alignTopOption.style.background = '#f0f0f0';
+            alignTopOption.onmouseout = () => alignTopOption.style.background = 'white';
+            alignTopOption.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editor.style.justifyContent = 'flex-start';
+                selectedElement.text_align_vertical = 'top';
+                // Don't save - wait for Apply button
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignTopOption);
+            
+            const alignMiddleOption = document.createElement('div');
+            alignMiddleOption.innerHTML = '⬌ Middle';
+            alignMiddleOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignMiddleOption.onmouseover = () => alignMiddleOption.style.background = '#f0f0f0';
+            alignMiddleOption.onmouseout = () => alignMiddleOption.style.background = 'white';
+            alignMiddleOption.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editor.style.justifyContent = 'center';
+                selectedElement.text_align_vertical = 'middle';
+                // Don't save - wait for Apply button
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignMiddleOption);
+            
+            const alignBottomOption = document.createElement('div');
+            alignBottomOption.innerHTML = '▼ Bottom';
+            alignBottomOption.style.cssText = 'padding: 6px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px;';
+            alignBottomOption.onmouseover = () => alignBottomOption.style.background = '#f0f0f0';
+            alignBottomOption.onmouseout = () => alignBottomOption.style.background = 'white';
+            alignBottomOption.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                editor.style.justifyContent = 'flex-end';
+                selectedElement.text_align_vertical = 'bottom';
+                // Don't save - wait for Apply button
+                alignDropdown.style.display = 'none';
+            };
+            alignDropdown.appendChild(alignBottomOption);
+            
+            alignBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Toggle dropdown
+                const isVisible = alignDropdown.style.display === 'block';
+                alignDropdown.style.display = isVisible ? 'none' : 'block';
+            };
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!alignContainer.contains(e.target)) {
+                    alignDropdown.style.display = 'none';
+                }
             });
-            toolbar.appendChild(underlineBtn);
+            
+            alignContainer.appendChild(alignBtn);
+            alignContainer.appendChild(alignDropdown);
+            toolbar.appendChild(alignContainer);
+            
+            toolbarContainer.appendChild(toolbar);
+            
+            // Second row - font size and font family dropdowns
+            const toolbarRow2 = document.createElement('div');
+            toolbarRow2.style.cssText = 'padding: 4px; border-top: 1px solid #ddd; display: flex; gap: 6px; align-items: center;';
             
             // Font size dropdown
             const fontSizeLabel = document.createElement('label');
             fontSizeLabel.textContent = 'Size:';
-            fontSizeLabel.style.marginLeft = '0.5rem';
-            fontSizeLabel.style.marginRight = '0.25rem';
-            toolbar.appendChild(fontSizeLabel);
+            fontSizeLabel.style.cssText = 'font-size: 12px; margin-right: 4px; flex-shrink: 0;';
+            toolbarRow2.appendChild(fontSizeLabel);
             
+            const fontSizeContainer = document.createElement('div');
+            fontSizeContainer.style.cssText = 'flex: 0 0 auto; min-width: 0;';
             const fontSizeSelect = document.createElement('select');
-            fontSizeSelect.style.cssText = 'padding: 0.25rem; border: 1px solid #ddd; border-radius: 3px;';
+            fontSizeSelect.style.cssText = 'padding: 4px 6px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; min-width: 50px; max-width: 60px; width: 60px; box-sizing: border-box;';
             fontSizeSelect.dataset.interacting = 'false';
-            const sizes = [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
-            sizes.forEach(size => {
+            
+            // Font sizes - execCommand fontSize values map to: 1=10px, 2=13px, 3=16px, 4=18px, 5=24px, 6=32px, 7=48px
+            // We'll use pixel values directly by applying inline styles
+            const fontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64, 72];
+            fontSizes.forEach(size => {
                 const option = document.createElement('option');
                 option.value = size;
                 option.textContent = size;
-                if (size === (selectedElement.font_size || 16)) {
-                    option.selected = true;
-                }
                 fontSizeSelect.appendChild(option);
             });
+            
+            // Set default to 16 if no selection
+            fontSizeSelect.value = '16';
+            
             fontSizeSelect.addEventListener('mousedown', () => {
                 fontSizeSelect.dataset.interacting = 'true';
             });
@@ -462,132 +612,362 @@
                 fontSizeSelect.dataset.interacting = 'false';
             });
             fontSizeSelect.onchange = () => {
+                fontSizeSelect.dataset.interacting = 'true'; // Mark as interacting to prevent re-render
                 editor.focus();
+                const size = fontSizeSelect.value + 'px';
                 const selection = window.getSelection();
+                
                 if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
                     if (!range.collapsed) {
+                        // Apply to selected text - wrap in span with fontSize
                         const span = document.createElement('span');
-                        span.style.fontSize = fontSizeSelect.value + 'px';
+                        span.style.fontSize = size;
                         try {
                             range.surroundContents(span);
                         } catch (e) {
-                            span.appendChild(range.extractContents());
+                            // If surroundContents fails, extract and wrap
+                            const contents = range.extractContents();
+                            span.appendChild(contents);
                             range.insertNode(span);
                         }
-                        // Use requestAnimationFrame to ensure DOM is updated before saving
-                        requestAnimationFrame(() => {
-                            updateRichTextContent();
-                        });
+                        // Move selection to after the span
+                        range.setStartAfter(span);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
                     } else {
-                        editor.style.fontSize = fontSizeSelect.value + 'px';
-                        selectedElement.font_size = parseInt(fontSizeSelect.value);
-                        requestAnimationFrame(() => {
-                            updateRichTextContent();
-                        });
+                        // No selection - wrap entire content in span with fontSize
+                        const allContent = editor.innerHTML;
+                        editor.innerHTML = `<span style="font-size: ${size};">${allContent}</span>`;
+                        // Move cursor to end
+                        const range = document.createRange();
+                        range.selectNodeContents(editor);
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
                     }
+                } else {
+                    // No selection - wrap entire content in span with fontSize
+                    const allContent = editor.innerHTML;
+                    editor.innerHTML = `<span style="font-size: ${size};">${allContent}</span>`;
+                    // Move cursor to end
+                    const range = document.createRange();
+                    const selection = window.getSelection();
+                    range.selectNodeContents(editor);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
                 }
+                
+                // Update toolbar to reflect changes
+                setTimeout(updateToolbarFromContent, 0);
+                // Don't save - wait for Apply button
                 fontSizeSelect.dataset.interacting = 'false';
             };
-            toolbar.appendChild(fontSizeSelect);
             
-            // Text color picker
-            const colorLabel = document.createElement('label');
-            colorLabel.textContent = 'Color:';
-            colorLabel.style.marginLeft = '0.5rem';
-            colorLabel.style.marginRight = '0.25rem';
-            toolbar.appendChild(colorLabel);
+            fontSizeContainer.appendChild(fontSizeSelect);
+            toolbarRow2.appendChild(fontSizeContainer);
             
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = selectedElement.text_color || '#000000';
-            colorInput.style.cssText = 'width: 40px; height: 24px; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;';
-            colorInput.onchange = () => {
+            // Font family dropdown
+            const fontLabel = document.createElement('label');
+            fontLabel.textContent = 'Font:';
+            fontLabel.style.cssText = 'font-size: 12px; margin-right: 4px; margin-left: 8px; flex-shrink: 0;';
+            toolbarRow2.appendChild(fontLabel);
+            
+            const fontFamilyContainer = document.createElement('div');
+            fontFamilyContainer.style.cssText = 'flex: 1 1 auto; min-width: 0; max-width: 200px;';
+            const fontFamilySelect = document.createElement('select');
+            fontFamilySelect.style.cssText = 'padding: 4px 6px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis;';
+            fontFamilySelect.dataset.interacting = 'false';
+            
+            const fonts = [
+                { value: 'Arial', label: 'Arial' },
+                { value: 'Times New Roman', label: 'Times New Roman' },
+                { value: 'Courier New', label: 'Courier New' },
+                { value: 'Georgia', label: 'Georgia' },
+                { value: 'Verdana', label: 'Verdana' },
+                { value: 'Helvetica', label: 'Helvetica' },
+                { value: 'Comic Sans MS', label: 'Comic Sans MS' },
+                { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+                { value: 'Impact', label: 'Impact' },
+                { value: 'Lucida Console', label: 'Lucida Console' },
+                { value: 'Tahoma', label: 'Tahoma' },
+                { value: 'Palatino', label: 'Palatino' },
+                { value: 'Garamond', label: 'Garamond' },
+                { value: 'Bookman', label: 'Bookman' },
+                { value: 'Century Gothic', label: 'Century Gothic' },
+                { value: 'Lucida Sans Unicode', label: 'Lucida Sans Unicode' }
+            ];
+            
+            fonts.forEach(font => {
+                const option = document.createElement('option');
+                option.value = font.value;
+                option.textContent = font.label;
+                option.style.fontFamily = font.value;
+                fontFamilySelect.appendChild(option);
+            });
+            
+            fontFamilySelect.addEventListener('mousedown', () => {
+                fontFamilySelect.dataset.interacting = 'true';
+            });
+            fontFamilySelect.addEventListener('blur', () => {
+                fontFamilySelect.dataset.interacting = 'false';
+            });
+            fontFamilySelect.onchange = () => {
+                fontFamilySelect.dataset.interacting = 'true'; // Mark as interacting to prevent re-render
                 editor.focus();
+                const fontFamily = fontFamilySelect.value;
                 const selection = window.getSelection();
-                if (selection.rangeCount > 0 && !selection.isCollapsed) {
-                    // Preserve selection
+                
+                if (selection.rangeCount > 0) {
                     const range = selection.getRangeAt(0);
-                    document.execCommand('foreColor', false, colorInput.value);
-                    // Use requestAnimationFrame to ensure DOM is updated before saving
-                    requestAnimationFrame(() => {
-                        updateRichTextContent();
-                    });
-                } else {
-                    editor.style.color = colorInput.value;
-                    selectedElement.text_color = colorInput.value;
-                    if (self.updateElementPropertiesInQuiz) {
-                        self.updateElementPropertiesInQuiz(selectedElement);
+                    if (!range.collapsed) {
+                        // Apply to selected text - wrap in span with fontFamily
+                        const span = document.createElement('span');
+                        span.style.fontFamily = fontFamily;
+                        try {
+                            range.surroundContents(span);
+                        } catch (e) {
+                            // If surroundContents fails, extract and wrap
+                            const contents = range.extractContents();
+                            span.appendChild(contents);
+                            range.insertNode(span);
+                        }
+                        // Move selection to after the span
+                        range.setStartAfter(span);
+                        range.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    } else {
+                        // No selection - wrap entire content in span with font
+                        const allContent = editor.innerHTML;
+                        editor.innerHTML = `<span style="font-family: ${fontFamily};">${allContent}</span>`;
+                        // Move cursor to end
+                        const range = document.createRange();
+                        range.selectNodeContents(editor);
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
                     }
-                    requestAnimationFrame(() => {
-                        updateRichTextContent();
-                    });
+                } else {
+                    // No selection - wrap entire content in span with font
+                    const allContent = editor.innerHTML;
+                    editor.innerHTML = `<span style="font-family: ${fontFamily};">${allContent}</span>`;
+                    // Move cursor to end
+                    const range = document.createRange();
+                    const selection = window.getSelection();
+                    range.selectNodeContents(editor);
+                    range.collapse(false);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+                
+                // Update toolbar to reflect changes
+                setTimeout(updateToolbarFromContent, 0);
+                // Don't save - wait for Apply button
+                fontFamilySelect.dataset.interacting = 'false';
+            };
+            
+            fontFamilyContainer.appendChild(fontFamilySelect);
+            toolbarRow2.appendChild(fontFamilyContainer);
+            toolbarContainer.appendChild(toolbarRow2);
+            
+            contentGroup.appendChild(toolbarContainer);
+            
+            // Function to extract formatting from content and update toolbar
+            const updateToolbarFromContent = () => {
+                if (!editor || !editor.innerHTML) return;
+                
+                const content = editor.innerHTML;
+                
+                // Extract font size from HTML (look for font-size in style attributes)
+                const fontSizeMatches = content.match(/font-size:\s*(\d+)px/gi);
+                if (fontSizeMatches && fontSizeMatches.length > 0) {
+                    // Get the most recent/last font size found
+                    const lastMatch = fontSizeMatches[fontSizeMatches.length - 1];
+                    const size = parseInt(lastMatch.match(/\d+/)[0]);
+                    if (fontSizes && fontSizes.includes(size) && fontSizeSelect) {
+                        fontSizeSelect.value = size.toString();
+                    }
+                } else {
+                    // Try to get from the editor's first child element
+                    try {
+                        const firstChild = editor.firstElementChild || editor;
+                        if (firstChild) {
+                            const computedSize = window.getComputedStyle(firstChild).fontSize;
+                            const size = parseInt(computedSize);
+                            if (fontSizes && fontSizes.includes(size) && fontSizeSelect) {
+                                fontSizeSelect.value = size.toString();
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                }
+                
+                // Extract font family from HTML
+                const fontFamilyMatches = content.match(/font-family:\s*['"]?([^'";}]+)['"]?/gi);
+                if (fontFamilyMatches && fontFamilyMatches.length > 0) {
+                    const lastMatch = fontFamilyMatches[fontFamilyMatches.length - 1];
+                    const familyMatch = lastMatch.match(/font-family:\s*['"]?([^'";}]+)['"]?/i);
+                    if (familyMatch && fontFamilySelect) {
+                        const family = familyMatch[1].trim();
+                        const fontOption = Array.from(fontFamilySelect.options).find(opt => opt.value === family);
+                        if (fontOption) {
+                            fontFamilySelect.value = family;
+                        }
+                    }
+                } else {
+                    // Try to get from computed style
+                    try {
+                        const firstChild = editor.firstElementChild || editor;
+                        if (firstChild && fontFamilySelect) {
+                            const computedFamily = window.getComputedStyle(firstChild).fontFamily;
+                            const family = computedFamily.split(',')[0].replace(/['"]/g, '').trim();
+                            const fontOption = Array.from(fontFamilySelect.options).find(opt => opt.value === family);
+                            if (fontOption) {
+                                fontFamilySelect.value = family;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                }
+                
+                // Extract text color from HTML
+                const colorMatches = content.match(/color:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\))/gi);
+                if (colorMatches && colorMatches.length > 0 && colorInput) {
+                    const lastMatch = colorMatches[colorMatches.length - 1];
+                    const colorMatch = lastMatch.match(/color:\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|rgb\([^)]+\))/i);
+                    if (colorMatch) {
+                        let color = colorMatch[1];
+                        // Convert rgb to hex if needed
+                        if (color.startsWith('rgb')) {
+                            const rgbMatch = color.match(/\d+/g);
+                            if (rgbMatch && rgbMatch.length >= 3) {
+                                const r = parseInt(rgbMatch[0]).toString(16).padStart(2, '0');
+                                const g = parseInt(rgbMatch[1]).toString(16).padStart(2, '0');
+                                const b = parseInt(rgbMatch[2]).toString(16).padStart(2, '0');
+                                color = `#${r}${g}${b}`;
+                            }
+                        }
+                        colorInput.value = color;
+                    }
+                } else {
+                    // Try to get from computed style
+                    try {
+                        const firstChild = editor.firstElementChild || editor;
+                        if (firstChild && colorInput) {
+                            const computedColor = window.getComputedStyle(firstChild).color;
+                            const rgbMatch = computedColor.match(/\d+/g);
+                            if (rgbMatch && rgbMatch.length >= 3) {
+                                const r = parseInt(rgbMatch[0]).toString(16).padStart(2, '0');
+                                const g = parseInt(rgbMatch[1]).toString(16).padStart(2, '0');
+                                const b = parseInt(rgbMatch[2]).toString(16).padStart(2, '0');
+                                colorInput.value = `#${r}${g}${b}`;
+                            }
+                        }
+                    } catch (e) {
+                        // Ignore errors
+                    }
+                }
+                
+                // Check for bold, italic, underline in HTML
+                const hasBold = content.includes('<strong>') || content.includes('<b>') || 
+                               (content.includes('font-weight') && content.match(/font-weight:\s*(bold|700|800|900)/i));
+                const hasItalic = content.includes('<em>') || content.includes('<i>') || 
+                                 content.includes('font-style:\s*italic');
+                const hasUnderline = content.includes('<u>') || 
+                                    (content.includes('text-decoration') && content.includes('underline'));
+                
+                // Update button states
+                if (boldBtn) {
+                    if (hasBold) {
+                        boldBtn.style.background = '#2196F3';
+                        boldBtn.style.color = 'white';
+                    } else {
+                        boldBtn.style.background = 'white';
+                        boldBtn.style.color = '#333';
+                    }
+                }
+                
+                if (italicBtn) {
+                    if (hasItalic) {
+                        italicBtn.style.background = '#2196F3';
+                        italicBtn.style.color = 'white';
+                    } else {
+                        italicBtn.style.background = 'white';
+                        italicBtn.style.color = '#333';
+                    }
+                }
+                
+                if (underlineBtn) {
+                    if (hasUnderline) {
+                        underlineBtn.style.background = '#2196F3';
+                        underlineBtn.style.color = 'white';
+                    } else {
+                        underlineBtn.style.background = 'white';
+                        underlineBtn.style.color = '#333';
+                    }
                 }
             };
-            toolbar.appendChild(colorInput);
             
-            // Background color picker
-            const bgColorLabel = document.createElement('label');
-            bgColorLabel.textContent = 'BG:';
-            bgColorLabel.style.marginLeft = '0.5rem';
-            bgColorLabel.style.marginRight = '0.25rem';
-            toolbar.appendChild(bgColorLabel);
-            
-            const bgColorInput = document.createElement('input');
-            bgColorInput.type = 'color';
-            bgColorInput.value = selectedElement.background_color || '#ffffff';
-            bgColorInput.style.cssText = 'width: 40px; height: 24px; border: 1px solid #ddd; border-radius: 3px; cursor: pointer;';
-            bgColorInput.onchange = () => {
-                selectedElement.background_color = bgColorInput.value;
-                // Update the editor background color to match
-                editor.style.backgroundColor = bgColorInput.value;
-                // Background color applies to the element on canvas and editor preview
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
-                self.updateElementDisplay();
-                // Update canvas to show background color change immediately
-                if (self.renderCanvas) {
-                    self.renderCanvas();
-                }
-                self.autosaveQuiz();
-            };
-            toolbar.appendChild(bgColorInput);
-            
-            contentGroup.appendChild(toolbar);
-            
-            // Only save content while typing (debounced), but don't update display/canvas
-            // This prevents the panel from updating and keeps focus on the editor
-            editor.addEventListener('input', () => {
-                // Only save content, don't update display or canvas while typing
-                saveRichText();
+            // Update toolbar when selection changes
+            editor.addEventListener('mouseup', () => {
+                setTimeout(updateToolbarFromContent, 0);
+            });
+            editor.addEventListener('keyup', () => {
+                setTimeout(updateToolbarFromContent, 0);
             });
             
-            // Update display and canvas when user clicks away from text box (loses focus)
+            // Initial update after editor is added to DOM
+            setTimeout(() => {
+                updateToolbarFromContent();
+            }, 0);
+            
+            // Editor event listeners
+            editor.addEventListener('focus', () => {
+                editor.dataset.interacting = 'true';
+            });
             editor.addEventListener('blur', () => {
-                // Update everything when focus is lost
-                updateRichTextDisplay();
-                // Ensure autosave happens
-                self.autosaveQuiz();
+                editor.dataset.interacting = 'false';
+                // Don't save on blur - wait for Apply button
             });
             
-            // Prevent default behavior for formatting buttons
+            // No automatic saving - only Apply button saves
+            
+            // Keyboard shortcuts
             editor.addEventListener('keydown', (e) => {
                 if (e.ctrlKey || e.metaKey) {
                     if (e.key === 'b') {
                         e.preventDefault();
-                        applyFormattingCommand('bold');
+                        formatText('bold');
                     } else if (e.key === 'i') {
                         e.preventDefault();
-                        applyFormattingCommand('italic');
+                        formatText('italic');
                     } else if (e.key === 'u') {
                         e.preventDefault();
-                        applyFormattingCommand('underline');
+                        formatText('underline');
                     }
                 }
             });
             
             contentGroup.appendChild(editor);
+            
+            // Apply button - only way to save richtext changes
+            const applyButton = document.createElement('button');
+            applyButton.textContent = 'Apply';
+            applyButton.type = 'button';
+            applyButton.style.cssText = 'margin-top: 0.5rem; padding: 0.5rem 1rem; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; width: 100%;';
+            applyButton.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Save all richtext properties
+                saveRichTextContent();
+            };
+            contentGroup.appendChild(applyButton);
+            
             container.appendChild(contentGroup);
         }
         
