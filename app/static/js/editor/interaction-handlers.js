@@ -399,11 +399,39 @@ Editor.InteractionHandlers = (function() {
                     element.style.maxHeight = `${elementData.height}px`;
                 }
                 
-                // Update SVG viewBox for triangle and arrow if they exist
-                if (elementData.type === 'triangle' || elementData.type === 'arrow') {
+                // Update SVG viewBox for triangle, arrow, and plus if they exist
+                if (elementData.type === 'triangle' || elementData.type === 'arrow' || elementData.type === 'plus') {
                     const svg = element.querySelector('svg');
                     if (svg) {
                         svg.setAttribute('viewBox', `0 0 ${elementData.width} ${elementData.height}`);
+                        // Recalculate and update the path for plus shape to maintain proper proportions
+                        if (elementData.type === 'plus') {
+                            const plusThickness = Math.min(elementData.width, elementData.height) * 0.2;
+                            const centerX = elementData.width / 2;
+                            const centerY = elementData.height / 2;
+                            const halfThickness = plusThickness / 2;
+                            
+                            const pathData = `
+                                M ${centerX - halfThickness} 0
+                                L ${centerX + halfThickness} 0
+                                L ${centerX + halfThickness} ${centerY - halfThickness}
+                                L ${elementData.width} ${centerY - halfThickness}
+                                L ${elementData.width} ${centerY + halfThickness}
+                                L ${centerX + halfThickness} ${centerY + halfThickness}
+                                L ${centerX + halfThickness} ${elementData.height}
+                                L ${centerX - halfThickness} ${elementData.height}
+                                L ${centerX - halfThickness} ${centerY + halfThickness}
+                                L 0 ${centerY + halfThickness}
+                                L 0 ${centerY - halfThickness}
+                                L ${centerX - halfThickness} ${centerY - halfThickness}
+                                Z
+                            `.replace(/\s+/g, ' ').trim();
+                            
+                            const path = svg.querySelector('path');
+                            if (path) {
+                                path.setAttribute('d', pathData);
+                            }
+                        }
                     }
                 }
                 

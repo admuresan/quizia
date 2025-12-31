@@ -1,5 +1,5 @@
 // Quizmaster control page - matches editor control view exactly with live answers
-const socket = io();
+const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
 window.socket = socket; // Make socket available globally for question type views
 // roomCode is set in template as window.roomCode
 let currentPageIndex = 0;
@@ -92,8 +92,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 window.answerVisibility[questionId].visibleParticipants.add(data.participant_id);
             });
-            // Refresh the page to show new participant in answer sections
-            loadPage();
+            // Update answer displays for all questions to show new participant
+            // Don't call loadPage() as it re-renders everything including appearance control,
+            // which would reset visibility toggles. Instead, update only answer displays.
+            if (quiz && quiz.pages && quiz.pages[currentPageIndex]) {
+                const page = quiz.pages[currentPageIndex];
+                const elementsDict = page.elements || {};
+                // Find all question elements and update their answer displays
+                if (page.views && page.views.display && page.views.display.local_element_configs) {
+                    const displayLocalConfigs = page.views.display.local_element_configs || {};
+                    Object.keys(displayLocalConfigs).forEach(elementId => {
+                        const elementData = elementsDict[elementId];
+                        if (elementData && elementData.is_question) {
+                            updateAnswerDisplay(elementId);
+                        }
+                    });
+                }
+            }
         }
     });
     
@@ -127,8 +142,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             
-            // Refresh the page to show updated participant list in answer sections
-            loadPage();
+            // Update answer displays for all questions to show updated participant list
+            // Don't call loadPage() as it re-renders everything including appearance control,
+            // which would reset visibility toggles. Instead, update only answer displays.
+            if (quiz && quiz.pages && quiz.pages[currentPageIndex]) {
+                const page = quiz.pages[currentPageIndex];
+                const elementsDict = page.elements || {};
+                // Find all question elements and update their answer displays
+                if (page.views && page.views.display && page.views.display.local_element_configs) {
+                    const displayLocalConfigs = page.views.display.local_element_configs || {};
+                    Object.keys(displayLocalConfigs).forEach(elementId => {
+                        const elementData = elementsDict[elementId];
+                        if (elementData && elementData.is_question) {
+                            updateAnswerDisplay(elementId);
+                        }
+                    });
+                }
+            }
         }
     });
 
@@ -203,15 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementToggle(elementId, visible);
     });
     
-    // Listen for element appearance changed events (when elements appear via timers)
-    socket.on('element_appearance_changed', (data) => {
-        // Update toggle state when element becomes visible via timer/delay
-        const elementId = data.element_id;
-        const visible = data.visible;
-        if (visible !== undefined && visible) {
-            updateElementToggle(elementId, true);
-        }
-    });
+    // REMOVED: Listen for element_appearance_changed from display
+    // Control is the source of truth - display should never update control
+    // Control initializes visibility from room data on load, and only updates via user toggles
 
     // Navigation buttons
     document.getElementById('prev-page-btn')?.addEventListener('click', () => {

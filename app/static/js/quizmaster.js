@@ -270,6 +270,11 @@ async function loadQuizzes() {
             return;
         }
 
+        // Check if running on localhost
+        const localhostCheck = await fetch('/api/quiz/check-localhost');
+        const localhostData = await localhostCheck.json();
+        const isLocalhost = localhostData.is_localhost;
+
         // Get current user info
         const checkResponse = await fetch('/api/auth/check');
         const checkData = await checkResponse.json();
@@ -320,6 +325,7 @@ async function loadQuizzes() {
                         <button class="btn btn-small" onclick="editQuiz('${quiz.id}')">Edit</button>
                         <button class="btn btn-small" onclick="startQuiz('${quiz.id}')">Start</button>
                         <button class="btn btn-small" onclick="downloadQuiz('${quiz.id}')">Download</button>
+                        ${isOwner && isLocalhost ? `<button class="btn btn-small" style="background-color: #17a2b8; color: white;" onclick="showMigrateModal('${quiz.id}', '${quiz.name.replace(/'/g, "\\'")}')">Migrate</button>` : ''}
                         ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteQuiz('${quiz.id}')">Delete</button>` : ''}
                     </div>
                 `;
@@ -378,7 +384,7 @@ async function startQuiz(quizId) {
      *                          Multiple quizzes can have the same name, so ID is required.
      */
     // Connect to WebSocket and start quiz
-    const socket = io();
+    const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
     
     socket.on('connect', () => {
         socket.emit('quizmaster_start_quiz', { quiz_id: quizId });
@@ -614,37 +620,272 @@ async function loadMedia() {
         const checkData = await checkResponse.json();
         const currentUsername = checkData.username;
 
+        // Create select all checkbox and bulk actions container
+        const selectAllDiv = document.createElement('div');
+        selectAllDiv.style.cssText = 'margin-bottom: 1rem; padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem;';
+        
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.id = 'select-all-media';
+        selectAllCheckbox.style.cssText = 'width: 20px; height: 20px; cursor: pointer;';
+        selectAllCheckbox.onchange = function() {
+            const checkboxes = document.querySelectorAll('.media-select-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateBulkActions();
+        };
+        
+        const selectAllLabel = document.createElement('label');
+        selectAllLabel.htmlFor = 'select-all-media';
+        selectAllLabel.textContent = 'Select All';
+        selectAllLabel.style.cssText = 'cursor: pointer; font-weight: bold;';
+        
+        selectAllDiv.appendChild(selectAllCheckbox);
+        selectAllDiv.appendChild(selectAllLabel);
+        listDiv.appendChild(selectAllDiv);
+        
+        // Create bulk actions container
+        const bulkActionsDiv = document.createElement('div');
+        bulkActionsDiv.id = 'media-bulk-actions';
+        bulkActionsDiv.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 8px; display: none; align-items: center; gap: 1rem;';
+        
+        const selectedCountSpan = document.createElement('span');
+        selectedCountSpan.id = 'selected-count';
+        selectedCountSpan.style.fontWeight = 'bold';
+        
+        const bulkDeleteBtn = document.createElement('button');
+        bulkDeleteBtn.className = 'btn btn-small btn-danger';
+        bulkDeleteBtn.textContent = 'Delete Selected';
+        bulkDeleteBtn.onclick = bulkDeleteMedia;
+        
+        const bulkMakePublicBtn = document.createElement('button');
+        bulkMakePublicBtn.className = 'btn btn-small';
+        bulkMakePublicBtn.textContent = 'Make Public';
+        bulkMakePublicBtn.onclick = () => bulkToggleMediaPublic(true);
+        
+        const bulkMakePrivateBtn = document.createElement('button');
+        bulkMakePrivateBtn.className = 'btn btn-small';
+        bulkMakePrivateBtn.textContent = 'Make Private';
+        bulkMakePrivateBtn.onclick = () => bulkToggleMediaPublic(false);
+        
+        bulkActionsDiv.appendChild(selectedCountSpan);
+        bulkActionsDiv.appendChild(bulkDeleteBtn);
+        bulkActionsDiv.appendChild(bulkMakePublicBtn);
+        bulkActionsDiv.appendChild(bulkMakePrivateBtn);
+        listDiv.appendChild(bulkActionsDiv);
+
         data.files.forEach(file => {
             const item = document.createElement('div');
             item.className = 'list-item';
             const isOwner = file.creator === currentUsername;
             const fileSize = formatFileSize(file.size);
             const fileType = getFileType(file.filename);
+            const ext = file.filename.split('.').pop().toLowerCase();
+            const mediaUrl = `/api/media/serve/${file.filename}`;
+            const referenceCount = file.reference_count || 0;
+            
+            // Determine media type and create preview
+            let previewHtml = '';
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+                // Image thumbnail
+                previewHtml = `<img src="${mediaUrl}" alt="${file.original_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0;">`;
+            } else if (['mp4', 'webm'].includes(ext)) {
+                // Video thumbnail - show first frame
+                previewHtml = `<video src="${mediaUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; pointer-events: none;" preload="metadata" muted playsinline></video>`;
+            } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+                // Audio icon
+                previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 2rem;">🔊</div>`;
+            } else {
+                // Default file icon
+                previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 1.5rem;">📄</div>`;
+            }
+            
+            // Escape filename for use in HTML attributes and JavaScript
+            // For data attributes, we can use the filename directly as the browser handles encoding
+            // For JavaScript in onclick handlers, we need to escape quotes
+            const escapedFilenameJs = file.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            // Store both filename and original_name for bulk operations
+            const escapedFilename = file.filename.replace(/"/g, '&quot;');
+            const escapedOriginalName = file.original_name.replace(/"/g, '&quot;');
             
             item.innerHTML = `
+                ${isOwner ? `<input type="checkbox" class="media-select-checkbox" data-filename="${escapedFilename}" data-original-name="${escapedOriginalName}" style="margin-right: 1rem; width: 20px; height: 20px; cursor: pointer;" onchange="updateBulkActions()">` : '<div style="width: 20px; margin-right: 1rem;"></div>'}
+                ${previewHtml}
                 <div style="flex: 1;">
                     <strong>${file.original_name}</strong>
                     <div style="color: #666; font-size: 0.9rem;">
                         ${fileType} | ${fileSize}
                         ${file.creator ? ` | Created by: ${file.creator}` : ''}
                         ${file.public ? ' | <span style="color: green;">Public</span>' : ' | <span style="color: #666;">Private</span>'}
+                        ${referenceCount > 0 ? ` | Referenced in ${referenceCount} quiz${referenceCount !== 1 ? 'es' : ''}` : ' | Not referenced'}
                     </div>
                 </div>
                 <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
                     ${isOwner ? `<label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
                         <input type="checkbox" ${file.public ? 'checked' : ''} 
-                               onchange="toggleMediaPublic('${file.filename}', this.checked)"
+                               onchange="toggleMediaPublic('${escapedFilenameJs}', this.checked)"
                                style="margin-right: 0.5rem;">
                         <span>Public</span>
                     </label>` : ''}
-                    <button class="btn btn-small" onclick="downloadMedia('${file.filename}')">Download</button>
-                    ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteMedia('${file.filename}')">Delete</button>` : ''}
+                    <button class="btn btn-small" onclick="downloadMedia('${escapedFilenameJs}')">Download</button>
+                    ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteMedia('${escapedFilenameJs}')">Delete</button>` : ''}
                 </div>
             `;
             listDiv.appendChild(item);
         });
     } catch (error) {
         console.error('Error loading media:', error);
+    }
+}
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.media-select-checkbox');
+    const checkedBoxes = document.querySelectorAll('.media-select-checkbox:checked');
+    const bulkActionsDiv = document.getElementById('media-bulk-actions');
+    const selectedCountSpan = document.getElementById('selected-count');
+    const selectAllCheckbox = document.getElementById('select-all-media');
+    
+    // Update select all checkbox state
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = checkboxes.length > 0 && checkedBoxes.length === checkboxes.length;
+        selectAllCheckbox.indeterminate = checkedBoxes.length > 0 && checkedBoxes.length < checkboxes.length;
+    }
+    
+    if (checkedBoxes.length > 0) {
+        bulkActionsDiv.style.display = 'flex';
+        selectedCountSpan.textContent = `${checkedBoxes.length} file${checkedBoxes.length !== 1 ? 's' : ''} selected`;
+    } else {
+        bulkActionsDiv.style.display = 'none';
+    }
+}
+
+async function bulkDeleteMedia() {
+    const checkboxes = document.querySelectorAll('.media-select-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('No files selected');
+        return;
+    }
+    
+    // Get all selected filenames and original names - ensure we get all of them
+    const filesToDelete = [];
+    checkboxes.forEach((cb, index) => {
+        // Try multiple methods to get the filename
+        let filename = cb.dataset.filename;
+        if (!filename) {
+            filename = cb.getAttribute('data-filename');
+        }
+        
+        // Try multiple methods to get the original name
+        let originalName = cb.dataset.originalName;
+        if (!originalName) {
+            originalName = cb.getAttribute('data-original-name');
+        }
+        if (!originalName) {
+            originalName = filename; // Fallback to filename
+        }
+        
+        if (filename) {
+            filesToDelete.push({
+                filename: filename,
+                originalName: originalName
+            });
+            console.log(`File ${index + 1}: filename="${filename}", originalName="${originalName}"`);
+        } else {
+            console.warn(`Checkbox ${index + 1} has no filename attribute`);
+        }
+    });
+    
+    if (filesToDelete.length === 0) {
+        alert('No valid files selected');
+        return;
+    }
+    
+    const count = filesToDelete.length;
+    
+    // Create confirmation message with list of files
+    let confirmMessage = `Are you sure you want to delete ${count} file${count !== 1 ? 's' : ''}?\n\nFiles to be deleted:\n`;
+    filesToDelete.forEach((file, index) => {
+        confirmMessage += `${index + 1}. ${file.originalName}\n`;
+    });
+    confirmMessage += '\nThis action cannot be undone.';
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Extract just the filenames for the API call
+    const filenames = filesToDelete.map(f => f.filename);
+    
+    // Debug: log what we're sending
+    console.log(`Sending ${filenames.length} filenames to delete:`, filenames);
+    
+    try {
+        const response = await fetch('/api/media/bulk-delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ filenames: filenames })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const failed = data.results.filter(r => !r.success);
+            const succeeded = data.results.filter(r => r.success);
+            
+            // Debug: log the response
+            console.log('Delete results:', data.results);
+            
+            if (failed.length > 0) {
+                alert(`Deleted ${succeeded.length} of ${count} file(s).\n\nFailed to delete:\n${failed.map(f => `- ${f.filename}: ${f.error || 'Unknown error'}`).join('\n')}`);
+            } else {
+                alert(`Successfully deleted ${count} file${count !== 1 ? 's' : ''}`);
+            }
+            await loadMedia();
+        } else {
+            alert(`Error: ${data.error || 'Failed to delete files'}`);
+        }
+    } catch (error) {
+        console.error('Error deleting media:', error);
+        alert('Error deleting files: ' + error.message);
+    }
+}
+
+async function bulkToggleMediaPublic(makePublic) {
+    const checkboxes = document.querySelectorAll('.media-select-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('No files selected');
+        return;
+    }
+    
+    const filenames = Array.from(checkboxes).map(cb => cb.dataset.filename);
+    const count = filenames.length;
+    const action = makePublic ? 'make public' : 'make private';
+    
+    try {
+        const response = await fetch('/api/media/bulk-toggle-public', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ filenames: filenames, make_public: makePublic })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const failed = data.results.filter(r => !r.success);
+            if (failed.length > 0) {
+                alert(`${action.charAt(0).toUpperCase() + action.slice(1)} ${count - failed.length} file(s). Failed: ${failed.map(f => f.filename).join(', ')}`);
+            }
+            // Always reload to update UI (even if some failed)
+            await loadMedia();
+        } else {
+            alert(`Error: ${data.error || `Failed to ${action} files`}`);
+        }
+    } catch (error) {
+        console.error(`Error ${action} media:`, error);
+        alert(`Error ${action} files`);
     }
 }
 
@@ -705,6 +946,158 @@ async function toggleMediaPublic(filename, isPublic) {
     } catch (error) {
         alert('Error toggling public status');
         await loadMedia(); // Reload to reset checkbox
+    }
+}
+
+// Migration functions
+function showMigrateModal(quizId, quizName) {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('migrate-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'migrate-modal';
+        modal.style.cssText = 'display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);';
+        modal.innerHTML = `
+            <div style="background-color: #fefefe; margin: 15% auto; padding: 20px; border: 1px solid #888; width: 400px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h2 style="margin-top: 0;">Migrate Quiz to Server</h2>
+                <p id="migrate-quiz-name" style="margin-bottom: 1rem; color: #666;"></p>
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Server Username:</label>
+                    <input type="text" id="migrate-username" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="Enter server username">
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; margin-bottom: 0.5rem; font-weight: bold;">Server Password:</label>
+                    <input type="password" id="migrate-password" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;" placeholder="Enter server password">
+                </div>
+                <div id="migrate-status" style="margin-bottom: 1rem; color: #666; font-size: 0.9rem;"></div>
+                <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <button id="migrate-cancel-btn" class="btn btn-small" style="background-color: #6c757d; color: white;">Cancel</button>
+                    <button id="migrate-submit-btn" class="btn btn-small" style="background-color: #17a2b8; color: white;">Migrate</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        
+        // Close modal on cancel or outside click
+        document.getElementById('migrate-cancel-btn').addEventListener('click', () => {
+            modal.style.display = 'none';
+        });
+        
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    }
+    
+    // Set quiz name and reset form
+    document.getElementById('migrate-quiz-name').textContent = `Quiz: ${quizName}`;
+    document.getElementById('migrate-username').value = '';
+    document.getElementById('migrate-password').value = '';
+    document.getElementById('migrate-status').textContent = '';
+    
+    // Store quiz ID
+    modal.dataset.quizId = quizId;
+    
+    // Update submit button
+    const submitBtn = document.getElementById('migrate-submit-btn');
+    submitBtn.onclick = () => migrateQuiz(quizId);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Migrate';
+    
+    // Show modal
+    modal.style.display = 'block';
+    
+    // Focus on username input
+    document.getElementById('migrate-username').focus();
+}
+
+async function migrateQuiz(quizId) {
+    const username = document.getElementById('migrate-username').value.trim();
+    const password = document.getElementById('migrate-password').value;
+    const statusDiv = document.getElementById('migrate-status');
+    const submitBtn = document.getElementById('migrate-submit-btn');
+    
+    if (!username || !password) {
+        statusDiv.textContent = 'Please enter both username and password';
+        statusDiv.style.color = '#dc3545';
+        return;
+    }
+    
+    // Disable button and show loading
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Migrating...';
+    statusDiv.textContent = 'Starting migration...';
+    statusDiv.style.color = '#666';
+    
+    try {
+        const response = await fetch(`/api/quiz/migrate/${encodeURIComponent(quizId)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                server_username: username,
+                server_password: password
+            })
+        });
+        
+        // Check if response is JSON before parsing
+        const contentType = response.headers.get('content-type');
+        let data;
+        
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            // If not JSON, read as text to see what we got
+            const text = await response.text();
+            let errorMsg = `Server returned ${response.status} ${response.statusText}`;
+            
+            // Try to extract error message from HTML if possible
+            if (text.includes('<!doctype') || text.includes('<!DOCTYPE')) {
+                // It's an HTML error page
+                if (response.status === 401) {
+                    errorMsg = 'Unauthorized: Please log in as quizmaster';
+                } else if (response.status === 403) {
+                    errorMsg = 'Forbidden: You may not have permission to migrate this quiz';
+                } else if (response.status === 404) {
+                    errorMsg = 'Not found: Quiz or endpoint not found';
+                } else if (response.status === 500) {
+                    errorMsg = 'Server error: An error occurred on the server';
+                } else {
+                    errorMsg = `Server error (${response.status}): Received HTML instead of JSON`;
+                }
+            } else {
+                errorMsg = text || errorMsg;
+            }
+            
+            statusDiv.textContent = 'Error: ' + errorMsg;
+            statusDiv.style.color = '#dc3545';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Migrate';
+            return;
+        }
+        
+        if (response.ok) {
+            statusDiv.textContent = data.message || 'Migration successful!';
+            statusDiv.style.color = '#28a745';
+            submitBtn.textContent = 'Success';
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                document.getElementById('migrate-modal').style.display = 'none';
+            }, 2000);
+        } else {
+            statusDiv.textContent = 'Error: ' + (data.error || 'Migration failed');
+            statusDiv.style.color = '#dc3545';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Migrate';
+        }
+    } catch (error) {
+        statusDiv.textContent = 'Error: ' + error.message;
+        statusDiv.style.color = '#dc3545';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Migrate';
     }
 }
 

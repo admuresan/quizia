@@ -4,6 +4,8 @@
     'use strict';
 
     let mediaModalCallback = null;
+    let currentMediaData = { my: [], public: [] }; // Store current media data for filtering
+    let currentTabType = 'images';
 
     Editor.MediaModal = {
         init: function() {
@@ -32,6 +34,11 @@
                     const tabContent = document.getElementById(`media-tab-${tabName}`);
                     if (tabContent) {
                         tabContent.classList.add('active');
+                    }
+                    // Clear search when switching tabs
+                    const searchInput = document.getElementById('media-search-input');
+                    if (searchInput) {
+                        searchInput.value = '';
                     }
                     this.loadMediaForTab(tabName);
                 });
@@ -75,6 +82,14 @@
                     });
                 }
             });
+            
+            // Add search input handler
+            const searchInput = document.getElementById('media-search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    this.filterMedia(e.target.value);
+                });
+            }
         },
 
         open: function(callback, defaultTab = 'images') {
@@ -84,6 +99,11 @@
                 modal.style.display = 'flex';
                 // Set higher z-index to appear above background modal (10000) or other modals
                 modal.style.zIndex = '10001';
+                // Clear search input when opening modal
+                const searchInput = document.getElementById('media-search-input');
+                if (searchInput) {
+                    searchInput.value = '';
+                }
                 // Activate the default tab
                 const tabs = document.querySelectorAll('.modal-tab');
                 const tabContents = document.querySelectorAll('.modal-tab-content');
@@ -105,6 +125,7 @@
 
         loadMediaForTab: async function(tabType) {
             try {
+                currentTabType = tabType;
                 const response = await fetch('/api/media/list');
                 const data = await response.json();
                 
@@ -116,9 +137,6 @@
                 const publicList = document.getElementById(`public-${tabType}-list`);
                 
                 if (!myList || !publicList) return;
-                
-                myList.innerHTML = '';
-                publicList.innerHTML = '';
                 
                 const fileTypes = {
                     images: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
@@ -136,17 +154,62 @@
                     return f.public && f.creator !== currentUsername && fileTypes[tabType].includes(ext);
                 });
                 
-                myMedia.forEach(file => {
+                // Store media data for filtering
+                currentMediaData.my = myMedia;
+                currentMediaData.public = publicMedia;
+                
+                // Get current search term and filter
+                const searchInput = document.getElementById('media-search-input');
+                const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+                this.renderMediaLists(tabType, searchTerm);
+            } catch (error) {
+                console.error('Error loading media:', error);
+            }
+        },
+        
+        filterMedia: function(searchTerm) {
+            this.renderMediaLists(currentTabType, searchTerm.toLowerCase());
+        },
+        
+        renderMediaLists: function(tabType, searchTerm) {
+            const myList = document.getElementById(`my-${tabType}-list`);
+            const publicList = document.getElementById(`public-${tabType}-list`);
+            
+            if (!myList || !publicList) return;
+            
+            myList.innerHTML = '';
+            publicList.innerHTML = '';
+            
+            // Filter media based on search term
+            const filteredMy = currentMediaData.my.filter(file => {
+                if (!searchTerm) return true;
+                const filename = (file.original_name || file.filename || '').toLowerCase();
+                return filename.includes(searchTerm);
+            });
+            
+            const filteredPublic = currentMediaData.public.filter(file => {
+                if (!searchTerm) return true;
+                const filename = (file.original_name || file.filename || '').toLowerCase();
+                return filename.includes(searchTerm);
+            });
+            
+            // Render filtered results
+            if (filteredMy.length === 0 && filteredPublic.length === 0 && searchTerm) {
+                // Show "no results" message if searching and nothing found
+                const noResults = document.createElement('div');
+                noResults.textContent = 'No media files found matching your search.';
+                noResults.style.cssText = 'padding: 1rem; text-align: center; color: #666;';
+                myList.appendChild(noResults);
+            } else {
+                filteredMy.forEach(file => {
                     const item = this.createMediaItem(file, tabType);
                     myList.appendChild(item);
                 });
                 
-                publicMedia.forEach(file => {
+                filteredPublic.forEach(file => {
                     const item = this.createMediaItem(file, tabType);
                     publicList.appendChild(item);
                 });
-            } catch (error) {
-                console.error('Error loading media:', error);
             }
         },
 

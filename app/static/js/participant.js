@@ -1,5 +1,5 @@
 // Participant page - matches editor participant view template exactly
-const socket = io();
+const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
 // roomCode is set in template as window.roomCode
 let participantId = null;
 let currentPageIndex = 0; // Track current page index to stay in sync
@@ -273,7 +273,13 @@ function renderPage(pageIndex, page) {
         questionElements = displayElements.filter(el => el.is_question);
         
         // Get participant view elements (includes dynamically generated answer_input elements)
-        participantElements = Editor.QuizStructure.getViewElements(page, 'participant');
+        // Filter out any question elements that might have slipped through (they shouldn't be rendered)
+        // Only answer_input elements should be in participant view (main question elements are excluded by getViewElements)
+        participantElements = Editor.QuizStructure.getViewElements(page, 'participant')
+            .filter(el => {
+                // Only allow answer_input elements - question elements should not be rendered in participant view
+                return el.type === 'answer_input' && !el.is_question;
+            });
     } else {
         console.error('Editor.QuizStructure.getViewElements not available');
     }
@@ -369,26 +375,27 @@ function renderPage(pageIndex, page) {
         
         container.appendChild(questionContainer);
         
-        // Check initial visibility state - only show if element is already visible on display page
-        // This ensures participant page matches display page visibility
-        const appearanceMode = question.appearance_mode || 'on_load';
-        
-        // Check if element is already visible:
-        // 1. If appearance_visible is explicitly set, use that (for elements that have already appeared)
-        // 2. Otherwise, only show if it's on_load mode (immediate visibility)
-        // 3. Control mode elements always start hidden (handled via element_appearance_control events)
+        // CRITICAL: Always respect appearance_visible if it's already set (from server/room state)
+        // This ensures participant page shows what control has set, matching display page behavior
+        // Control is the source of truth for visibility
         let isVisible = false;
-        if (appearanceMode === 'control') {
-            // Control mode elements start hidden, shown only via element_appearance_control events
-            isVisible = false;
-        } else if (question.appearance_visible !== undefined) {
-            // Use the stored visibility state (from server/display page)
+        
+        if (question.appearance_visible !== undefined) {
+            // Use the stored visibility state from server (what control has set)
+            // This takes priority over appearance_mode
             isVisible = question.appearance_visible;
-        } else if (appearanceMode === 'on_load') {
-            // On_load elements are visible immediately
-            isVisible = true;
+        } else {
+            // Fall back to appearance_mode defaults only if appearance_visible is not set
+            const appearanceMode = question.appearance_mode || 'on_load';
+            if (appearanceMode === 'control') {
+                // Control mode elements start hidden, shown only via element_appearance_control events
+                isVisible = false;
+            } else if (appearanceMode === 'on_load') {
+                // On_load elements are visible immediately
+                isVisible = true;
+            }
+            // All other modes (delays, after_previous) start hidden
         }
-        // All other modes (delays, after_previous) start hidden
         
         if (isVisible) {
             // Element is already visible - show immediately

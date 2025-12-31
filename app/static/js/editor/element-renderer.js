@@ -242,6 +242,48 @@ Editor.ElementRenderer = (function() {
                 el.style.transformOrigin = '0 0';
                 el.style.transform = `rotate(${element.rotation || 0}deg)`;
                 break;
+            case 'plus':
+                const plusSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                plusSvg.setAttribute('width', '100%');
+                plusSvg.setAttribute('height', '100%');
+                plusSvg.setAttribute('viewBox', `0 0 ${element.width} ${element.height}`);
+                plusSvg.setAttribute('preserveAspectRatio', 'none');
+                
+                // Calculate plus sign dimensions (thickness based on smaller dimension)
+                const plusThickness = Math.min(element.width, element.height) * 0.2;
+                const centerX = element.width / 2;
+                const centerY = element.height / 2;
+                const halfThickness = plusThickness / 2;
+                
+                // Create a single unified path for the plus sign
+                // This creates a plus shape without overlapping borders
+                const plusPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const pathData = `
+                    M ${centerX - halfThickness} 0
+                    L ${centerX + halfThickness} 0
+                    L ${centerX + halfThickness} ${centerY - halfThickness}
+                    L ${element.width} ${centerY - halfThickness}
+                    L ${element.width} ${centerY + halfThickness}
+                    L ${centerX + halfThickness} ${centerY + halfThickness}
+                    L ${centerX + halfThickness} ${element.height}
+                    L ${centerX - halfThickness} ${element.height}
+                    L ${centerX - halfThickness} ${centerY + halfThickness}
+                    L 0 ${centerY + halfThickness}
+                    L 0 ${centerY - halfThickness}
+                    L ${centerX - halfThickness} ${centerY - halfThickness}
+                    Z
+                `.replace(/\s+/g, ' ').trim();
+                
+                plusPath.setAttribute('d', pathData);
+                plusPath.setAttribute('fill', element.fill_color || '#ddd');
+                plusPath.setAttribute('stroke', element.border_color || '#999');
+                plusPath.setAttribute('stroke-width', element.border_width || 2);
+                plusPath.setAttribute('stroke-linejoin', 'miter');
+                plusSvg.appendChild(plusPath);
+                
+                el.appendChild(plusSvg);
+                el.style.border = 'none';
+                break;
             case 'media':
                 renderMediaElement(el, element);
                 el.style.border = 'none';
@@ -919,8 +961,8 @@ Editor.ElementRenderer = (function() {
                         }
                     }
                     
-                    // Define mock participants with their colors and click positions
-                    const colors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00'];
+                    // Define mock participants with their colors and click positions (green #00FF00 reserved for correct answer only)
+                    const colors = ['#FF0000', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00', '#FF8000'];
                     const mockParticipantsData = [
                         { name: 'Participant 1', color: colors[0], x: 30, y: 40 },
                         { name: 'Participant 2', color: colors[1], x: 60, y: 50 }
@@ -937,11 +979,16 @@ Editor.ElementRenderer = (function() {
                         
                         // Add highlights after image loads (using same 10% radius as runtime)
                         img.onload = () => {
+                            // Use natural image dimensions to calculate radius (10% of actual image size)
                             const rect = img.getBoundingClientRect();
-                            const imgWidth = rect.width;
-                            const imgHeight = rect.height;
-                            const minDim = Math.min(imgWidth, imgHeight);
-                            const radiusPx = minDim * 0.1; // 10% radius = 20% diameter (matches runtime)
+                            const naturalWidth = img.naturalWidth || img.width || rect.width;
+                            const naturalHeight = img.naturalHeight || img.height || rect.height;
+                            const naturalMinDim = Math.min(naturalWidth, naturalHeight);
+                            const naturalRadius = naturalMinDim * 0.1; // 10% of actual image size
+                            
+                            // Scale radius based on current display size vs natural size
+                            const scale = naturalWidth > 0 ? (rect.width / naturalWidth) : 1;
+                            const radiusPx = naturalRadius * scale;
                             
                             mockParticipantsData.forEach((participant) => {
                                 const highlight = document.createElement('div');
@@ -991,9 +1038,9 @@ Editor.ElementRenderer = (function() {
                         const legendRow = document.createElement('div');
                         legendRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: #f5f5f5; border-radius: 4px;';
                         
-                        // Color indicator dot/circle
+                        // Color indicator dot/circle - transparent middle with hard border
                         const colorDot = document.createElement('div');
-                        colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: ${participant.color}; border: 2px solid ${participant.color}; flex-shrink: 0; box-shadow: 0 0 4px ${participant.color}80;`;
+                        colorDot.style.cssText = `width: 24px; height: 24px; border-radius: 50%; background: transparent; border: 3px solid ${participant.color}; flex-shrink: 0;`;
                         legendRow.appendChild(colorDot);
                         
                         // Participant name

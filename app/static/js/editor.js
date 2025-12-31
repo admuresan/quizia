@@ -490,11 +490,51 @@ function renderSidebarZoomControls() {
 
 // Canvas size functions now in Editor.CanvasSizeControls module
 function updateScreenSizeControls() {
-    Editor.CanvasSizeControls.updateScreenSizeControls(currentView);
+    // Safety check: ensure module is loaded and initialized
+    if (!Editor || !Editor.CanvasSizeControls || typeof Editor.CanvasSizeControls.updateScreenSizeControls !== 'function') {
+        console.warn('CanvasSizeControls module not ready, skipping updateScreenSizeControls');
+        return;
+    }
+    
+    // Chrome-specific: Use requestAnimationFrame to ensure DOM is fully ready
+    // This helps with Chrome's faster execution timing
+    if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => {
+            try {
+                Editor.CanvasSizeControls.updateScreenSizeControls(currentView);
+            } catch (error) {
+                console.error('Error in updateScreenSizeControls:', error);
+                // Fallback: try again after a short delay
+                setTimeout(() => {
+                    try {
+                        Editor.CanvasSizeControls.updateScreenSizeControls(currentView);
+                    } catch (retryError) {
+                        console.error('Error in updateScreenSizeControls (retry):', retryError);
+                    }
+                }, 100);
+            }
+        });
+    } else {
+        // Fallback for browsers without requestAnimationFrame
+        try {
+            Editor.CanvasSizeControls.updateScreenSizeControls(currentView);
+        } catch (error) {
+            console.error('Error in updateScreenSizeControls:', error);
+        }
+    }
 }
 
 function applyCanvasSize(width, height) {
-    Editor.CanvasSizeControls.applyCanvasSize(width, height);
+    // Safety check: ensure module is loaded and initialized
+    if (!Editor || !Editor.CanvasSizeControls || typeof Editor.CanvasSizeControls.applyCanvasSize !== 'function') {
+        console.warn('CanvasSizeControls module not ready, skipping applyCanvasSize');
+        return;
+    }
+    try {
+        Editor.CanvasSizeControls.applyCanvasSize(width, height);
+    } catch (error) {
+        console.error('Error in applyCanvasSize:', error);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -502,6 +542,263 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof Editor === 'undefined') {
         window.Editor = {};
     }
+    
+    // Handle paste events for images at document level (works even when displayable area doesn't have focus)
+    // This must run BEFORE the keyboard handler to prioritize image paste over element paste
+    document.addEventListener('paste', async (e) => {
+        // Only handle if we're in the editor
+        const displayableArea = document.getElementById('displayable-area');
+        if (!displayableArea) return;
+        
+        // Check if we're on a status/result page
+        const currentPage = currentQuiz.pages[currentPageIndex];
+        const isStatusOrResultPage = currentPage && 
+            (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
+        
+        if (isStatusOrResultPage) {
+            return; // Don't paste on status/result pages
+        }
+        
+        // Only handle paste if we're in display view
+        if (currentView !== 'display') {
+            return;
+        }
+        
+        // Don't handle if user is typing in an input field
+        const target = e.target;
+        const isInputField = target.tagName === 'INPUT' || 
+                            target.tagName === 'TEXTAREA' ||
+                            target.isContentEditable;
+        
+        if (isInputField) {
+            return; // Let the input field handle it
+        }
+        
+        // UNIFIED CLIPBOARD: Check both internal element copy and external clipboard
+        // Determine which was copied most recently using timestamps
+        const items = e.clipboardData?.items;
+        let imageFile = null;
+        const now = Date.now();
+        
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    imageFile = items[i].getAsFile();
+                    // Track when we detect an image in clipboard
+                    // If this is the first time we see it, or it's been a while, assume it's new
+                    if (Editor.CopyPaste) {
+                        const timeSinceLastDetection = now - (Editor.CopyPaste.clipboardImageDetectedAt || 0);
+                        // If we haven't seen an image recently (more than 1 second), assume it's a new copy
+                        if (timeSinceLastDetection > 1000) {
+                            Editor.CopyPaste.clipboardImageDetectedAt = now;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        
+        const hasCopiedElement = Editor.CopyPaste && Editor.CopyPaste.hasCopiedElement();
+        const elementCopyTime = Editor.CopyPaste?.lastCopiedTimestamp || 0;
+        const imageDetectedTime = Editor.CopyPaste?.clipboardImageDetectedAt || 0;
+        const lastCopyWasElement = Editor.CopyPaste?.lastCopiedType === 'element';
+        
+        // Determine which to paste based on temporal priority
+        // Priority: If element was copied recently (within last 5 seconds), it's the most recent action
+        // Otherwise, if image exists in clipboard, use that
+        let shouldPasteElement = false;
+        let shouldPasteImage = false;
+        
+        const timeSinceElementCopy = now - elementCopyTime;
+        const RECENT_COPY_THRESHOLD = 5000; // 5 seconds - if element was copied within this time, it's recent
+        
+        if (hasCopiedElement && imageFile) {
+            // Both exist - if element was copied recently, prioritize it
+            // Otherwise, assume image is what user wants (it's in clipboard now)
+            if (lastCopyWasElement && timeSinceElementCopy < RECENT_COPY_THRESHOLD) {
+                // Element was copied recently, so it's the most recent action
+                shouldPasteElement = true;
+            } else {
+                // Element is old or wasn't the last copy type, so image is what user wants
+                shouldPasteImage = true;
+            }
+        } else if (hasCopiedElement && lastCopyWasElement) {
+            // Only element exists
+            shouldPasteElement = true;
+        } else if (imageFile) {
+            // Only image exists
+            shouldPasteImage = true;
+        }
+        
+        // Paste element if it's the most recent
+        if (shouldPasteElement) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Get paste position (center of displayable area or mouse position if available)
+            const rect = displayableArea.getBoundingClientRect();
+            let pasteX = rect.width / 2;
+            let pasteY = rect.height / 2;
+            
+            // Use selected element position if available
+            if (selectedElement) {
+                pasteX = (selectedElement.x || 0) + 10;
+                pasteY = (selectedElement.y || 0) + 10;
+            }
+            
+            if (Editor.CopyPaste.pasteElement) {
+                Editor.CopyPaste.pasteElement(
+                    pasteX, pasteY,
+                    () => currentQuiz,
+                    () => currentPageIndex,
+                    () => currentView,
+                    renderCanvas,
+                    selectElement,
+                    autosaveQuiz
+                );
+            }
+            return; // Exit early - element paste handled
+        }
+        
+        // Paste image if it's the most recent
+        if (shouldPasteImage) {
+            // Image found in clipboard - track it for temporal comparison
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Track that an image was detected/pasted (for temporal tracking)
+            if (Editor.CopyPaste) {
+                Editor.CopyPaste.lastCopiedType = 'image';
+                Editor.CopyPaste.lastCopiedTimestamp = Editor.CopyPaste.clipboardImageDetectedAt || Date.now();
+            }
+            
+            // Get paste position (center of displayable area)
+            const rect = displayableArea.getBoundingClientRect();
+            let pasteX = rect.width / 2;
+            let pasteY = rect.height / 2;
+            
+            // Upload the image
+            if (Editor.MediaModal && Editor.MediaModal.uploadMediaFile) {
+                const result = await Editor.MediaModal.uploadMediaFile(imageFile, 'image');
+                if (result && result.success) {
+                    // Create media element with the uploaded image
+                    const img = new Image();
+                    img.onload = () => {
+                        const element = {
+                            id: `element-${Date.now()}`,
+                            type: 'image',
+                            media_type: 'image',
+                            view: 'display',
+                            x: pasteX - img.naturalWidth / 2, // Center the image
+                            y: pasteY - img.naturalHeight / 2,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight,
+                            visible: true,
+                            is_question: false,
+                            answer_type: 'text',
+                            src: `/api/media/serve/${result.filename}`,
+                            filename: result.filename
+                        };
+                        
+                        // Use QuizStructure helper to add element
+                        if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                            const currentPage = currentQuiz.pages[currentPageIndex];
+                            const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                            if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === currentPage) {
+                                currentQuiz.pages[currentPageIndex] = updatedPage;
+                            }
+                            
+                            // Store media control position in parent element's control view config
+                            const controlElement = Editor.ElementCreator.createMediaControlElement(element, updatedPage);
+                            if (controlElement) {
+                                if (!updatedPage.views) {
+                                    updatedPage.views = {
+                                        display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                        participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                        control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
+                                    };
+                                }
+                                if (!updatedPage.views.control.local_element_configs[element.id]) {
+                                    updatedPage.views.control.local_element_configs[element.id] = { config: {} };
+                                }
+                                updatedPage.views.control.local_element_configs[element.id].control_config = {
+                                    x: controlElement.x || 0,
+                                    y: controlElement.y || 0,
+                                    width: controlElement.width || 400,
+                                    height: controlElement.height || 80,
+                                    rotation: controlElement.rotation || 0
+                                };
+                            }
+                        }
+                        
+                        // Render the canvas and select the new element
+                        renderCanvas();
+                        selectElement(element);
+                        autosaveQuiz();
+                    };
+                    img.onerror = () => {
+                        // Fallback to default size if image fails to load
+                        const element = {
+                            id: `element-${Date.now()}`,
+                            type: 'image',
+                            media_type: 'image',
+                            view: 'display',
+                            x: pasteX - 100,
+                            y: pasteY - 75,
+                            width: 200,
+                            height: 150,
+                            visible: true,
+                            is_question: false,
+                            answer_type: 'text',
+                            src: `/api/media/serve/${result.filename}`,
+                            filename: result.filename
+                        };
+                        
+                        // Use QuizStructure helper to add element
+                        if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
+                            const currentPage = currentQuiz.pages[currentPageIndex];
+                            const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                            if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === currentPage) {
+                                currentQuiz.pages[currentPageIndex] = updatedPage;
+                            }
+                            
+                            // Store media control position
+                            const controlElement = Editor.ElementCreator.createMediaControlElement(element, updatedPage);
+                            if (controlElement) {
+                                if (!updatedPage.views) {
+                                    updatedPage.views = {
+                                        display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                        participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                        control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
+                                    };
+                                }
+                                if (!updatedPage.views.control.local_element_configs[element.id]) {
+                                    updatedPage.views.control.local_element_configs[element.id] = { config: {} };
+                                }
+                                updatedPage.views.control.local_element_configs[element.id].control_config = {
+                                    x: controlElement.x || 0,
+                                    y: controlElement.y || 0,
+                                    width: controlElement.width || 400,
+                                    height: controlElement.height || 80,
+                                    rotation: controlElement.rotation || 0
+                                };
+                            }
+                        }
+                        
+                        renderCanvas();
+                        selectElement(element);
+                        autosaveQuiz();
+                    };
+                img.src = `/api/media/serve/${result.filename}`;
+                } else {
+                    alert('Failed to upload pasted image');
+                }
+            }
+            return; // Exit early - image paste handled
+        }
+        
+        // No image in clipboard and no element was copied - nothing to paste
+    });
     
     // Initialize context menu
     if (Editor.ContextMenu && Editor.ContextMenu.init) {
@@ -660,7 +957,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentView = savedView;
                 // Update canvas size and zoom for the restored view
                 updateCanvasSize();
-                updateScreenSizeControls();
+                // Delay updateScreenSizeControls to ensure properties panel has rendered
+                // Chrome executes faster and may need this delay
+                setTimeout(() => {
+                    updateScreenSizeControls();
+                }, 50);
                 renderSidebarZoomControls();
                 renderCanvas();
             }
@@ -687,7 +988,11 @@ document.addEventListener('DOMContentLoaded', () => {
         getViewSettings('participant');
         getViewSettings('control');
         updateCanvasSize();
-        updateScreenSizeControls();
+        // Delay updateScreenSizeControls to ensure properties panel has rendered
+        // Chrome executes faster and may need this delay
+        setTimeout(() => {
+            updateScreenSizeControls();
+        }, 50);
         renderSidebarZoomControls();
         renderPages();
         renderCanvas();
@@ -740,6 +1045,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup resize handles for displayable area
     setupDisplayableAreaResize();
     
+    // Sidebar tabs toggle
+    const sidebarTabs = document.querySelectorAll('.sidebar-tab');
+    sidebarTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.sidebar-tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            const content = document.getElementById(`sidebar-tab-${tabName}`);
+            if (content) {
+                content.classList.add('active');
+            }
+        });
+    });
+    
+    // Shapes dropdown menu toggle
+    const shapesHeader = document.getElementById('shapes-header');
+    const shapesMenu = document.getElementById('shapes-menu');
+    const shapesCategory = shapesHeader ? shapesHeader.closest('.shapes-category') : null;
+    
+    if (shapesHeader && shapesMenu) {
+        shapesHeader.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = shapesMenu.style.display !== 'none';
+            if (isExpanded) {
+                shapesMenu.style.display = 'none';
+                if (shapesCategory) shapesCategory.classList.remove('expanded');
+            } else {
+                shapesMenu.style.display = 'flex';
+                if (shapesCategory) shapesCategory.classList.add('expanded');
+            }
+        });
+    }
+    
     // Element drag handlers
     document.querySelectorAll('.element-item').forEach(item => {
         item.setAttribute('draggable', 'true');
@@ -775,42 +1118,81 @@ document.addEventListener('DOMContentLoaded', () => {
             addElement(item.dataset.type, x, y);
         });
     });
+    
+    // Shape item drag and click handlers
+    document.querySelectorAll('.shape-item').forEach(item => {
+        item.setAttribute('draggable', 'true');
+        item.addEventListener('dragstart', (e) => {
+            // Check if element items are disabled
+            const currentPage = currentQuiz.pages[currentPageIndex];
+            const isStatusOrResultPage = currentPage && 
+                (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
+            
+            if (isStatusOrResultPage) {
+                e.preventDefault();
+                return false;
+            }
+            
+            e.dataTransfer.setData('element-type', item.dataset.type);
+        });
+        
+        // Also allow clicking to add element at center of displayable area
+        item.addEventListener('click', () => {
+            // Check if element items are disabled
+            const currentPage = currentQuiz.pages[currentPageIndex];
+            const isStatusOrResultPage = currentPage && 
+                (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
+            
+            if (isStatusOrResultPage) {
+                return; // Don't add elements on status/result pages
+            }
+            
+            const displayableArea = document.getElementById('displayable-area');
+            const rect = displayableArea.getBoundingClientRect();
+            const x = rect.width / 2 - 100; // Center minus half element width
+            const y = rect.height / 2 - 50;  // Center minus half element height
+            addElement(item.dataset.type, x, y);
+        });
+    });
 
     const displayableArea = document.getElementById('displayable-area');
-    displayableArea.addEventListener('dragover', (e) => {
-        // Check if we're on a status/result page
-        const currentPage = currentQuiz.pages[currentPageIndex];
-        const isStatusOrResultPage = currentPage && 
-            (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
-        
-        if (!isStatusOrResultPage) {
-            e.preventDefault();
-        }
-    });
+    if (!displayableArea) {
+        console.error('displayable-area element not found in DOM');
+    } else {
+        displayableArea.addEventListener('dragover', (e) => {
+            // Check if we're on a status/result page
+            const currentPage = currentQuiz.pages[currentPageIndex];
+            const isStatusOrResultPage = currentPage && 
+                (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
+            
+            if (!isStatusOrResultPage) {
+                e.preventDefault();
+            }
+        });
 
-    displayableArea.addEventListener('drop', (e) => {
-        // Check if we're on a status/result page
-        const currentPage = currentQuiz.pages[currentPageIndex];
-        const isStatusOrResultPage = currentPage && 
-            (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
-        
-        if (isStatusOrResultPage) {
+        displayableArea.addEventListener('drop', (e) => {
+            // Check if we're on a status/result page
+            const currentPage = currentQuiz.pages[currentPageIndex];
+            const isStatusOrResultPage = currentPage && 
+                (currentPage.page_type === 'status_page' || currentPage.page_type === 'result_page');
+            
+            if (isStatusOrResultPage) {
+                e.preventDefault();
+                return;
+            }
+            
             e.preventDefault();
-            return;
-        }
+            const elementType = e.dataTransfer.getData('element-type');
+            if (!elementType) return; // No element type means drag was cancelled
+            
+            const rect = displayableArea.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            addElement(elementType, x, y);
+        });
         
-        e.preventDefault();
-        const elementType = e.dataTransfer.getData('element-type');
-        if (!elementType) return; // No element type means drag was cancelled
-        
-        const rect = displayableArea.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        addElement(elementType, x, y);
-    });
-    
-    // Deselect element when clicking on empty space (non-selectable area)
-    displayableArea.addEventListener('click', (e) => {
+        // Deselect element when clicking on empty space (non-selectable area)
+        displayableArea.addEventListener('click', (e) => {
         // Check if the click target is a selectable element or inside one
         const target = e.target;
         const clickedElement = target.closest('.canvas-element') || 
@@ -837,10 +1219,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!clickedElement && !isInteractiveElement && !isHandle && selectedElement) {
             deselectElement();
         }
-    });
-    
-    // Handle right-click on empty canvas space for paste
-    displayableArea.addEventListener('contextmenu', (e) => {
+        });
+        
+        // Handle right-click on empty canvas space for paste
+        displayableArea.addEventListener('contextmenu', (e) => {
         // Check if clicking on an element
         const target = e.target;
         const clickedElement = target.closest('.canvas-element') || 
@@ -874,7 +1256,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 Editor.ContextMenu.showPasteMenu(e, x, y, () => currentQuiz, () => currentPageIndex, () => currentView, renderCanvas, selectElement, autosaveQuiz);
             }
         }
-    });
+        });
+    }
     
     // Keyboard shortcuts for copy/paste
     document.addEventListener('keydown', (e) => {
@@ -890,43 +1273,28 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Ctrl+C or Cmd+C to copy selected element
         if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            // Don't handle if user is typing in an input field
+            const target = e.target;
+            const isInputField = target.tagName === 'INPUT' || 
+                                target.tagName === 'TEXTAREA' ||
+                                target.isContentEditable;
+            
+            if (isInputField) {
+                return; // Let the input field handle it
+            }
+            
             if (selectedElement && Editor.CopyPaste && Editor.CopyPaste.copyElement) {
                 e.preventDefault();
-                Editor.CopyPaste.copyElement(selectedElement, () => currentQuiz, () => currentPageIndex);
+                const success = Editor.CopyPaste.copyElement(selectedElement, () => currentQuiz, () => currentPageIndex);
+                if (!success) {
+                    console.warn('[Editor] Failed to copy element:', selectedElement);
+                }
             }
         }
         
-        // Ctrl+V or Cmd+V to paste element
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            if (Editor.CopyPaste && Editor.CopyPaste.hasCopiedElement()) {
-                e.preventDefault();
-                
-                // Get the selected element's position or use center of canvas
-                let pasteX, pasteY;
-                if (selectedElement) {
-                    // Paste at x+10, y+10 from selected element
-                    pasteX = (selectedElement.x || 0) + 10;
-                    pasteY = (selectedElement.y || 0) + 10;
-                } else {
-                    // Paste at center of displayable area
-                    const rect = displayableArea.getBoundingClientRect();
-                    pasteX = rect.width / 2;
-                    pasteY = rect.height / 2;
-                }
-                
-                if (Editor.CopyPaste.pasteElement) {
-                    Editor.CopyPaste.pasteElement(
-                        pasteX, pasteY,
-                        () => currentQuiz,
-                        () => currentPageIndex,
-                        () => currentView,
-                        renderCanvas,
-                        selectElement,
-                        autosaveQuiz
-                    );
-                }
-            }
-        }
+        // Ctrl+V or Cmd+V - paste is now handled entirely by the 'paste' event listener above
+        // This ensures image paste takes priority over element paste
+        // (No need to handle paste here since paste event handles both images and elements)
     });
     
     // Page management
@@ -1044,9 +1412,14 @@ document.addEventListener('DOMContentLoaded', () => {
         await forceSaveQuiz();
     });
 
-    document.getElementById('back-btn').addEventListener('click', () => {
-        window.location.href = '/quizmaster';
-    });
+    const backBtn = document.getElementById('back-btn');
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            window.location.href = '/quizmaster';
+        });
+    } else {
+        console.warn('Back button not found in DOM');
+    }
 
     // Quiz name already handled above for autosave
 
@@ -1080,7 +1453,10 @@ document.addEventListener('DOMContentLoaded', () => {
             setCookie('editor_active_view', currentView);
             // Update canvas size and zoom for the new view
             updateCanvasSize();
-            updateScreenSizeControls();
+            // Delay for Chrome compatibility - ensure properties panel has rendered
+            setTimeout(() => {
+                updateScreenSizeControls();
+            }, 50);
             renderSidebarZoomControls();
             renderCanvas();
             // Update element items state based on page type
@@ -1208,7 +1584,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize canvas size
     updateCanvasSize();
-    updateScreenSizeControls();
+    // Delay for Chrome compatibility - ensure properties panel has rendered
+    setTimeout(() => {
+        updateScreenSizeControls();
+    }, 50);
     
     // Zoom controls (only if they exist in sidebar - they're now in properties pane)
     const zoomInBtn = document.getElementById('zoom-in');
@@ -1339,6 +1718,25 @@ function updateElementItemsState() {
             item.style.pointerEvents = 'none';
         } else {
             // Enable element items on regular quiz pages
+            item.setAttribute('draggable', 'true');
+            item.classList.remove('disabled');
+            item.style.opacity = '1';
+            item.style.cursor = 'move';
+            item.style.pointerEvents = 'auto';
+        }
+    });
+    
+    // Also update shape items
+    document.querySelectorAll('.shape-item').forEach(item => {
+        if (isStatusOrResultPage) {
+            // Disable shape items on status/result pages
+            item.setAttribute('draggable', 'false');
+            item.classList.add('disabled');
+            item.style.opacity = '0.5';
+            item.style.cursor = 'not-allowed';
+            item.style.pointerEvents = 'none';
+        } else {
+            // Enable shape items on regular quiz pages
             item.setAttribute('draggable', 'true');
             item.classList.remove('disabled');
             item.style.opacity = '1';
@@ -1519,11 +1917,64 @@ function updateElementDisplay() {
             el.style.transform = '';
         }
         
-        // Update SVG viewBox for triangle and arrow if they exist
-        if (selectedElement.type === 'triangle' || selectedElement.type === 'arrow') {
+        // Update SVG viewBox and colors for triangle, arrow, and plus if they exist
+        if (selectedElement.type === 'triangle' || selectedElement.type === 'arrow' || selectedElement.type === 'plus') {
             const svg = el.querySelector('svg');
             if (svg) {
                 svg.setAttribute('viewBox', `0 0 ${selectedElement.width} ${selectedElement.height}`);
+                
+                // For plus shape, recalculate the path data based on new dimensions
+                if (selectedElement.type === 'plus') {
+                    const plusThickness = Math.min(selectedElement.width, selectedElement.height) * 0.2;
+                    const centerX = selectedElement.width / 2;
+                    const centerY = selectedElement.height / 2;
+                    const halfThickness = plusThickness / 2;
+                    
+                    const pathData = `
+                        M ${centerX - halfThickness} 0
+                        L ${centerX + halfThickness} 0
+                        L ${centerX + halfThickness} ${centerY - halfThickness}
+                        L ${selectedElement.width} ${centerY - halfThickness}
+                        L ${selectedElement.width} ${centerY + halfThickness}
+                        L ${centerX + halfThickness} ${centerY + halfThickness}
+                        L ${centerX + halfThickness} ${selectedElement.height}
+                        L ${centerX - halfThickness} ${selectedElement.height}
+                        L ${centerX - halfThickness} ${centerY + halfThickness}
+                        L 0 ${centerY + halfThickness}
+                        L 0 ${centerY - halfThickness}
+                        L ${centerX - halfThickness} ${centerY - halfThickness}
+                        Z
+                    `.replace(/\s+/g, ' ').trim();
+                    
+                    const path = svg.querySelector('path');
+                    if (path) {
+                        path.setAttribute('d', pathData);
+                    }
+                }
+                
+                // Update fill and stroke colors for SVG paths
+                const paths = svg.querySelectorAll('path, polygon, rect');
+                paths.forEach(path => {
+                    if (selectedElement.fill_color) {
+                        path.setAttribute('fill', selectedElement.fill_color);
+                    }
+                    if (selectedElement.border_color) {
+                        path.setAttribute('stroke', selectedElement.border_color);
+                    }
+                    if (selectedElement.border_width !== undefined) {
+                        path.setAttribute('stroke-width', selectedElement.border_width);
+                    }
+                });
+            }
+        }
+        
+        // Update colors for rectangle and circle (CSS-based)
+        if (selectedElement.type === 'rectangle' || selectedElement.type === 'circle') {
+            if (selectedElement.fill_color) {
+                el.style.backgroundColor = selectedElement.fill_color;
+            }
+            if (selectedElement.border_color && selectedElement.border_width !== undefined) {
+                el.style.border = `${selectedElement.border_width}px solid ${selectedElement.border_color}`;
             }
         }
         
@@ -1657,7 +2108,10 @@ function setupDisplayableAreaResize() {
         
         // Update canvas size
         updateCanvasSize();
-        updateScreenSizeControls();
+        // Delay for Chrome compatibility
+        setTimeout(() => {
+            updateScreenSizeControls();
+        }, 50);
         autosaveQuiz();
     }
     

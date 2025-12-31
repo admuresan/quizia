@@ -13,12 +13,20 @@
         // Global state to track if we're dragging in the visibility pane
         isDraggingVisibilityItem: false,
         
+        // Helper function to get cookie name for scroll position (quiz and page specific)
+        getScrollPositionCookieName: function(quizId, pageIndex) {
+            return `visibility_pane_scroll_${quizId}_${pageIndex}`;
+        },
+        
         render: function(container, getCurrentQuiz, getCurrentPageIndex, getCurrentView, autosaveQuiz, renderCanvas, getDragAfterElement, updateElementPropertiesInQuiz) {
             const currentQuiz = getCurrentQuiz();
             const currentPageIndex = getCurrentPageIndex();
             const currentView = getCurrentView();
             const page = currentQuiz.pages[currentPageIndex];
             const self = this;
+            
+            // Get quiz ID for cookie storage
+            const quizId = currentQuiz.id || currentQuiz.name || 'default';
             
             if (!page) {
                 container.innerHTML = '<p>No page selected</p>';
@@ -38,6 +46,7 @@
             if (page.elements && typeof page.elements === 'object' && !Array.isArray(page.elements)) {
                 // Get all elements from the page's elements dictionary
                 const elementsDict = page.elements;
+                let cleanupOccurred = false;
                 allDisplayElements = Object.keys(elementsDict).map(elementId => {
                     const elementData = elementsDict[elementId];
                     if (!elementData) return null;
@@ -50,6 +59,29 @@
                     }
                     
                     // Create element object with all necessary properties
+                    // Exclude timer_trigger and timer_delay from properties spread to prevent overwriting appearance_config values
+                    const { timer_trigger: propsTimerTrigger, timer_delay: propsTimerDelay, ...otherProperties } = elementData.properties || {};
+                    
+                    // Clean up corrupted data: if timer_trigger or timer_delay exist in properties but not in appearance_config, move them
+                    if (propsTimerTrigger !== undefined || propsTimerDelay !== undefined) {
+                        cleanupOccurred = true;
+                        if (!elementData.appearance_config) {
+                            elementData.appearance_config = {};
+                        }
+                        // Only move if not already set in appearance_config (appearance_config is source of truth)
+                        if (propsTimerTrigger !== undefined && elementData.appearance_config.timer_trigger === undefined) {
+                            elementData.appearance_config.timer_trigger = propsTimerTrigger;
+                        }
+                        if (propsTimerDelay !== undefined && elementData.appearance_config.timer_delay === undefined) {
+                            elementData.appearance_config.timer_delay = propsTimerDelay;
+                        }
+                        // Remove from properties after moving
+                        if (elementData.properties) {
+                            delete elementData.properties.timer_trigger;
+                            delete elementData.properties.timer_delay;
+                        }
+                    }
+                    
                     const element = {
                         id: elementId,
                         type: elementData.type,
@@ -61,12 +93,17 @@
                         appearance_order: elementData.appearance_config?.appearance_order || 999,
                         appearance_visible: elementData.appearance_config?.appearance_type !== 'control',
                         timer_trigger: elementData.appearance_config?.timer_trigger || 'load',
-                        timer_delay: elementData.appearance_config?.timer_delay || 0,
-                        ...elementData.properties
+                        timer_delay: elementData.appearance_config?.timer_delay ?? 0,
+                        ...otherProperties
                     };
                     
                     return element;
                 }).filter(el => el !== null);
+                
+                // If cleanup occurred, save the changes
+                if (cleanupOccurred) {
+                    autosaveQuiz();
+                }
             } else if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
                 // Fallback: Get elements from all views and combine them
                 const views = ['display', 'participant', 'control'];
@@ -164,6 +201,67 @@
             };
             
             const scrollableContainer = findScrollableParent(container);
+            
+            // Restore scroll position from cookie if it was saved
+            if (scrollableContainer && typeof getCookie === 'function') {
+                const cookieName = self.getScrollPositionCookieName(quizId, currentPageIndex);
+                const savedScroll = getCookie(cookieName);
+                if (savedScroll !== null && savedScroll !== undefined) {
+                    const scrollValue = parseInt(savedScroll, 10);
+                    if (!isNaN(scrollValue) && scrollValue >= 0) {
+                        requestAnimationFrame(() => {
+                            if (scrollableContainer) {
+                                scrollableContainer.scrollTop = scrollValue;
+                            }
+                        });
+                    }
+                }
+            }
+            
+            // Save scroll position to cookie whenever user scrolls (debounced)
+            if (scrollableContainer && typeof setCookie === 'function') {
+                let scrollSaveTimeout = null;
+                scrollableContainer.addEventListener('scroll', () => {
+                    // Clear existing timeout
+                    if (scrollSaveTimeout) {
+                        clearTimeout(scrollSaveTimeout);
+                    }
+                    // Save scroll position after user stops scrolling for 200ms
+                    scrollSaveTimeout = setTimeout(() => {
+                        const cookieName = self.getScrollPositionCookieName(quizId, currentPageIndex);
+                        setCookie(cookieName, scrollableContainer.scrollTop.toString(), 365);
+                        scrollSaveTimeout = null;
+                    }, 200);
+                });
+            }
+            
+            // Helper function to preserve and restore scroll position
+            const preserveScrollPosition = (callback) => {
+                // Save current scroll position to cookie before callback
+                if (scrollableContainer && typeof setCookie === 'function') {
+                    const cookieName = self.getScrollPositionCookieName(quizId, currentPageIndex);
+                    const currentScroll = scrollableContainer.scrollTop;
+                    setCookie(cookieName, currentScroll.toString(), 365); // Store for 1 year
+                }
+                callback();
+                // Restore scroll position after DOM updates (in case panel doesn't re-render)
+                if (scrollableContainer && typeof getCookie === 'function') {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            if (scrollableContainer) {
+                                const cookieName = self.getScrollPositionCookieName(quizId, currentPageIndex);
+                                const savedScroll = getCookie(cookieName);
+                                if (savedScroll !== null && savedScroll !== undefined) {
+                                    const scrollValue = parseInt(savedScroll, 10);
+                                    if (!isNaN(scrollValue) && scrollValue >= 0) {
+                                        scrollableContainer.scrollTop = scrollValue;
+                                    }
+                                }
+                            }
+                        });
+                    });
+                }
+            };
             
             // Auto-scroll function
             const handleAutoScroll = (clientY) => {
@@ -283,9 +381,11 @@
                 document.removeEventListener('mousemove', handleMouseMove);
                 document.removeEventListener('mouseup', handleMouseUp);
                 
-                // Save after drag ends
-                autosaveQuiz();
-                renderCanvas();
+                // Save after drag ends (preserve scroll position)
+                preserveScrollPosition(() => {
+                    autosaveQuiz();
+                    renderCanvas();
+                });
             };
             
             orderedElements.forEach((element, index) => {
@@ -343,18 +443,20 @@
                     const newName = nameInput.value.trim() || currentName;
                     if (newName === inputOriginalValue) return;
                     
-                    element.element_name = newName;
-                    // Also update in the quiz structure
-                    const page = currentQuiz.pages[currentPageIndex];
-                    if (page && page.elements && page.elements[element.id]) {
-                        page.elements[element.id].element_name = newName;
-                    }
-                    // Update element properties if function is available
-                    if (updateElementPropertiesInQuiz) {
-                        updateElementPropertiesInQuiz(element);
-                    }
-                    autosaveQuiz();
-                    renderCanvas();
+                    preserveScrollPosition(() => {
+                        element.element_name = newName;
+                        // Also update in the quiz structure
+                        const page = currentQuiz.pages[currentPageIndex];
+                        if (page && page.elements && page.elements[element.id]) {
+                            page.elements[element.id].element_name = newName;
+                        }
+                        // Update element properties if function is available
+                        if (updateElementPropertiesInQuiz) {
+                            updateElementPropertiesInQuiz(element);
+                        }
+                        autosaveQuiz();
+                        renderCanvas();
+                    });
                 };
                 
                 nameInput.onblur = () => {
@@ -399,31 +501,33 @@
                     // Don't save if we're currently dragging
                     if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
                     
-                    const newMode = modeSelect.value;
-                    element.appearance_mode = newMode;
-                    if (element.appearance_mode === 'control') {
-                        element.appearance_visible = false;
-                    } else {
-                        element.appearance_visible = true;
-                    }
-                    
-                    // Save the change to the quiz structure
-                    const page = currentQuiz.pages[currentPageIndex];
-                    if (page && page.elements && page.elements[element.id]) {
-                        if (!page.elements[element.id].appearance_config) {
-                            page.elements[element.id].appearance_config = {};
+                    preserveScrollPosition(() => {
+                        const newMode = modeSelect.value;
+                        element.appearance_mode = newMode;
+                        if (element.appearance_mode === 'control') {
+                            element.appearance_visible = false;
+                        } else {
+                            element.appearance_visible = true;
                         }
-                        // Save appearance_type to match the mode
-                        page.elements[element.id].appearance_config.appearance_type = newMode;
-                    }
-                    
-                    // Show/hide timer options based on mode
-                    if (timerOptionsContainer) {
-                        timerOptionsContainer.style.display = newMode === 'timer' ? 'flex' : 'none';
-                    }
-                    
-                    autosaveQuiz();
-                    renderCanvas();
+                        
+                        // Save the change to the quiz structure
+                        const page = currentQuiz.pages[currentPageIndex];
+                        if (page && page.elements && page.elements[element.id]) {
+                            if (!page.elements[element.id].appearance_config) {
+                                page.elements[element.id].appearance_config = {};
+                            }
+                            // Save appearance_type to match the mode
+                            page.elements[element.id].appearance_config.appearance_type = newMode;
+                        }
+                        
+                        // Show/hide timer options based on mode
+                        if (timerOptionsContainer) {
+                            timerOptionsContainer.style.display = newMode === 'timer' ? 'flex' : 'none';
+                        }
+                        
+                        autosaveQuiz();
+                        renderCanvas();
+                    });
                 };
                 mainRow.appendChild(modeSelect);
                 
@@ -466,15 +570,23 @@
                     // Don't save if we're currently dragging
                     if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
                     
-                    element.timer_trigger = triggerSelect.value;
-                    const page = currentQuiz.pages[currentPageIndex];
-                    if (page && page.elements && page.elements[element.id]) {
-                        if (!page.elements[element.id].appearance_config) {
-                            page.elements[element.id].appearance_config = {};
+                    preserveScrollPosition(() => {
+                        element.timer_trigger = triggerSelect.value;
+                        const page = currentQuiz.pages[currentPageIndex];
+                        if (page && page.elements && page.elements[element.id]) {
+                            const elementData = page.elements[element.id];
+                            if (!elementData.appearance_config) {
+                                elementData.appearance_config = {};
+                            }
+                            elementData.appearance_config.timer_trigger = triggerSelect.value;
+                            
+                            // Clean up corrupted data: remove timer_trigger from properties if it exists
+                            if (elementData.properties && 'timer_trigger' in elementData.properties) {
+                                delete elementData.properties.timer_trigger;
+                            }
                         }
-                        page.elements[element.id].appearance_config.timer_trigger = triggerSelect.value;
-                    }
-                    autosaveQuiz();
+                        autosaveQuiz();
+                    });
                 };
                 
                 const triggerGroup = document.createElement('div');
@@ -501,17 +613,25 @@
                     // Don't save if we're currently dragging
                     if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) return;
                     
-                    const delayValue = Math.max(0, parseInt(delayInput.value) || 0);
-                    delayInput.value = delayValue;
-                    element.timer_delay = delayValue;
-                    const page = currentQuiz.pages[currentPageIndex];
-                    if (page && page.elements && page.elements[element.id]) {
-                        if (!page.elements[element.id].appearance_config) {
-                            page.elements[element.id].appearance_config = {};
+                    preserveScrollPosition(() => {
+                        const delayValue = Math.max(0, parseInt(delayInput.value) || 0);
+                        delayInput.value = delayValue;
+                        element.timer_delay = delayValue;
+                        const page = currentQuiz.pages[currentPageIndex];
+                        if (page && page.elements && page.elements[element.id]) {
+                            const elementData = page.elements[element.id];
+                            if (!elementData.appearance_config) {
+                                elementData.appearance_config = {};
+                            }
+                            elementData.appearance_config.timer_delay = delayValue;
+                            
+                            // Clean up corrupted data: remove timer_delay from properties if it exists
+                            if (elementData.properties && 'timer_delay' in elementData.properties) {
+                                delete elementData.properties.timer_delay;
+                            }
                         }
-                        page.elements[element.id].appearance_config.timer_delay = delayValue;
-                    }
-                    autosaveQuiz();
+                        autosaveQuiz();
+                    });
                 };
                 
                 const delayGroup = document.createElement('div');

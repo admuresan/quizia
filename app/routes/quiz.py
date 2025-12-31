@@ -354,3 +354,62 @@ def end_running_quiz(room_code):
     
     return jsonify({'message': 'Quiz ended successfully'}), 200
 
+@bp.route('/migrate/<quiz_id>', methods=['POST'])
+def migrate_quiz_route(quiz_id):
+    """Migrate a quiz from localhost to server (only works on localhost)."""
+    try:
+        if not session.get('is_quizmaster'):
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Check if running on localhost
+        from flask import request
+        host = request.host
+        is_local = host.startswith('localhost') or host.startswith('127.0.0.1') or ':6005' in host
+        
+        if not is_local:
+            return jsonify({'error': 'Migration only available on localhost'}), 403
+        
+        username = session.get('username')
+        quiz = load_quiz(quiz_id)
+        
+        if not quiz:
+            return jsonify({'error': 'Quiz not found'}), 404
+        
+        # Only creator can migrate
+        if quiz.get('creator') != username:
+            return jsonify({'error': 'Only the creator can migrate this quiz'}), 403
+        
+        # Try to get JSON data, force parsing even if Content-Type isn't set correctly
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return jsonify({'error': 'Invalid request: JSON body required'}), 400
+        
+        server_username = data.get('server_username')
+        server_password = data.get('server_password')
+        
+        if not server_username or not server_password:
+            return jsonify({'error': 'Server username and password required'}), 400
+        
+        # Perform migration
+        from app.utils.migration import migrate_quiz
+        result = migrate_quiz(quiz_id, server_username, server_password, use_ssh=False)
+        
+        if result['success']:
+            return jsonify({'message': result['message']}), 200
+        else:
+            return jsonify({'error': result['error']}), 400
+    except Exception as e:
+        # Ensure we always return JSON, even on unexpected errors
+        import traceback
+        print(f"Error in migrate_quiz_route: {e}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Migration failed: {str(e)}'}), 500
+
+@bp.route('/check-localhost', methods=['GET'])
+def check_localhost():
+    """Check if the app is running on localhost."""
+    from flask import request
+    host = request.host
+    is_local = host.startswith('localhost') or host.startswith('127.0.0.1') or ':6005' in host
+    return jsonify({'is_localhost': is_local}), 200
+

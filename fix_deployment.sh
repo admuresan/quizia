@@ -62,22 +62,22 @@ ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
     chmod 644 app/data/*.json
 ENDSSH
 
-echo -e "${YELLOW}Step 4: Reinstalling/updating Python dependencies...${NC}"
+echo -e "${YELLOW}Step 4: Reinstalling/updating Python dependencies (system-wide)...${NC}"
 ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
     cd ${APP_DIR}
-    if [ ! -d "venv" ]; then
-        python3 -m venv venv
-    fi
-    source venv/bin/activate
-    pip install --upgrade pip -q
-    pip install -r requirements.txt -q --force-reinstall
+    # Install system-wide (no venv since this is the only app on server)
+    # Use python3 -m pip to ensure system-wide installation
+    sudo python3 -m pip install --upgrade pip -q
+    sudo python3 -m pip install -r requirements.txt -q --force-reinstall
+    # Reinstall Playwright browsers if needed
+    export HOME=/home/${SSH_USER}
+    sudo -u ${SSH_USER} python3 -m playwright install chromium 2>&1 || echo "Playwright browser installation may have failed"
 ENDSSH
 
 echo -e "${YELLOW}Step 5: Creating default quizmaster account (if not exists)...${NC}"
 ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
     cd ${APP_DIR}
-    source venv/bin/activate
-    python setup_admin.py 2>&1 || echo "Account may already exist, continuing..."
+    python3 setup_admin.py 2>&1 || echo "Account may already exist, continuing..."
 ENDSSH
 
 echo -e "${YELLOW}Step 6: Updating systemd service file...${NC}"
@@ -92,9 +92,10 @@ Type=simple
 User=${SSH_USER}
 Group=${SSH_USER}
 WorkingDirectory=${APP_DIR}
-Environment="PATH=${APP_DIR}/venv/bin"
+Environment="HOME=/home/${SSH_USER}"
+Environment="PLAYWRIGHT_BROWSERS_PATH=/home/${SSH_USER}/.cache/ms-playwright"
 Environment="PYTHONUNBUFFERED=1"
-ExecStart=${APP_DIR}/venv/bin/gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${APP_PORT} --timeout 120 --access-logfile - --error-logfile - wsgi:app
+ExecStart=/usr/bin/python3 -m gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${APP_PORT} --timeout 120 --access-logfile - --error-logfile - wsgi:app
 Restart=always
 RestartSec=10
 StandardOutput=journal

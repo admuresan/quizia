@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Display - {{ room_code }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+        
+        #display-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #display-content {
+            position: relative;
+            width: 1920px;
+            height: 1080px;
+            max-width: 100vw;
+            max-height: 100vh;
+            overflow: hidden;
+            background: transparent;
+        }
+        
+        .element {
+            position: absolute;
+        }
+        
+        .element-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        
+        .element-text {
+            color: white;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            word-wrap: break-word;
+        }
+        
+        .element-rectangle {
+            border: 2px solid;
+        }
+        
+        .element-circle {
+            border-radius: 50%;
+            border: 2px solid;
+        }
+        
+        #room-code-display {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10000;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: white;
+            font-size: 2rem;
+        }
+        
+        .error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: red;
+            font-size: 2rem;
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="display-container">
+        <div id="display-content">
+            <div class="loading">Loading quiz...</div>
+        </div>
+        <div id="room-code-display">{{ room_code }}</div>
+    </div>
+    
+    <script>
+        // TV-Safe Display - No WebSockets, uses polling
+        (function() {
+            var roomCode = '{{ room_code }}';
+            var pollInterval = 2000; // Poll every 2 seconds
+            var pollTimer = null;
+            var currentPageIndex = -1;
+            var quiz = null;
+            var currentPage = null;
+            
+            // Avatar emoji mapping (matches avatar-utils.js)
+            var avatarMap = {
+                'avatar_0': '🐶', 'avatar_1': '🐱', 'avatar_2': '🐭', 'avatar_3': '🐹', 'avatar_4': '🐰',
+                'avatar_5': '🦊', 'avatar_6': '🐻', 'avatar_7': '🐼', 'avatar_8': '🐨', 'avatar_9': '🐯',
+                'avatar_10': '🦁', 'avatar_11': '🐮', 'avatar_12': '🐷', 'avatar_13': '🐸', 'avatar_14': '🐵',
+                'avatar_15': '🐔', 'avatar_16': '🐧', 'avatar_17': '🦉', 'avatar_18': '🐺', 'avatar_19': '🦄'
+            };
+            
+            function getAvatarEmoji(avatarCode) {
+                if (!avatarCode) return '👤';
+                return avatarMap[avatarCode] || avatarCode || '👤';
+            }
+            
+            // Simple HTTP request function (works on old browsers)
+            function makeRequest(url, callback) {
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                callback(null, data);
+                            } catch (e) {
+                                callback('Parse error: ' + e.message);
+                            }
+                        } else {
+                            callback('HTTP error: ' + xhr.status);
+                        }
+                    }
+                };
+                xhr.onerror = function() {
+                    callback('Network error');
+                };
+                xhr.open('GET', url, true);
+                xhr.send();
+            }
+            
+            // Poll for updates
+            function poll() {
+                makeRequest('/api/tvdisplay/' + roomCode, function(err, data) {
+                    if (err) {
+                        showError('Connection error: ' + err);
+                        return;
+                    }
+                    
+                    if (!data.running) {
+                        showError(data.error || 'Quiz not running');
+                        stopPolling();
+                        return;
+                    }
+                    
+                    // Update if page changed or quiz data changed
+                    if (data.current_page !== currentPageIndex || !quiz || data.page !== currentPage) {
+                        currentPageIndex = data.current_page;
+                        quiz = data.quiz;
+                        currentPage = data.page;
+                        renderPage(data.page, data.quiz, data.participants, data.scores);
+                    }
+                });
+            }
+            
+            // Simple renderer - basic HTML only
+            function renderPage(page, quizData, participants, scores) {
+                var container = document.getElementById('display-content');
+                if (!page) {
+                    container.innerHTML = '<div class="loading">Waiting for quiz to start...</div>';
+                    return;
+                }
+                
+                // Get canvas size
+                var canvasWidth = 1920;
+                var canvasHeight = 1080;
+                if (page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+                    canvasWidth = page.views.display.view_config.size.width || 1920;
+                    canvasHeight = page.views.display.view_config.size.height || 1080;
+                }
+                
+                // Set container size
+                container.style.width = canvasWidth + 'px';
+                container.style.height = canvasHeight + 'px';
+                
+                // Scale to fit viewport
+                var scaleX = window.innerWidth / canvasWidth;
+                var scaleY = window.innerHeight / canvasHeight;
+                var scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+                if (scale < 1) {
+                    container.style.transform = 'scale(' + scale + ')';
+                    container.style.transformOrigin = 'center center';
+                } else {
+                    container.style.transform = 'none';
+                    container.style.transformOrigin = 'top left';
+                }
+                
+                // Set background
+                if (page.views && page.views.display && page.views.display.view_config) {
+                    var viewConfig = page.views.display.view_config;
+                    var background = viewConfig.background || {};
+                    var bgType = background.type || 'color';
+                    var bgConfig = background.config || {};
+                    
+                    if (bgType === 'image' && bgConfig.image_url) {
+                        var imageUrl = bgConfig.image_url;
+                        if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                            imageUrl = '/api/media/serve/' + imageUrl;
+                        }
+                        container.style.backgroundImage = 'url(' + imageUrl + ')';
+                        container.style.backgroundSize = 'cover';
+                        container.style.backgroundPosition = 'center';
+                        container.style.backgroundColor = 'transparent';
+                    } else if (bgType === 'gradient') {
+                        var color1 = bgConfig.colour1 || '#667eea';
+                        var color2 = bgConfig.colour2 || '#764ba2';
+                        var angle = bgConfig.angle || 135;
+                        container.style.background = 'linear-gradient(' + angle + 'deg, ' + color1 + ' 0%, ' + color2 + ' 100%)';
+                        container.style.backgroundImage = 'none';
+                    } else {
+                        // Color type
+                        container.style.backgroundColor = bgConfig.color || '#000000';
+                        container.style.backgroundImage = 'none';
+                    }
+                } else {
+                    container.style.backgroundColor = '#000000';
+                    container.style.backgroundImage = 'none';
+                }
+                
+                // Render regular page elements - only display view elements
+                container.innerHTML = '';
+                
+                // Get display elements from page structure
+                var elements = [];
+                if (page.elements) {
+                    var displayView = null;
+                    if (page.views && page.views.display && page.views.display.local_element_configs) {
+                        displayView = page.views.display.local_element_configs;
+                    }
+                    
+                    // Iterate through elements in the display view config
+                    if (displayView) {
+                        for (var elementId in displayView) {
+                            // Skip appearance control modal
+                            if (elementId === 'appearance_control_modal' || elementId === 'appearance-control-modal') {
+                                continue;
+                            }
+                            
+                            var elementData = page.elements[elementId];
+                            if (!elementData) {
+                                continue; // Element not found in elements dict
+                            }
+                            
+                            // Skip child element types
+                            if (elementData.type === 'answer_input' || elementData.type === 'answer_display' || elementData.type === 'audio_control') {
+                                continue;
+                            }
+                            
+                            var localConfig = displayView[elementId];
+                            if (!localConfig) {
+                                continue;
+                            }
+                            
+                            // Get config (contains x, y, width, height, rotation)
+                            var config = localConfig.config || localConfig.answer_config || {};
+                            
+                            // Get properties from elementData
+                            var properties = elementData.properties || {};
+                            
+                            // Determine appearance mode
+                            var appearanceConfig = elementData.appearance_config || {};
+                            var appearanceType = appearanceConfig.appearance_type || 'on_load';
+                            var timerTrigger = appearanceConfig.timer_trigger || 'load';
+                            var appearanceMode = 'on_load';
+                            if (appearanceType === 'control') {
+                                appearanceMode = 'control';
+                            } else if (appearanceType === 'timer') {
+                                appearanceMode = timerTrigger === 'previous_element' ? 'local_delay' : 'global_delay';
+                            }
+                            
+                            // Determine initial visibility
+                            var initialVisible = true;
+                            if (appearanceMode === 'control') {
+                                initialVisible = false;
+                            } else if (appearanceMode === 'local_delay' || appearanceMode === 'global_delay') {
+                                initialVisible = false;
+                            }
+                            
+                            // Build element object - merge all properties
+                            var element = {
+                                id: elementId,
+                                type: elementData.type || elementData.media_type,
+                                // Position and size from config (these are the view-specific positions)
+                                x: config.x !== undefined ? config.x : 0,
+                                y: config.y !== undefined ? config.y : 0,
+                                width: config.width !== undefined ? config.width : 100,
+                                height: config.height !== undefined ? config.height : 100,
+                                rotation: config.rotation !== undefined ? config.rotation : 0,
+                                // Copy all properties directly (they contain text, content, colors, etc.)
+                                text: properties.text,
+                                content: properties.content,
+                                html: properties.html,
+                                color: properties.color || properties.text_color,
+                                font_size: properties.font_size,
+                                bold: properties.bold,
+                                italic: properties.italic,
+                                text_align: properties.text_align,
+                                text_align_horizontal: properties.text_align_horizontal,
+                                text_align_vertical: properties.text_align_vertical,
+                                background_color: properties.background_color,
+                                fill_color: properties.fill_color,
+                                stroke_color: properties.stroke_color || properties.border_color,
+                                border_width: properties.border_width || properties.stroke_width,
+                                // Media properties
+                                src: properties.src || properties.url || properties.media_url || properties.file_name || properties.filename,
+                                file_name: properties.file_name || properties.filename,
+                                media_url: properties.media_url,
+                                autoplay: properties.autoplay,
+                                loop: properties.loop,
+                                // Arrow properties
+                                arrow_head_length: properties.arrow_head_length,
+                                arrow_body_thickness: properties.arrow_body_thickness,
+                                // Appearance
+                                appearance_mode: appearanceMode,
+                                appearance_visible: elementData.appearance_visible !== undefined ? elementData.appearance_visible : initialVisible,
+                                visible: elementData.visible !== undefined ? elementData.visible : true
+                            };
+                            
+                            var elType = element.type;
+                            
+                            // Only show display elements (exclude control-only elements)
+                            if (elType !== 'navigation_control' && 
+                                elType !== 'audio_control' && 
+                                elType !== 'answer_input' && 
+                                elType !== 'answer_display' &&
+                                elType !== 'appearance_control') {
+                                
+                                // Check visibility - respect appearance_visible state from server
+                                var isVisible = true;
+                                if (element.visible === false) {
+                                    isVisible = false;
+                                } else if (element.appearance_visible === false) {
+                                    isVisible = false;
+                                } else if (element.appearance_mode === 'control' && element.appearance_visible !== true) {
+                                    // Control mode elements are hidden unless explicitly shown
+                                    isVisible = false;
+                                }
+                                
+                                if (isVisible) {
+                                    elements.push(element);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Sort elements by appearance_order if available
+                var globals = null;
+                if (page.globals) {
+                    globals = page.globals;
+                } else if (page.views && page.views.display && page.views.display.globals) {
+                    globals = page.views.display.globals;
+                }
+                
+                if (globals && globals.appearance_order && Array.isArray(globals.appearance_order)) {
+                    var appearanceOrder = globals.appearance_order;
+                    var orderedElements = [];
+                    var elementMap = {};
+                    elements.forEach(function(el) {
+                        elementMap[el.id] = el;
+                    });
+                    // Add elements in appearance_order
+                    appearanceOrder.forEach(function(id) {
+                        if (elementMap[id]) {
+                            orderedElements.push(elementMap[id]);
+                            delete elementMap[id];
+                        }
+                    });
+                    // Add remaining elements
+                    for (var id in elementMap) {
+                        orderedElements.push(elementMap[id]);
+                    }
+                    elements = orderedElements;
+                }
+                
+                // Debug: log elements found
+                if (elements.length === 0) {
+                    console.warn('TV Display: No elements found to render. Page structure:', {
+                        hasElements: !!page.elements,
+                        hasViews: !!(page.views && page.views.display),
+                        hasLocalConfigs: !!(page.views && page.views.display && page.views.display.local_element_configs),
+                        elementCount: page.elements ? Object.keys(page.elements).length : 0
+                    });
+                } else {
+                    console.log('TV Display: Rendering', elements.length, 'elements');
+                }
+                
+                // Render elements
+                elements.forEach(function(element) {
+                    renderElement(container, element);
+                });
+            }
+            
+            // Simple element renderer
+            function renderElement(container, element) {
+                var el = document.createElement('div');
+                el.className = 'element';
+                el.id = 'element-' + element.id;
+                
+                // Position
+                var x = parseFloat(element.x) || 0;
+                var y = parseFloat(element.y) || 0;
+                var width = parseFloat(element.width) || 100;
+                var height = parseFloat(element.height) || 100;
+                
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.style.width = width + 'px';
+                el.style.height = height + 'px';
+                
+                // Visibility is already handled when building elements array
+                el.style.display = 'block';
+                
+                // Render based on type
+                var elType = element.type || element.media_type;
+                switch (elType) {
+                    case 'image':
+                        var img = document.createElement('img');
+                        var src = element.src || element.url || element.media_url || element.file_name || element.filename || '';
+                        if (!src) {
+                            // Try to get from properties if not directly on element
+                            src = '';
+                        }
+                        if (src && !src.startsWith('http') && !src.startsWith('/')) {
+                            src = '/api/media/serve/' + src;
+                        }
+                        if (src) {
+                            img.src = src;
+                            img.className = 'element-image';
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                            img.style.objectFit = 'contain';
+                            img.style.display = 'block';
+                            el.appendChild(img);
+                        } else {
+                            // No image source - show placeholder
+                            el.innerHTML = '<div style="padding: 10px; color: white; background: rgba(0,0,0,0.5);">Image</div>';
+                        }
+                        break;
+                        
+                    case 'text':
+                        el.className += ' element-text';
+                        el.textContent = element.text || '';
+                        el.style.color = element.color || element.text_color || '#ffffff';
+                        el.style.fontSize = (element.font_size || 24) + 'px';
+                        el.style.fontWeight = element.bold ? 'bold' : 'normal';
+                        el.style.fontStyle = element.italic ? 'italic' : 'normal';
+                        el.style.backgroundColor = element.background_color || 'transparent';
+                        el.style.padding = '0.5rem';
+                        el.style.display = 'flex';
+                        el.style.wordWrap = 'break-word';
+                        el.style.overflow = 'hidden';
+                        // Text alignment
+                        var hAlign = element.text_align_horizontal || element.text_align || 'center';
+                        var vAlign = element.text_align_vertical || 'middle';
+                        if (hAlign === 'left') {
+                            el.style.justifyContent = 'flex-start';
+                        } else if (hAlign === 'right') {
+                            el.style.justifyContent = 'flex-end';
+                        } else {
+                            el.style.justifyContent = 'center';
+                        }
+                        if (vAlign === 'top') {
+                            el.style.alignItems = 'flex-start';
+                        } else if (vAlign === 'bottom') {
+                            el.style.alignItems = 'flex-end';
+                        } else {
+                            el.style.alignItems = 'center';
+                        }
+                        el.style.textAlign = element.text_align || 'center';
+                        break;
+                        
+                    case 'richtext':
+                        el.className += ' element-text';
+                        el.innerHTML = element.content || element.html || '';
+                        el.style.color = element.color || element.text_color || '#ffffff';
+                        el.style.fontSize = (element.font_size || 24) + 'px';
+                        el.style.backgroundColor = element.background_color || 'transparent';
+                        el.style.padding = '0.5rem';
+                        el.style.display = 'flex';
+                        el.style.flexDirection = 'column';
+                        el.style.wordWrap = 'break-word';
+                        el.style.overflow = 'auto';
+                        // Text alignment
+                        var hAlign = element.text_align_horizontal || 'left';
+                        var vAlign = element.text_align_vertical || 'top';
+                        if (hAlign === 'center') {
+                            el.style.alignItems = 'center';
+                        } else if (hAlign === 'right') {
+                            el.style.alignItems = 'flex-end';
+                        } else {
+                            el.style.alignItems = 'flex-start';
+                        }
+                        if (vAlign === 'middle') {
+                            el.style.justifyContent = 'center';
+                        } else if (vAlign === 'bottom') {
+                            el.style.justifyContent = 'flex-end';
+                        } else {
+                            el.style.justifyContent = 'flex-start';
+                        }
+                        break;
+                        
+                    case 'rectangle':
+                        el.className += ' element-rectangle';
+                        el.style.backgroundColor = element.fill_color || '#ddd';
+                        el.style.border = (element.border_width || 2) + 'px solid ' + (element.border_color || '#999');
+                        break;
+                        
+                    case 'circle':
+                        el.className += ' element-circle';
+                        el.style.borderRadius = '50%';
+                        el.style.backgroundColor = element.fill_color || '#ddd';
+                        el.style.border = (element.border_width || 2) + 'px solid ' + (element.border_color || '#999');
+                        break;
+                        
+                    case 'triangle':
+                        // Use SVG for triangle (more reliable than CSS borders)
+                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('width', '100%');
+                        svg.setAttribute('height', '100%');
+                        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+                        var path = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                        path.setAttribute('points', (width/2) + ',0 ' + width + ',' + height + ' 0,' + height);
+                        path.setAttribute('fill', element.fill_color || '#ddd');
+                        path.setAttribute('stroke', element.border_color || '#999');
+                        path.setAttribute('stroke-width', (element.border_width || 2));
+                        svg.appendChild(path);
+                        el.appendChild(svg);
+                        el.style.border = 'none';
+                        break;
+                        
+                    case 'arrow':
+                        // Use SVG for arrow
+                        var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                        svg.setAttribute('width', '100%');
+                        svg.setAttribute('height', '100%');
+                        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + height);
+                        var arrowHeadLength = element.arrow_head_length || Math.min(width, height) * 0.3;
+                        var arrowBodyThickness = element.arrow_body_thickness || Math.min(width, height) * 0.2;
+                        var arrowBodyWidth = width - arrowHeadLength;
+                        var bodyTop = (height - arrowBodyThickness) / 2;
+                        var bodyBottom = bodyTop + arrowBodyThickness;
+                        var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        var pathData = 'M 0 ' + bodyTop + ' L ' + arrowBodyWidth + ' ' + bodyTop + ' L ' + arrowBodyWidth + ' 0 L ' + width + ' ' + (height/2) + ' L ' + arrowBodyWidth + ' ' + height + ' L ' + arrowBodyWidth + ' ' + bodyBottom + ' L 0 ' + bodyBottom + ' Z';
+                        path.setAttribute('d', pathData);
+                        path.setAttribute('fill', element.fill_color || '#ddd');
+                        path.setAttribute('stroke', element.border_color || '#999');
+                        path.setAttribute('stroke-width', (element.border_width || 2));
+                        svg.appendChild(path);
+                        el.appendChild(svg);
+                        el.style.border = 'none';
+                        break;
+                        
+                    case 'line':
+                        // Line elements - width is the line length, height is thickness
+                        el.style.width = Math.max(width, height) + 'px';
+                        el.style.height = (element.border_width || 2) + 'px';
+                        el.style.backgroundColor = element.fill_color || element.border_color || '#999';
+                        el.style.border = 'none';
+                        el.style.transformOrigin = '0 0';
+                        break;
+                        
+                    case 'video':
+                        var video = document.createElement('video');
+                        var src = element.src || element.url || element.media_url || element.file_name || element.filename || '';
+                        if (src && !src.startsWith('http') && !src.startsWith('/')) {
+                            src = '/api/media/serve/' + src;
+                        }
+                        video.src = src;
+                        video.style.width = '100%';
+                        video.style.height = '100%';
+                        video.style.objectFit = 'contain';
+                        video.controls = false;
+                        video.autoplay = element.autoplay !== false;
+                        video.loop = element.loop === true;
+                        video.muted = false;
+                        el.appendChild(video);
+                        break;
+                        
+                    case 'audio':
+                        // Audio elements are invisible - just show icon
+                        var audioIcon = document.createElement('div');
+                        audioIcon.innerHTML = '🔊';
+                        audioIcon.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 64px;';
+                        el.appendChild(audioIcon);
+                        var audio = document.createElement('audio');
+                        var src = element.src || element.url || element.media_url || element.file_name || element.filename || '';
+                        if (src && !src.startsWith('http') && !src.startsWith('/')) {
+                            src = '/api/media/serve/' + src;
+                        }
+                        audio.src = src;
+                        audio.style.display = 'none';
+                        audio.autoplay = element.autoplay !== false;
+                        audio.loop = element.loop === true;
+                        el.appendChild(audio);
+                        el.style.border = 'none';
+                        break;
+                        
+                    default:
+                        // Unknown type - show placeholder
+                        el.innerHTML = '<div style="padding: 10px; color: white; background: rgba(0,0,0,0.5);">' + (elType || 'element') + '</div>';
+                }
+                
+                // Apply rotation if specified
+                if (element.rotation) {
+                    el.style.transform = 'rotate(' + element.rotation + 'deg)';
+                }
+                
+                container.appendChild(el);
+            }
+            
+            
+            function showError(message) {
+                var container = document.getElementById('display-content');
+                container.innerHTML = '<div class="error">' + message + '</div>';
+            }
+            
+            function stopPolling() {
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+            }
+            
+            // Start polling
+            poll(); // Initial poll
+            pollTimer = setInterval(poll, pollInterval);
+            
+            // Handle window resize
+            var resizeTimer;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    // Re-render to update scaling
+                    if (currentPage) {
+                        renderPage(currentPage, quiz, {}, {});
+                    }
+                }, 100);
+            });
+        })();
+    </script>
+</body>
+</html>
+

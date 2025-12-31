@@ -74,11 +74,26 @@
     min-width: 250px;
     flex-shrink: 0; /* Prevent sidebar from shrinking */
     background: white;
-    padding: 1rem;
-    overflow-y: auto;
     border-right: 1px solid #ddd;
     z-index: 10; /* Ensure sidebar is above canvas content */
     position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    flex-shrink: 0;
+    padding: 1rem;
+    background: white;
+    border-bottom: 1px solid #eee;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1rem;
 }
 
 .editor-sidebar h3 {
@@ -89,6 +104,47 @@
 
 .editor-sidebar h3:first-child {
     margin-top: 0;
+}
+
+.sidebar-tabs {
+    display: flex;
+    background: #f5f5f5;
+    border-radius: 4px;
+    padding: 2px;
+    margin-top: 1rem;
+    gap: 2px;
+}
+
+.sidebar-tab {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #666;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.sidebar-tab:hover {
+    background: rgba(255, 255, 255, 0.7);
+    color: #333;
+}
+
+.sidebar-tab.active {
+    background: white;
+    color: #2196F3;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-tab-content {
+    display: none;
+}
+
+.sidebar-tab-content.active {
+    display: block;
 }
 
 .view-indicator {
@@ -275,6 +331,68 @@
 }
 
 .element-item.disabled:hover {
+    background: #f0f0f0;
+}
+
+.shapes-category {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.shapes-header {
+    padding: 0.75rem;
+    background: #f5f5f5;
+    border-radius: 4px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shapes-header:hover {
+    background: #e0e0e0;
+}
+
+.shapes-arrow {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.shapes-category.expanded .shapes-arrow {
+    transform: rotate(180deg);
+}
+
+.shapes-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding-left: 1rem;
+}
+
+.shape-item {
+    padding: 0.5rem 0.75rem;
+    background: #f9f9f9;
+    border-radius: 4px;
+    cursor: move;
+    user-select: none;
+    font-size: 0.9rem;
+}
+
+.shape-item:hover {
+    background: #e8e8e8;
+}
+
+.shape-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: #f0f0f0;
+}
+
+.shape-item.disabled:hover {
     background: #f0f0f0;
 }
 

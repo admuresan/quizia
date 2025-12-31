@@ -70,6 +70,20 @@
                 }
             }
             
+            // Define default sizes for each view
+            // Participant view defaults to mobile portrait
+            const participantDefaultSize = {
+                width: 390,
+                height: 844
+            };
+            // Control view defaults to mobile landscape
+            const controlDefaultSize = {
+                width: 844,
+                height: 390
+            };
+            // Display view uses inherited size or desktop default
+            const displayDefaultSize = JSON.parse(JSON.stringify(defaultSize));
+            
             // Create page in new format with inherited settings
             const page = {
                 name: defaultName,
@@ -80,21 +94,21 @@
                     display: {
                         view_config: {
                             background: JSON.parse(JSON.stringify(defaultBackground)),
-                            size: JSON.parse(JSON.stringify(defaultSize))
+                            size: displayDefaultSize
                         },
                         local_element_configs: {}
                     },
                     participant: {
                         view_config: {
                             background: JSON.parse(JSON.stringify(defaultBackground)),
-                            size: JSON.parse(JSON.stringify(defaultSize))
+                            size: JSON.parse(JSON.stringify(participantDefaultSize))
                         },
                         local_element_configs: {}
                     },
                     control: {
                         view_config: {
                             background: JSON.parse(JSON.stringify(defaultBackground)),
-                            size: JSON.parse(JSON.stringify(defaultSize))
+                            size: JSON.parse(JSON.stringify(controlDefaultSize))
                         },
                         local_element_configs: {}
                     }

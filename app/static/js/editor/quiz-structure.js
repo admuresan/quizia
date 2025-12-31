@@ -224,13 +224,19 @@
                 }
             }
             
-            // Determine initial visibility
-            // Elements should be hidden if they're control mode or timer mode (unless on_load)
+            // Determine initial visibility - but ONLY if appearance_visible is not already set
+            // This preserves the current visibility state from room data (set by control page)
             let initialVisible = true;
-            if (appearanceMode === 'control') {
-                initialVisible = false;
-            } else if (appearanceMode === 'local_delay' || appearanceMode === 'global_delay') {
-                initialVisible = false;
+            if ('appearance_visible' in elementData) {
+                // Use existing visibility state from room data (set by control page)
+                initialVisible = elementData.appearance_visible;
+            } else {
+                // Only calculate initial visibility if not already set (first time on page)
+                if (appearanceMode === 'control') {
+                    initialVisible = false;
+                } else if (appearanceMode === 'local_delay' || appearanceMode === 'global_delay') {
+                    initialVisible = false;
+                }
             }
             
             // For control view: Do NOT include main elements, only generate control-specific child elements
@@ -294,7 +300,8 @@
                 return;
             }
             
-            // For display and participant views: include main elements
+            // For display view: include all main elements
+            // For participant view: exclude question elements (only include their answer_input children)
             // Build merged element object
             const mergedElement = {
                 id: elementId,
@@ -324,10 +331,24 @@
                 question_correct_answer: questionConfig.question_correct_answer || '',
                 question_type: questionConfig.question_type || 'text',
                 answer_type: questionConfig.question_type || 'text', // Keep for runtime compatibility
-                options: questionConfig.options || []
+                options: questionConfig.options || [],
+                // Add question_config for properties panel compatibility
+                question_config: {
+                    question_type: questionConfig.question_type || 'text',
+                    question_title: questionConfig.question_title || '',
+                    question_correct_answer: questionConfig.question_correct_answer || '',
+                    options: questionConfig.options || []
+                }
             };
             
-            result.push(mergedElement);
+            // For participant view, skip question elements (they shouldn't be rendered as main elements)
+            // Only their answer_input children should be included
+            if (viewName === 'participant' && elementData.is_question) {
+                // Skip adding the main question element - only generate answer_input child
+            } else {
+                // For display view or non-question elements in participant view, include the main element
+                result.push(mergedElement);
+            }
             
             // Generate child elements from parent element data (not separate entries)
             if (viewName === 'participant' && elementData.is_question) {
@@ -438,7 +459,7 @@
         // Extract properties from element (everything except positioning and view-specific config)
         const properties = {};
         const configKeys = ['x', 'y', 'width', 'height', 'rotation', 'view', 'id', 'type', 'is_question', 'visible', 'element_name'];
-        const appearanceKeys = ['appearance_mode', 'appearance_type', 'appearance_order', 'appearance_delay', 'appearance_visible', 'appearance_name'];
+        const appearanceKeys = ['appearance_mode', 'appearance_type', 'appearance_order', 'appearance_delay', 'appearance_visible', 'appearance_name', 'timer_trigger', 'timer_delay'];
         const questionKeys = ['question_config', 'question_title', 'question_type', 'question_correct_answer', 'answer_type', 'options'];
         
         // Copy all properties except positioning and special keys
@@ -524,20 +545,31 @@
         if (element.appearance_name) {
             elementData.appearance_config.config.name = element.appearance_name;
         }
+        // Handle timer-specific properties
+        if (element.timer_trigger !== undefined) {
+            elementData.appearance_config.timer_trigger = element.timer_trigger;
+        }
+        if (element.timer_delay !== undefined) {
+            elementData.appearance_config.timer_delay = element.timer_delay;
+        }
         
         // Handle question config
         if (elementData.is_question || element.is_question) {
-            const questionType = (element.question_config && element.question_config.question_type) || 
+            let questionType = (element.question_config && element.question_config.question_type) || 
                                 element.question_type || 
                                 element.answer_type || 
                                 'text';
+            // Normalize multiple_choice to radio (they're the same thing)
+            if (questionType === 'multiple_choice') {
+                questionType = 'radio';
+            }
             elementData.question_config = {
                 question_type: questionType,
                 question_title: element.question_title || (element.question_config && element.question_config.question_title) || '',
                 question_correct_answer: element.question_correct_answer || (element.question_config && element.question_config.question_correct_answer) || ''
             };
             
-            if (questionType === 'radio' || questionType === 'checkbox' || questionType === 'multiple_choice') {
+            if (questionType === 'radio' || questionType === 'checkbox') {
                 elementData.question_config.options = element.options || (element.question_config && element.question_config.options) || [];
             }
         }

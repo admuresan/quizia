@@ -25,7 +25,7 @@ def list_media_route():
         return jsonify({'error': 'Unauthorized'}), 401
     
     username = session.get('username')
-    files = list_media_files(username=username)
+    files = list_media_files(username=username, include_reference_count=True)
     return jsonify({'files': files}), 200
 
 @bp.route('/upload', methods=['POST'])
@@ -114,4 +114,62 @@ def serve_media(filename):
         return jsonify({'error': 'File not found'}), 404
     
     return send_file(file_path)
+
+@bp.route('/bulk-delete', methods=['POST'])
+def bulk_delete_media():
+    """Delete multiple media files (quizmaster only, must be creator of all)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    data = request.get_json()
+    filenames = data.get('filenames', [])
+    
+    if not filenames:
+        return jsonify({'error': 'No files specified'}), 400
+    
+    results = []
+    for filename in filenames:
+        result = delete_media_file(filename, username)
+        results.append({'filename': filename, 'success': result['success'], 'error': result.get('error')})
+    
+    return jsonify({'results': results}), 200
+
+@bp.route('/bulk-toggle-public', methods=['POST'])
+def bulk_toggle_media_public():
+    """Toggle public status of multiple media files (quizmaster only, must be creator of all)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    data = request.get_json()
+    filenames = data.get('filenames', [])
+    make_public = data.get('make_public', True)
+    
+    if not filenames:
+        return jsonify({'error': 'No files specified'}), 400
+    
+    results = []
+    for filename in filenames:
+        # Get current status
+        from app.utils.media_storage import _load_media_metadata, _save_media_metadata
+        metadata = _load_media_metadata()
+        file_meta = metadata.get(filename)
+        
+        if not file_meta:
+            results.append({'filename': filename, 'success': False, 'error': 'File not found'})
+            continue
+        
+        if file_meta.get('creator') != username:
+            results.append({'filename': filename, 'success': False, 'error': 'Only creator can change status'})
+            continue
+        
+        # Set public status
+        file_meta['public'] = make_public
+        metadata[filename] = file_meta
+        _save_media_metadata(metadata)
+        
+        results.append({'filename': filename, 'success': True, 'public': make_public})
+    
+    return jsonify({'results': results}), 200
 

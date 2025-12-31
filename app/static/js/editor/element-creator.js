@@ -400,7 +400,7 @@
                 rotation: 0
             };
 
-            if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(type)) {
+            if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(type)) {
                 element.fill_color = '#ddd';
                 element.border_color = '#999';
                 element.border_width = 2;

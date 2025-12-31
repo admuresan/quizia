@@ -67,8 +67,17 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
             if (submittedAnswer && submittedAnswer.answer) {
                 const coords = submittedAnswer.answer;
                 img.onload = () => {
+                    // Use natural image dimensions to calculate radius (10% of actual image size)
                     const rect = img.getBoundingClientRect();
-                    const radius = Math.min(rect.width, rect.height) * 0.1;
+                    const naturalWidth = img.naturalWidth || img.width || rect.width;
+                    const naturalHeight = img.naturalHeight || img.height || rect.height;
+                    const naturalMinDim = Math.min(naturalWidth, naturalHeight);
+                    const naturalRadius = naturalMinDim * 0.1; // 10% of actual image size
+                    
+                    // Scale radius based on current display size vs natural size
+                    const scale = naturalWidth > 0 ? (rect.width / naturalWidth) : 1;
+                    const radius = naturalRadius * scale;
+                    
                     clickIndicator = document.createElement('div');
                     clickIndicator.style.cssText = `position: absolute; width: ${radius * 2}px; height: ${radius * 2}px; border: 3px solid #FF5722; border-radius: 50%; background: rgba(255, 87, 34, 0.2); pointer-events: none; left: ${(coords.x / 100) * rect.width - radius}px; top: ${(coords.y / 100) * rect.height - radius}px;`;
                     imageContainer.appendChild(clickIndicator);
@@ -99,9 +108,18 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
                         clickIndicator.remove();
                     }
                     
-                    // Create click indicator (circle with 10% radius)
+                    // Create click indicator (circle with 10% radius of actual image size)
+                    // Use natural image dimensions to calculate radius (10% of actual image size)
+                    const naturalWidth = img.naturalWidth || img.width || rect.width;
+                    const naturalHeight = img.naturalHeight || img.height || rect.height;
+                    const naturalMinDim = Math.min(naturalWidth, naturalHeight);
+                    const naturalRadius = naturalMinDim * 0.1; // 10% of actual image size
+                    
+                    // Scale radius based on current display size vs natural size
+                    const scale = naturalWidth > 0 ? (rect.width / naturalWidth) : 1;
+                    const radius = naturalRadius * scale;
+                    
                     clickIndicator = document.createElement('div');
-                    const radius = Math.min(rect.width, rect.height) * 0.1;
                     clickIndicator.style.cssText = `position: absolute; width: ${radius * 2}px; height: ${radius * 2}px; border: 3px solid #FF5722; border-radius: 50%; background: rgba(255, 87, 34, 0.2); pointer-events: none; left: ${e.clientX - rect.left - radius}px; top: ${e.clientY - rect.top - radius}px;`;
                     imageContainer.appendChild(clickIndicator);
                     

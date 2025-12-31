@@ -1,5 +1,5 @@
 // Display page (for large screen) - matches editor display view exactly
-const socket = io();
+const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
 window.socket = socket; // Make socket available globally
 let currentPageIndex = 0; // Track current page index to stay in sync
 let currentPage = null;
@@ -19,12 +19,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // Remove initial loading message when WebSocket connects
     socket.on('connect', () => {
+        const loadingEl = document.getElementById('initial-loading');
+        if (loadingEl) {
+            loadingEl.style.display = 'none';
+        }
         socket.emit('display_join', { room_code: currentRoomCode });
     });
+    
+    // Also remove loading message when display_state is received (in case connect event fires before DOM is ready)
+    socket.on('display_state', () => {
+        const loadingEl = document.getElementById('initial-loading');
+        if (loadingEl) {
+            loadingEl.style.display = 'none';
+        }
+    });
+    
+    // Fallback: If WebSocket doesn't connect after 10 seconds, show error message
+    setTimeout(() => {
+        if (!socket.connected) {
+            const container = document.getElementById('display-content');
+            const loadingEl = document.getElementById('initial-loading');
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+            if (container && !container.hasAttribute('data-rendered')) {
+                container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #ff6b6b; font-size: 2rem; text-align: center; padding: 2rem;">Connection timeout. Please refresh.</div>';
+                container.setAttribute('data-rendered', 'true'); // Set this so Playwright knows something is rendered
+            }
+        }
+    }, 10000);
 
     // Unified handler for both display_state and page_changed
     function handlePageUpdate(data) {
+        // CRITICAL: Always update quiz first to get latest visibility states
         if (data.quiz) {
             quiz = data.quiz;
         }
@@ -41,13 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.scores) {
             scores = data.scores;
         }
-        // Single render call
-        if (data.page) {
-            renderPage(currentPageIndex, data.page);
+        // Single render call - use page from data (which has current visibility states)
+        // If page is provided, use it; otherwise get from quiz
+        const pageToRender = data.page || (quiz && quiz.pages && quiz.pages[currentPageIndex] ? quiz.pages[currentPageIndex] : null);
+        if (pageToRender) {
+            renderPage(currentPageIndex, pageToRender);
         }
     }
 
-    socket.on('display_state', handlePageUpdate);
+    socket.on('display_state', (data) => {
+        handlePageUpdate(data);
+        // If there's an active answer overlay, recreate it
+        if (data.answer_overlay && data.answer_overlay.visible) {
+            // Small delay to ensure page is rendered first
+            setTimeout(() => {
+                handleAnswerDisplayToggle(data.answer_overlay);
+            }, 100);
+        }
+    });
     socket.on('page_changed', handlePageUpdate);
 
     socket.on('element_control', (data) => {
@@ -214,6 +254,20 @@ window.addEventListener('resize', () => {
 function renderPage(pageIndex, page) {
     const container = document.getElementById('display-content');
     
+    // Clear ready signal at start of rendering (so Playwright doesn't see stale signal)
+    if (container) {
+        container.removeAttribute('data-rendered');
+    }
+    
+    // Remove initial loading message if it's still there
+    const loadingEl = document.getElementById('initial-loading');
+    if (loadingEl) {
+        loadingEl.style.display = 'none';
+    }
+    
+    // IMPORTANT: Don't remove answer overlay on page render - it should persist
+    // The overlay is managed separately and should remain visible during page updates
+    
     if (!page) {
         console.warn('No page provided to renderPage');
         container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; font-size: 2rem;">Waiting for quiz to start...</div>';
@@ -353,7 +407,24 @@ function renderPage(pageIndex, page) {
                     return;
                 }
                 
-                // Handle initial visibility based on appearance mode
+                // CRITICAL: Always respect appearance_visible if it's already set (from server/room state)
+                // This ensures display shows what control has set, not re-initializing from appearance_mode
+                if (element.appearance_visible !== undefined) {
+                    // Visibility state is already set - use it directly
+                    if (element.appearance_visible) {
+                        el.style.display = 'block';
+                        // If this is a question, notify server for timing
+                        if (element.is_question) {
+                            notifyQuestionVisible(element.id);
+                        }
+                    } else {
+                        el.style.display = 'none';
+                    }
+                    // Don't apply appearance_mode logic if visibility is already set
+                    return;
+                }
+                
+                // Only apply appearance_mode logic if appearance_visible is not set (first time rendering)
                 const appearanceMode = element.appearance_mode || 'on_load';
                 
                 if (appearanceMode === 'control') {
@@ -367,35 +438,31 @@ function renderPage(pageIndex, page) {
                     const delay = (element.appearance_delay || 0) * 1000;
                     if (el) {
                         el.style.display = 'none';
+                        element.appearance_visible = false; // Start as hidden
                     }
                     setTimeout(() => {
-                        if (el) {
-                            el.style.display = 'block';
-                            element.appearance_visible = true;
-                            // Notify control page to update toggle
-                            if (socket && window.roomCode) {
-                                socket.emit('element_appearance_changed', {
-                                    room_code: window.roomCode,
-                                    element_id: element.id,
-                                    visible: true
-                                });
-                            }
-                            // If this is a question, notify server for timing
-                            if (element.is_question) {
-                                notifyQuestionVisible(element.id);
-                            }
+                        // Timer triggers - only update server, don't change display directly
+                        // Server will update control toggle, which will then broadcast to display
+                        if (socket && window.roomCode) {
+                            socket.emit('element_appearance_changed', {
+                                room_code: window.roomCode,
+                                element_id: element.id,
+                                visible: true
+                            });
                         }
                     }, delay);
                 } else if (appearanceMode === 'after_previous' && index > 0) {
                     // After previous: show when previous element appears
                     if (el) {
                         el.style.display = 'none';
+                        element.appearance_visible = false; // Start as hidden
                     }
                     // This will be handled by watching the previous element
                 } else if (appearanceMode === 'local_delay' && index > 0) {
                     // Local delay: show X seconds after previous element
                     if (el) {
                         el.style.display = 'none';
+                        element.appearance_visible = false; // Start as hidden
                     }
                     // This will be handled by watching the previous element
                 } else {
@@ -414,34 +481,59 @@ function renderPage(pageIndex, page) {
             }
         });
         
+        // Signal that rendering is complete (for Playwright screenshot detection)
+        container.setAttribute('data-rendered', 'true');
+        
         // Handle "after_previous" and "local_delay" modes by watching previous elements
+        // Find previous element by appearance_order value, not array index
         orderedElements.forEach((element, index) => {
-            if (index === 0) return;
-            
             const appearanceMode = element.appearance_mode || 'on_load';
             const el = document.getElementById(`element-${element.id}`);
             
+            // Only process elements that need to watch a previous element
+            if (appearanceMode !== 'after_previous' && appearanceMode !== 'local_delay') {
+                return;
+            }
+            
+            // Find the previous element by appearance_order value (not array index)
+            // This ensures we get the element with the highest appearance_order that is still less than current
+            const currentOrder = element.appearance_order || 999;
+            let prevElement = null;
+            let maxPrevOrder = -1;
+            
+            orderedElements.forEach((otherElement) => {
+                const otherOrder = otherElement.appearance_order || 999;
+                if (otherOrder < currentOrder && otherOrder > maxPrevOrder) {
+                    maxPrevOrder = otherOrder;
+                    prevElement = otherElement;
+                }
+            });
+            
+            // If no previous element found by order, fall back to array index (for elements without appearance_order)
+            if (!prevElement && index > 0) {
+                prevElement = orderedElements[index - 1];
+            }
+            
+            if (!prevElement) {
+                return; // No previous element to watch
+            }
+            
+            const prevEl = document.getElementById(`element-${prevElement.id}`);
+            
             if (appearanceMode === 'after_previous') {
                 // Watch previous element
-                const prevElement = orderedElements[index - 1];
-                const prevEl = document.getElementById(`element-${prevElement.id}`);
                 if (prevEl && el) {
                     // Use MutationObserver to watch for display changes
                     const observer = new MutationObserver((mutations) => {
                         if (prevEl.style.display === 'block' && el.style.display === 'none') {
-                            el.style.display = 'block';
-                            element.appearance_visible = true;
-                            // Notify control page
-                            if (socket) {
+                            // Timer triggers (after_previous) - only update server, don't change display directly
+                            // Server will update control toggle, which will then broadcast to display
+                            if (socket && window.roomCode) {
                                 socket.emit('element_appearance_changed', {
                                     room_code: window.roomCode,
                                     element_id: element.id,
                                     visible: true
                                 });
-                            }
-                            // If this is a question, notify server for timing
-                            if (element.is_question) {
-                                notifyQuestionVisible(element.id);
                             }
                         }
                     });
@@ -449,30 +541,21 @@ function renderPage(pageIndex, page) {
                 }
             } else if (appearanceMode === 'local_delay') {
                 // Watch previous element and show after delay
-                const prevElement = orderedElements[index - 1];
-                const prevEl = document.getElementById(`element-${prevElement.id}`);
                 const delay = (element.appearance_delay || 0) * 1000;
                 
                 if (prevEl && el) {
-                    // Function to show element after delay
-                    const showAfterDelay = () => {
+                    // Function to trigger after delay
+                    const triggerAfterDelay = () => {
                         if (el && el.style.display === 'none') {
                             setTimeout(() => {
-                                if (el) {
-                                    el.style.display = 'block';
-                                    element.appearance_visible = true;
-                                    // Notify control page
-                                    if (socket && window.roomCode) {
-                                        socket.emit('element_appearance_changed', {
-                                            room_code: window.roomCode,
-                                            element_id: element.id,
-                                            visible: true
-                                        });
-                                    }
-                                    // If this is a question, notify server for timing
-                                    if (element.is_question) {
-                                        notifyQuestionVisible(element.id);
-                                    }
+                                // Timer triggers (local_delay) - only update server, don't change display directly
+                                // Server will update control toggle, which will then broadcast to display
+                                if (socket && window.roomCode) {
+                                    socket.emit('element_appearance_changed', {
+                                        room_code: window.roomCode,
+                                        element_id: element.id,
+                                        visible: true
+                                    });
                                 }
                             }, delay);
                         }
@@ -480,13 +563,13 @@ function renderPage(pageIndex, page) {
                     
                     // Check initial state - if previous element is already visible, trigger immediately
                     if (prevEl.style.display === 'block' || prevEl.style.display === '') {
-                        showAfterDelay();
+                        triggerAfterDelay();
                     }
                     
                     // Watch for changes to previous element's visibility
                     const observer = new MutationObserver((mutations) => {
                         if (prevEl.style.display === 'block' && el.style.display === 'none') {
-                            showAfterDelay();
+                            triggerAfterDelay();
                         }
                     });
                     observer.observe(prevEl, { attributes: true, attributeFilter: ['style'] });
@@ -614,6 +697,9 @@ function renderStatusPage(container, page, quiz) {
     
     // Populate status page with current scores
     updateStatusPage(scores);
+    
+    // Signal that rendering is complete (for Playwright screenshot detection)
+    container.setAttribute('data-rendered', 'true');
 }
 
 function updateStatusPage(currentScores) {
@@ -730,6 +816,9 @@ function renderFinalResultsPage(container, page, quiz) {
     content.id = 'results-content';
     content.style.cssText = 'width: 100%; max-width: 1200px;';
     container.appendChild(content);
+    
+    // Signal that rendering is complete (for Playwright screenshot detection)
+    container.setAttribute('data-rendered', 'true');
 }
 
 function showQuizNotRunning() {
@@ -917,9 +1006,11 @@ function handleAnswerDisplayToggle(data) {
         return; // Just hide if toggle is off
     }
     
-    // Create overlay
+    // Create overlay - append to display-container instead of body for better screenshot capture
+    const displayContainer = document.getElementById('display-container');
     overlay = document.createElement('div');
     overlay.id = 'answer-display-overlay';
+    // Use fixed positioning to cover full viewport, but append to display-container for proper stacking
     overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); z-index: 100000; display: flex; align-items: center; justify-content: center;';
     
     // Create content container (75% of screen)
@@ -961,7 +1052,20 @@ function handleAnswerDisplayToggle(data) {
     }
     
     overlay.appendChild(contentContainer);
-    document.body.appendChild(overlay);
+    
+    // Append to display-container instead of body for better screenshot capture
+    if (displayContainer) {
+        displayContainer.appendChild(overlay);
+    } else {
+        // Fallback to body if display-container not found
+        document.body.appendChild(overlay);
+    }
+    
+    // Signal that overlay is ready (for Playwright screenshot detection)
+    // Use setTimeout to ensure DOM is fully updated and any images start loading
+    setTimeout(() => {
+        overlay.setAttribute('data-overlay-ready', 'true');
+    }, 50);
 }
 
 function renderTextAnswersDisplay(container, answers, participants, answerType, visibleParticipantIds, controlAnswerVisible, correctAnswer) {
@@ -1074,11 +1178,18 @@ function renderImageClickAnswersDisplay(container, answers, participants, imageS
             const existingHighlights = imageWrapper.querySelectorAll('.click-highlight');
             existingHighlights.forEach(h => h.remove());
             
+            // Use natural image dimensions to calculate radius (10% of actual image size)
             const rect = img.getBoundingClientRect();
-            const imgWidth = rect.width;
-            const imgHeight = rect.height;
-            const minDim = Math.min(imgWidth, imgHeight);
-            const radiusPx = minDim * 0.1;
+            const naturalWidth = img.naturalWidth || img.width || rect.width;
+            const naturalHeight = img.naturalHeight || img.height || rect.height;
+            const naturalMinDim = Math.min(naturalWidth, naturalHeight);
+            const naturalRadius = naturalMinDim * 0.1; // 10% of actual image size
+            
+            // Scale radius based on current display size vs natural size
+            const displayWidth = rect.width;
+            const displayHeight = rect.height;
+            const scale = naturalWidth > 0 ? (displayWidth / naturalWidth) : 1; // Scale factor (same for height if aspect ratio maintained)
+            const radiusPx = naturalRadius * scale;
             
             const visibleParticipantIdsSet = new Set(visibleParticipantIds || []);
             const allParticipantIds = Object.keys(participants || {});
@@ -1111,12 +1222,12 @@ function renderImageClickAnswersDisplay(container, answers, participants, imageS
                 correctAnswer.x !== undefined && correctAnswer.y !== undefined) {
                 const controlHighlight = document.createElement('div');
                 controlHighlight.className = 'click-highlight control-answer-highlight';
-                const color = '#2196F3'; // Blue for control answer
+                const color = '#00FF00'; // Green reserved for correct answer only
                 
                 const leftPercent = correctAnswer.x;
                 const topPercent = correctAnswer.y;
                 
-                controlHighlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 4px solid ${color}; background: rgba(33, 150, 243, 0.3); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px ${color}; z-index: 10;`;
+                controlHighlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 4px solid ${color}; background: rgba(0, 255, 0, 0.3); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px ${color}; z-index: 10;`;
                 controlHighlight.title = `Correct Answer: (${leftPercent.toFixed(1)}%, ${topPercent.toFixed(1)}%)`;
                 imageWrapper.appendChild(controlHighlight);
             }
@@ -1173,9 +1284,9 @@ function renderImageClickAnswersDisplay(container, answers, participants, imageS
             const answerRow = document.createElement('div');
             answerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f5f5f5; border-radius: 8px; border-left: 4px solid ' + color + ';';
             
-            // Color dot
+            // Color dot - transparent middle with hard border
             const colorDot = document.createElement('div');
-            colorDot.style.cssText = `width: 30px; height: 30px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0;`;
+            colorDot.style.cssText = `width: 30px; height: 30px; border-radius: 50%; background: transparent; border: 3px solid ${color}; flex-shrink: 0;`;
             answerRow.appendChild(colorDot);
             
             // Name
@@ -1190,11 +1301,11 @@ function renderImageClickAnswersDisplay(container, answers, participants, imageS
         // Add control answer row if visible
         if (controlAnswerVisible && correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '') {
             const controlAnswerRow = document.createElement('div');
-            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f0f7ff; border-radius: 8px; border-left: 4px solid #2196F3;';
+            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #f0fff0; border-radius: 8px; border-left: 4px solid #00FF00;';
             
-            // Control answer indicator dot
+            // Control answer indicator dot - green with transparent middle and hard border
             const controlDot = document.createElement('div');
-            controlDot.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: #2196F3; border: 2px solid #2196F3; flex-shrink: 0;';
+            controlDot.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: transparent; border: 3px solid #00FF00; flex-shrink: 0;';
             controlAnswerRow.appendChild(controlDot);
             
             // Name

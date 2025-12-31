@@ -9,6 +9,112 @@
         Editor.PropertiesPanel = {};
     }
     
+    // Helper function to collect all colors used in the quiz
+    function getUsedColors(quiz) {
+        const colors = new Set();
+        
+        if (!quiz || !quiz.pages) return Array.from(colors);
+        
+        quiz.pages.forEach(page => {
+            if (!page.elements) return;
+            
+            Object.values(page.elements).forEach(element => {
+                // Collect fill colors
+                if (element.properties && element.properties.fill_color) {
+                    colors.add(element.properties.fill_color.toLowerCase());
+                }
+                // Collect border colors
+                if (element.properties && element.properties.border_color) {
+                    colors.add(element.properties.border_color.toLowerCase());
+                }
+                // Collect background colors
+                if (element.properties && element.properties.background_color) {
+                    colors.add(element.properties.background_color.toLowerCase());
+                }
+                // Collect text colors
+                if (element.properties && element.properties.text_color) {
+                    colors.add(element.properties.text_color.toLowerCase());
+                }
+            });
+            
+            // Also check view configs for background colors
+            if (page.views) {
+                Object.values(page.views).forEach(view => {
+                    if (view.view_config && view.view_config.background) {
+                        if (view.view_config.background.type === 'color' && view.view_config.background.config && view.view_config.background.config.colour) {
+                            colors.add(view.view_config.background.config.colour.toLowerCase());
+                        }
+                    }
+                });
+            }
+        });
+        
+        return Array.from(colors);
+    }
+    
+    // Helper function to render recently used colors
+    function renderRecentColors(container, colorInput, onColorSelect, context) {
+        const currentQuiz = context ? context.getCurrentQuiz() : (this.getCurrentQuiz ? this.getCurrentQuiz() : null);
+        if (!currentQuiz) return;
+        
+        const usedColors = getUsedColors(currentQuiz);
+        
+        if (usedColors.length === 0) return;
+        
+        const recentColorsContainer = document.createElement('div');
+        recentColorsContainer.style.cssText = 'margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee;';
+        
+        const recentLabel = document.createElement('div');
+        recentLabel.textContent = 'Recently Used';
+        recentLabel.style.cssText = 'font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;';
+        recentColorsContainer.appendChild(recentLabel);
+        
+        const colorsGrid = document.createElement('div');
+        colorsGrid.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
+        
+        // Show up to 12 most recent colors
+        const colorsToShow = usedColors.slice(0, 12);
+        
+        colorsToShow.forEach(color => {
+            const colorSquare = document.createElement('div');
+            colorSquare.style.cssText = `
+                width: 24px;
+                height: 24px;
+                background-color: ${color};
+                border: 1px solid #ddd;
+                border-radius: 3px;
+                cursor: pointer;
+                transition: transform 0.1s, box-shadow 0.1s;
+            `;
+            colorSquare.title = color;
+            
+            colorSquare.addEventListener('mouseenter', () => {
+                colorSquare.style.transform = 'scale(1.1)';
+                colorSquare.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            });
+            
+            colorSquare.addEventListener('mouseleave', () => {
+                colorSquare.style.transform = 'scale(1)';
+                colorSquare.style.boxShadow = 'none';
+            });
+            
+            colorSquare.addEventListener('click', () => {
+                colorInput.value = color;
+                if (onColorSelect) {
+                    onColorSelect(color);
+                } else {
+                    // Trigger the color input's onchange event
+                    colorInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            
+            colorsGrid.appendChild(colorSquare);
+        });
+        
+        recentColorsContainer.appendChild(colorsGrid);
+        container.appendChild(recentColorsContainer);
+    }
+    
     Editor.PropertiesPanel.renderGeneralProperties = function(container, selectedElement) {
         if (!selectedElement) {
             container.innerHTML = '<p>No element selected</p>';
@@ -143,7 +249,7 @@
         container.appendChild(sizeGroup);
         
         // Rotation (for shapes and some media)
-        if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'image', 'video'].includes(selectedElement.type)) {
+        if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus', 'image', 'video'].includes(selectedElement.type)) {
             const rotationGroup = document.createElement('div');
             rotationGroup.className = 'property-group';
             const rotationLabel = document.createElement('label');
@@ -170,7 +276,7 @@
         }
         
         // Fill and border properties for shapes
-        if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(selectedElement.type)) {
+        if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(selectedElement.type)) {
             // Fill color
             const fillColorGroup = document.createElement('div');
             fillColorGroup.className = 'property-group';
@@ -189,6 +295,15 @@
             };
             fillColorGroup.appendChild(fillColorLabel);
             fillColorGroup.appendChild(fillColorInput);
+            // Add recently used colors below fill color input
+            renderRecentColors(fillColorGroup, fillColorInput, (color) => {
+                selectedElement.fill_color = color;
+                if (self.updateElementPropertiesInQuiz) {
+                    self.updateElementPropertiesInQuiz(selectedElement);
+                }
+                self.updateElementDisplay();
+                self.autosaveQuiz();
+            }, self);
             container.appendChild(fillColorGroup);
             
             // Border color
@@ -209,6 +324,15 @@
             };
             borderColorGroup.appendChild(borderColorLabel);
             borderColorGroup.appendChild(borderColorInput);
+            // Add recently used colors below border color input
+            renderRecentColors(borderColorGroup, borderColorInput, (color) => {
+                selectedElement.border_color = color;
+                if (self.updateElementPropertiesInQuiz) {
+                    self.updateElementPropertiesInQuiz(selectedElement);
+                }
+                self.updateElementDisplay();
+                self.autosaveQuiz();
+            }, self);
             container.appendChild(borderColorGroup);
             
             // Border width
@@ -374,6 +498,19 @@
                 formatText('underline');
             };
             toolbar.appendChild(underlineBtn);
+            
+            // Strikethrough button
+            const strikethroughBtn = document.createElement('button');
+            strikethroughBtn.innerHTML = '<s>S</s>';
+            strikethroughBtn.title = 'Strikethrough';
+            strikethroughBtn.type = 'button';
+            strikethroughBtn.style.cssText = 'padding: 4px 8px; border: 1px solid #dee2e6; background: white; cursor: pointer; border-radius: 3px; font-size: 12px; text-decoration: line-through; min-width: 28px;';
+            strikethroughBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                formatText('strikeThrough');
+            };
+            toolbar.appendChild(strikethroughBtn);
             
             // Separator
             const separator1 = document.createElement('div');
@@ -912,13 +1049,15 @@
                     }
                 }
                 
-                // Check for bold, italic, underline in HTML
+                // Check for bold, italic, underline, strikethrough in HTML
                 const hasBold = content.includes('<strong>') || content.includes('<b>') || 
                                (content.includes('font-weight') && content.match(/font-weight:\s*(bold|700|800|900)/i));
                 const hasItalic = content.includes('<em>') || content.includes('<i>') || 
                                  content.includes('font-style:\s*italic');
                 const hasUnderline = content.includes('<u>') || 
                                     (content.includes('text-decoration') && content.includes('underline'));
+                const hasStrikethrough = content.includes('<s>') || content.includes('<strike>') || content.includes('<del>') ||
+                                        (content.includes('text-decoration') && content.includes('line-through'));
                 
                 // Update button states
                 if (boldBtn) {
@@ -948,6 +1087,16 @@
                     } else {
                         underlineBtn.style.background = 'white';
                         underlineBtn.style.color = '#333';
+                    }
+                }
+                
+                if (strikethroughBtn) {
+                    if (hasStrikethrough) {
+                        strikethroughBtn.style.background = '#2196F3';
+                        strikethroughBtn.style.color = 'white';
+                    } else {
+                        strikethroughBtn.style.background = 'white';
+                        strikethroughBtn.style.color = '#333';
                     }
                 }
             };
@@ -1197,6 +1346,18 @@
                     titleInput.dataset.interacting = 'true';
                 });
                 titleInput.addEventListener('blur', () => {
+                    // Save scroll position before any re-renders
+                    const panel = document.getElementById('properties-panel');
+                    if (panel && typeof setCookie === 'function') {
+                        const scrollableContainer = panel.querySelector('.properties-content') || panel;
+                        if (scrollableContainer && scrollableContainer.scrollTop !== undefined) {
+                            const quizId = typeof getQuizIdGlobal === 'function' ? getQuizIdGlobal() : '';
+                            const currentPageIndex = self.getCurrentPageIndex ? self.getCurrentPageIndex() : 0;
+                            const cookieName = `properties_panel_scroll_${quizId}_${currentPageIndex}`;
+                            setCookie(cookieName, scrollableContainer.scrollTop.toString(), 365);
+                        }
+                    }
+                    
                     titleInput.dataset.interacting = 'false';
                     // Update on blur - save immediately
                     saveQuestionTitle();
@@ -1240,7 +1401,15 @@
                     const optionEl = document.createElement('option');
                     optionEl.value = option.value;
                     optionEl.textContent = option.label;
-                    const currentType = (selectedElement.question_config && selectedElement.question_config.question_type) || 'text';
+                    // Check question_config first, then fallback to question_type/answer_type
+                    let currentType = (selectedElement.question_config && selectedElement.question_config.question_type) || 
+                                     selectedElement.question_type || 
+                                     selectedElement.answer_type || 
+                                     'text';
+                    // Normalize multiple_choice to radio (they're the same thing)
+                    if (currentType === 'multiple_choice') {
+                        currentType = 'radio';
+                    }
                     if (currentType === option.value) {
                         optionEl.selected = true;
                     }
@@ -1254,6 +1423,8 @@
                         selectedElement.question_config = {};
                     }
                     selectedElement.question_config.question_type = newType;
+                    // Also update answer_type for backwards compatibility
+                    selectedElement.answer_type = newType;
                     
                     // Set default options for radio/checkbox
                     if (newType === 'radio' || newType === 'checkbox') {
@@ -1267,6 +1438,11 @@
                         if (selectedElement.question_config) {
                             delete selectedElement.question_config.options;
                         }
+                    }
+                    
+                    // Save to quiz structure before autosave
+                    if (self.updateElementPropertiesInQuiz) {
+                        self.updateElementPropertiesInQuiz(selectedElement);
                     }
                     
                     // Child elements (answer_input, answer_display) inherit properties from parent
@@ -1297,7 +1473,11 @@
                     }
                     
                     const currentType = (selectedElement.question_config && selectedElement.question_config.question_type) || 'text';
-                    const currentCorrectAnswer = (selectedElement.question_config && selectedElement.question_config.question_correct_answer) || '';
+                    // Extract correct_answer: check question_config first, then direct property (for backwards compatibility)
+                    const currentCorrectAnswer = (selectedElement.question_config && selectedElement.question_config.question_correct_answer !== undefined) 
+                        ? selectedElement.question_config.question_correct_answer 
+                        : (selectedElement.question_correct_answer !== undefined ? selectedElement.question_correct_answer : 
+                           (selectedElement.correct_answer !== undefined ? selectedElement.correct_answer : ''));
                     
                     const inputContainer = document.createElement('div');
                     inputContainer.className = 'correct-answer-input-container';
@@ -1307,6 +1487,14 @@
                     const saveCorrectAnswer = (value) => {
                         if (!selectedElement.question_config) {
                             selectedElement.question_config = {};
+                        }
+                        // Preserve question_type when saving correct answer
+                        if (!selectedElement.question_config.question_type) {
+                            selectedElement.question_config.question_type = selectedElement.answer_type || 'text';
+                        }
+                        // Normalize multiple_choice to radio
+                        if (selectedElement.question_config.question_type === 'multiple_choice') {
+                            selectedElement.question_config.question_type = 'radio';
                         }
                         selectedElement.question_config.question_correct_answer = value;
                         selectedElement.question_correct_answer = value; // Backwards compatibility
@@ -1341,9 +1529,12 @@
                             textInput.dataset.interacting = 'true';
                         });
                         textInput.addEventListener('blur', () => {
-                            textInput.dataset.interacting = 'false';
+                            // Save immediately and synchronously before allowing re-render
+                            // This ensures the value is saved even if the panel re-renders
                             saveCorrectAnswer(textInput.value);
                             self.autosaveQuiz();
+                            // Set interacting to false after save completes
+                            textInput.dataset.interacting = 'false';
                         });
                         textInput.addEventListener('input', () => {
                             debouncedSave();
@@ -1532,6 +1723,11 @@
                             selectedElement.question_config = {};
                         }
                         selectedElement.question_config.options = selectedElement.options;
+                        
+                        // Save to quiz structure before autosave
+                        if (self.updateElementPropertiesInQuiz) {
+                            self.updateElementPropertiesInQuiz(selectedElement);
+                        }
                         
                         // Re-render correct answer input to update options
                         renderCorrectAnswerInput();

@@ -160,11 +160,18 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 const existingHighlights = imageWrapper.querySelectorAll('.click-highlight');
                 existingHighlights.forEach(h => h.remove());
                 
+                // Use natural image dimensions to calculate radius (10% of actual image size)
                 const rect = img.getBoundingClientRect();
-                const imgWidth = rect.width;
-                const imgHeight = rect.height;
-                const minDim = Math.min(imgWidth, imgHeight);
-                const radiusPx = minDim * 0.1;
+                const naturalWidth = img.naturalWidth || img.width || rect.width;
+                const naturalHeight = img.naturalHeight || img.height || rect.height;
+                const naturalMinDim = Math.min(naturalWidth, naturalHeight);
+                const naturalRadius = naturalMinDim * 0.1; // 10% of actual image size
+                
+                // Scale radius based on current display size vs natural size
+                const displayWidth = rect.width;
+                const displayHeight = rect.height;
+                const scale = naturalWidth > 0 ? (displayWidth / naturalWidth) : 1; // Scale factor (same for height if aspect ratio maintained)
+                const radiusPx = naturalRadius * scale;
                 
                 const allParticipantIds = Object.keys(participants || {});
                 const participantIndexMap = {};
@@ -203,12 +210,12 @@ QuestionTypes.ImageClick.ControlView = (function() {
                     correctAnswer.x !== undefined && correctAnswer.y !== undefined) {
                     const controlHighlight = document.createElement('div');
                     controlHighlight.className = 'click-highlight control-answer-highlight';
-                    const color = '#2196F3'; // Blue for control answer
+                    const color = '#00FF00'; // Green reserved for correct answer only
                     
                     const leftPercent = correctAnswer.x;
                     const topPercent = correctAnswer.y;
                     
-                    controlHighlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 4px solid ${color}; background: rgba(33, 150, 243, 0.3); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px ${color}; z-index: 10;`;
+                    controlHighlight.style.cssText = `position: absolute; width: ${radiusPx * 2}px; height: ${radiusPx * 2}px; border-radius: 50%; border: 4px solid ${color}; background: rgba(0, 255, 0, 0.3); left: ${leftPercent}%; top: ${topPercent}%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 12px ${color}; z-index: 10;`;
                     controlHighlight.title = `Correct Answer: (${leftPercent.toFixed(1)}%, ${topPercent.toFixed(1)}%)`;
                     imageWrapper.appendChild(controlHighlight);
                 }
@@ -270,9 +277,9 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 legendRow.id = `answer-${participantId}-${questionId}`;
                 legendRow.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; background: #f5f5f5; border-radius: 4px; flex-wrap: nowrap;';
                 
-                // Color dot on left
+                // Color dot on left - transparent middle with hard border
                 const colorDot = document.createElement('div');
-                colorDot.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${color}; border: 2px solid ${color}; flex-shrink: 0; box-shadow: 0 0 4px ${color}80;`;
+                colorDot.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: transparent; border: 3px solid ${color}; flex-shrink: 0;`;
                 legendRow.appendChild(colorDot);
                 
                 // Name
@@ -410,28 +417,28 @@ QuestionTypes.ImageClick.ControlView = (function() {
             });
         }
         
-        // Add control answer row at the bottom (if correct_answer exists)
+            // Add control answer row at the bottom (if correct_answer exists)
         if (correctAnswer !== null && correctAnswer !== undefined && correctAnswer !== '') {
             const controlAnswerRow = document.createElement('div');
             controlAnswerRow.className = 'answer-row control-answer-row';
             controlAnswerRow.id = `control-answer-${questionId}`;
-            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; background: #e8f5e9; border-radius: 4px; border: 2px solid #4CAF50; margin-top: 0.5rem; flex-wrap: nowrap;';
+            controlAnswerRow.style.cssText = 'display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem; background: #e8f5e9; border-radius: 4px; border: 2px solid #00FF00; margin-top: 0.5rem; flex-wrap: nowrap;';
             
-            // Control answer indicator dot (similar to color dot)
+            // Control answer indicator dot - green with transparent middle and hard border
             const controlDot = document.createElement('div');
-            controlDot.style.cssText = 'width: 20px; height: 20px; border-radius: 50%; background: #4CAF50; border: 2px solid #4CAF50; flex-shrink: 0; box-shadow: 0 0 4px #4CAF5080;';
+            controlDot.style.cssText = 'width: 20px; height: 20px; border-radius: 50%; background: transparent; border: 3px solid #00FF00; flex-shrink: 0;';
             controlAnswerRow.appendChild(controlDot);
             
             // Label
             const controlLabel = document.createElement('div');
             controlLabel.textContent = 'Correct';
-            controlLabel.style.cssText = 'font-weight: 600; font-size: 0.85rem; color: #2e7d32; flex-shrink: 0;';
+            controlLabel.style.cssText = 'font-weight: 600; font-size: 0.85rem; color: #008000; flex-shrink: 0;';
             controlAnswerRow.appendChild(controlLabel);
             
             // Answer label
             const answerLabel = document.createElement('div');
             answerLabel.textContent = 'Answer:';
-            answerLabel.style.cssText = 'font-weight: 500; font-size: 0.85rem; color: #2e7d32; flex-shrink: 0;';
+            answerLabel.style.cssText = 'font-weight: 500; font-size: 0.85rem; color: #008000; flex-shrink: 0;';
             controlAnswerRow.appendChild(answerLabel);
             
             // Answer display (for image_click, show coordinates if object, otherwise show as string)
@@ -464,7 +471,7 @@ QuestionTypes.ImageClick.ControlView = (function() {
                 }
             }
             controlAnswerText.textContent = answerDisplay;
-            controlAnswerText.style.cssText = 'font-size: 0.85rem; color: #2e7d32; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.3rem; border: 1px solid #4CAF50; border-radius: 3px; background: white;';
+            controlAnswerText.style.cssText = 'font-size: 0.85rem; color: #008000; font-weight: 500; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.3rem; border: 1px solid #00FF00; border-radius: 3px; background: white;';
             controlAnswerRow.appendChild(controlAnswerText);
             
             // Show toggle (eye icon)

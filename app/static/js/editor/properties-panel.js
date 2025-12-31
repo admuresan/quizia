@@ -48,6 +48,19 @@
                 return;
             }
             
+            // Save scroll position before clearing panel
+            const scrollableContainer = panel.querySelector('.properties-content') || panel;
+            let savedScrollTop = 0;
+            if (scrollableContainer && scrollableContainer.scrollTop !== undefined) {
+                savedScrollTop = scrollableContainer.scrollTop;
+                // Save to cookie
+                if (typeof setCookie === 'function') {
+                    const quizId = typeof getQuizIdGlobal === 'function' ? getQuizIdGlobal() : '';
+                    const cookieName = `properties_panel_scroll_${quizId}_${this.getCurrentPageIndex ? this.getCurrentPageIndex() : 0}`;
+                    setCookie(cookieName, savedScrollTop.toString(), 365);
+                }
+            }
+            
             panel.innerHTML = '';
 
             // Create tabs container
@@ -105,6 +118,52 @@
             }
             
             panel.appendChild(contentContainer);
+            
+            // Restore scroll position after rendering
+            if (savedScrollTop > 0 || typeof getCookie === 'function') {
+                // Use requestAnimationFrame to ensure DOM is fully rendered
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const newScrollableContainer = panel.querySelector('.properties-content') || panel;
+                        if (newScrollableContainer) {
+                            let scrollToRestore = savedScrollTop;
+                            
+                            // If we have a cookie, prefer that (it might be more recent)
+                            if (typeof getCookie === 'function') {
+                                const quizId = typeof getQuizIdGlobal === 'function' ? getQuizIdGlobal() : '';
+                                const cookieName = `properties_panel_scroll_${quizId}_${this.getCurrentPageIndex ? this.getCurrentPageIndex() : 0}`;
+                                const savedScroll = getCookie(cookieName);
+                                if (savedScroll !== null && savedScroll !== undefined) {
+                                    const scrollValue = parseInt(savedScroll, 10);
+                                    if (!isNaN(scrollValue) && scrollValue >= 0) {
+                                        scrollToRestore = scrollValue;
+                                    }
+                                }
+                            }
+                            
+                            newScrollableContainer.scrollTop = scrollToRestore;
+                            
+                            // Add scroll event listener to continuously save scroll position
+                            if (typeof setCookie === 'function') {
+                                let scrollSaveTimeout = null;
+                                const self = this;
+                                newScrollableContainer.addEventListener('scroll', () => {
+                                    // Debounce scroll saves
+                                    if (scrollSaveTimeout) {
+                                        clearTimeout(scrollSaveTimeout);
+                                    }
+                                    scrollSaveTimeout = setTimeout(() => {
+                                        const quizId = typeof getQuizIdGlobal === 'function' ? getQuizIdGlobal() : '';
+                                        const cookieName = `properties_panel_scroll_${quizId}_${self.getCurrentPageIndex ? self.getCurrentPageIndex() : 0}`;
+                                        setCookie(cookieName, newScrollableContainer.scrollTop.toString(), 365);
+                                        scrollSaveTimeout = null;
+                                    }, 200);
+                                });
+                            }
+                        }
+                    });
+                });
+            }
         },
         
         getDragAfterElement: function(container, y) {

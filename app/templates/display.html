@@ -6,7 +6,11 @@
 
 {% block content %}
 <div id="display-container">
-    <div id="display-content"></div>
+    <div id="display-content">
+        <div id="initial-loading" style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; font-size: 2rem;">
+            Loading quiz...
+        </div>
+    </div>
     <div id="room-code-display">{{ room_code }}</div>
 </div>
 {% endblock %}

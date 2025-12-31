@@ -2,6 +2,7 @@
 Media storage utilities.
 """
 import json
+import re
 from pathlib import Path
 from flask import current_app
 import os
@@ -46,14 +47,64 @@ def save_media_file(filename, file_content, username, public=False):
         uploads_folder = get_uploads_folder()
         uploads_folder.mkdir(exist_ok=True)
         
-        # Sanitize filename
+        # Sanitize filename for storage
         safe_name = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_', '.')).strip()
         safe_name = safe_name.replace(' ', '_')
         
         if not safe_name:
             return {'success': False, 'error': 'Invalid filename'}
         
-        # Ensure unique filename
+        # Check if a file with the same original_name already exists for this creator
+        metadata = _load_media_metadata()
+        original_name = filename
+        duplicate_counter = None
+        
+        # Find all files with the same original_name created by this user
+        for existing_file, existing_meta in metadata.items():
+            if (existing_meta.get('creator') == username and 
+                existing_meta.get('original_name') == original_name):
+                # Found a duplicate - we'll need to number this one
+                duplicate_counter = 1
+                break
+        
+        # If we found a duplicate, find the highest number used
+        if duplicate_counter is not None:
+            # Extract base name and extension
+            name_parts = original_name.rsplit('.', 1)
+            if len(name_parts) == 2:
+                base_name, ext = name_parts[0], name_parts[1]
+            else:
+                base_name, ext = original_name, ''
+            
+            # Find all numbered versions
+            max_num = 0
+            for existing_file, existing_meta in metadata.items():
+                if existing_meta.get('creator') == username:
+                    existing_original = existing_meta.get('original_name', '')
+                    # Check if it matches the pattern "base_name (N).ext"
+                    pattern = re.escape(base_name) + r'\s*\((\d+)\)'
+                    if ext:
+                        pattern += r'\.' + re.escape(ext)
+                    else:
+                        pattern += r'$'
+                    match = re.match(pattern, existing_original)
+                    if match:
+                        num = int(match.group(1))
+                        max_num = max(max_num, num)
+                    # Also check if it's the exact original name (no number)
+                    elif existing_original == original_name:
+                        max_num = max(max_num, 0)
+            
+            # Set the duplicate counter to max_num + 1
+            duplicate_counter = max_num + 1
+            
+            # Update original_name to include the number
+            if ext:
+                original_name = f"{base_name} ({duplicate_counter}).{ext}"
+            else:
+                original_name = f"{base_name} ({duplicate_counter})"
+        
+        # Ensure unique stored filename (for filesystem)
         file_path = uploads_folder / safe_name
         counter = 1
         while file_path.exists():
@@ -69,10 +120,9 @@ def save_media_file(filename, file_content, username, public=False):
         with open(file_path, 'wb') as f:
             f.write(file_content)
         
-        # Update metadata
-        metadata = _load_media_metadata()
+        # Update metadata with the potentially renamed original_name
         metadata[safe_name] = {
-            'original_name': filename,
+            'original_name': original_name,
             'creator': username,
             'public': public,
             'size': os.path.getsize(file_path)
@@ -111,7 +161,7 @@ def delete_media_file(filename, username):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-def list_media_files(username=None):
+def list_media_files(username=None, include_reference_count=False):
     """List media files. If username provided, returns files created by user or public files."""
     try:
         uploads_folder = get_uploads_folder()
@@ -129,22 +179,28 @@ def list_media_files(username=None):
                 # If username provided, filter by creator or public status
                 if username:
                     if file_creator == username or is_public:
-                        files.append({
+                        file_info = {
                             'filename': file_path.name,
                             'original_name': file_meta.get('original_name', file_path.name),
                             'creator': file_creator,
                             'public': is_public,
                             'size': file_meta.get('size', file_path.stat().st_size)
-                        })
+                        }
+                        if include_reference_count:
+                            file_info['reference_count'] = count_media_references(file_path.name)
+                        files.append(file_info)
                 else:
                     # No filtering, return all
-                    files.append({
+                    file_info = {
                         'filename': file_path.name,
                         'original_name': file_meta.get('original_name', file_path.name),
                         'creator': file_creator,
                         'public': is_public,
                         'size': file_meta.get('size', file_path.stat().st_size)
-                    })
+                    }
+                    if include_reference_count:
+                        file_info['reference_count'] = count_media_references(file_path.name)
+                    files.append(file_info)
         
         return files
     except Exception as e:
@@ -175,6 +231,36 @@ def toggle_media_public(filename, username):
         return {'success': True, 'public': file_meta['public']}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+def count_media_references(filename):
+    """Count how many quizzes reference a media file."""
+    try:
+        from app.utils.quiz_storage import get_quizes_folder, load_quiz
+        from app.utils.migration import extract_media_references
+        
+        quizes_folder = get_quizes_folder()
+        if not quizes_folder.exists():
+            return 0
+        
+        count = 0
+        for quiz_file in quizes_folder.glob('*.json'):
+            try:
+                quiz_data = load_quiz(quiz_file.stem)
+                if not quiz_data:
+                    continue
+                
+                # Extract all media references from this quiz
+                media_refs = extract_media_references(quiz_data)
+                
+                # Check if this filename is referenced
+                if filename in media_refs:
+                    count += 1
+            except:
+                continue
+        
+        return count
+    except Exception as e:
+        return 0
 
 
 

@@ -154,20 +154,19 @@
                 // Initialize toggle state based on actual element visibility
                 let initialVisible = false;
                 if (isRuntime) {
-                    // In runtime, check element's appearance_mode and appearance_visible
-                    const appearanceMode = displayElement.appearance_mode || 'on_load';
-                    
-                    // If appearance_mode is 'control', element should be hidden (toggle OFF)
-                    if (appearanceMode === 'control') {
-                        initialVisible = false;
+                    // In runtime, CONTROL IS THE SOURCE OF TRUTH
+                    // Always check appearance_visible from room data first (what control has set)
+                    // Only fall back to appearance_mode defaults if appearance_visible is not set
+                    if (displayElement.appearance_visible !== undefined) {
+                        // Use the visibility state from room data (what control has set)
+                        initialVisible = displayElement.appearance_visible !== false;
                     } else {
-                        // For other modes, check appearance_visible property
-                        // If appearance_visible is explicitly set, use that
-                        // Otherwise, assume visible for on_load, hidden for others (they'll appear via timers)
-                        if (displayElement.appearance_visible !== undefined) {
-                            initialVisible = displayElement.appearance_visible !== false;
+                        // Fall back to appearance_mode defaults (for new elements or first load)
+                        const appearanceMode = displayElement.appearance_mode || 'on_load';
+                        if (appearanceMode === 'control') {
+                            initialVisible = false; // Control mode starts hidden
                         } else {
-                            initialVisible = (appearanceMode === 'on_load');
+                            initialVisible = (appearanceMode === 'on_load'); // on_load starts visible, others hidden
                         }
                     }
                 } else {

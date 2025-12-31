@@ -78,9 +78,41 @@
         },
         
         updateScreenSizeControls: function(currentView) {
-            const settings = this.getCurrentViewSettings();
+            // Safety check: ensure DOM is ready
+            if (typeof document === 'undefined' || !document.getElementById) {
+                return;
+            }
+            
+            // Safety check: ensure callbacks are initialized
+            if (!this.getCurrentViewSettings || typeof this.getCurrentViewSettings !== 'function') {
+                console.warn('CanvasSizeControls: getCurrentViewSettings not initialized');
+                return;
+            }
+            
+            let settings;
+            try {
+                settings = this.getCurrentViewSettings();
+            } catch (error) {
+                console.error('Error getting view settings:', error);
+                return;
+            }
+            
+            if (!settings) {
+                console.warn('CanvasSizeControls: getCurrentViewSettings returned null/undefined');
+                return;
+            }
+            
             const width = settings.canvas_width || 1920;
             const height = settings.canvas_height || 1080;
+            
+            // Chrome-specific: Check if properties panel exists and has been rendered
+            // The properties panel creates the elements we're trying to access
+            const propertiesPanel = document.getElementById('properties-panel');
+            if (!propertiesPanel) {
+                // Properties panel not rendered yet, skip updating controls
+                // They will be updated when the panel renders
+                return;
+            }
             
             // Update view indicators
             const viewNames = {
@@ -108,13 +140,30 @@
             }
             
             // Update preset buttons (both sidebar and properties pane)
-            document.querySelectorAll('.preset-btn').forEach(btn => {
-                btn.classList.remove('active');
-                // Update button styles
-                if (btn.id && btn.id.startsWith('props-preset-')) {
-                    const presetId = btn.id.replace('props-preset-', '');
-                    btn.style.background = presetId === activePreset ? '#2196F3' : '#f5f5f5';
-                    btn.style.color = presetId === activePreset ? 'white' : '#333';
+            // Chrome-specific: Use try-catch for querySelectorAll as it may fail if DOM is not ready
+            let presetButtons = [];
+            try {
+                presetButtons = Array.from(document.querySelectorAll('.preset-btn'));
+            } catch (error) {
+                // DOM not ready yet, skip button updates
+                console.warn('Could not query preset buttons:', error);
+            }
+            
+            presetButtons.forEach(btn => {
+                if (!btn) return; // Safety check
+                try {
+                    btn.classList.remove('active');
+                    // Update button styles
+                    if (btn.id && btn.id.startsWith('props-preset-')) {
+                        const presetId = btn.id.replace('props-preset-', '');
+                        if (btn.style) {
+                            btn.style.background = presetId === activePreset ? '#2196F3' : '#f5f5f5';
+                            btn.style.color = presetId === activePreset ? 'white' : '#333';
+                        }
+                    }
+                } catch (error) {
+                    // Button might not be fully initialized, skip it
+                    console.warn('Error updating preset button:', error);
                 }
             });
             const activeBtn = document.getElementById(`preset-${activePreset}`);
@@ -122,14 +171,14 @@
                 activeBtn.classList.add('active');
             }
             const propsActiveBtn = document.getElementById(`props-preset-${activePreset}`);
-            if (propsActiveBtn) {
+            if (propsActiveBtn && propsActiveBtn.style) {
                 propsActiveBtn.style.background = '#2196F3';
                 propsActiveBtn.style.color = 'white';
             }
             
             // Show/hide custom inputs (both sidebar and properties pane)
             const customInputs = document.getElementById('custom-size-inputs');
-            if (customInputs) {
+            if (customInputs && customInputs.style) {
                 if (activePreset === 'custom') {
                     customInputs.style.display = 'block';
                     const widthInput = document.getElementById('canvas-width');
@@ -142,7 +191,7 @@
             }
             
             const propsCustomInputs = document.getElementById('props-custom-size-inputs');
-            if (propsCustomInputs) {
+            if (propsCustomInputs && propsCustomInputs.style) {
                 if (activePreset === 'custom') {
                     propsCustomInputs.style.display = 'block';
                     const propsWidthInput = document.getElementById('props-canvas-width');

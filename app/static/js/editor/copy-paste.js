@@ -8,34 +8,63 @@
     
     Editor.CopyPaste = {
         copiedElement: null,
+        lastCopiedType: null, // 'element' or 'image'
+        lastCopiedTimestamp: 0, // Timestamp of last copy operation
+        clipboardImageDetectedAt: 0, // Timestamp when we last detected an image in clipboard
         
         /**
          * Copy an element (deep clone with new ID)
          */
         copyElement: function(element, getCurrentQuiz, getCurrentPageIndex) {
-            if (!element) return false;
+            if (!element) {
+                console.warn('[CopyPaste] copyElement called with no element');
+                return false;
+            }
             
             const currentQuiz = getCurrentQuiz();
             const currentPageIndex = getCurrentPageIndex();
             const page = currentQuiz.pages[currentPageIndex];
             
-            if (!page || !page.elements || !page.elements[element.id]) {
+            if (!page || !page.elements) {
+                console.warn('[CopyPaste] Page or page.elements not found', { page: !!page, hasElements: !!(page && page.elements) });
                 return false;
             }
             
-            // Deep clone the element
+            if (!page.elements[element.id]) {
+                console.warn('[CopyPaste] Element not found in page.elements', {
+                    elementId: element.id,
+                    elementType: element.type,
+                    availableElementIds: Object.keys(page.elements)
+                });
+                return false;
+            }
+            
+            // Deep clone the element data (only from page.elements, not view configs)
             const elementData = page.elements[element.id];
             this.copiedElement = JSON.parse(JSON.stringify(elementData));
             
-            // Also copy view-specific configs
-            if (page.views) {
-                this.copiedViewConfigs = {};
-                ['display', 'participant', 'control'].forEach(viewName => {
-                    const view = page.views[viewName];
-                    if (view && view.local_element_configs && view.local_element_configs[element.id]) {
-                        this.copiedViewConfigs[viewName] = JSON.parse(JSON.stringify(view.local_element_configs[element.id]));
-                    }
-                });
+            // Track that an element was copied
+            this.lastCopiedType = 'element';
+            this.lastCopiedTimestamp = Date.now();
+            
+            console.log('[CopyPaste] Element copied successfully', {
+                id: element.id,
+                type: elementData.type,
+                timestamp: this.lastCopiedTimestamp
+            });
+            
+            // Only store display view config for width/height reference
+            // We don't copy other view configs - they will be generated fresh
+            this.copiedDisplayConfig = null;
+            if (page.views && page.views.display && page.views.display.local_element_configs) {
+                const displayConfig = page.views.display.local_element_configs[element.id];
+                if (displayConfig && displayConfig.config) {
+                    this.copiedDisplayConfig = {
+                        width: displayConfig.config.width,
+                        height: displayConfig.config.height,
+                        rotation: displayConfig.config.rotation
+                    };
+                }
             }
             
             return true;
@@ -69,7 +98,7 @@
                 view: 'display',
                 x: x,
                 y: y,
-                is_question: copiedElementData.is_question || false,
+                is_question: false, // Always set to false when pasting, even if original was a question
                 visible: true,
                 rotation: 0
             };
@@ -82,13 +111,15 @@
             // Copy all properties from elementData.properties to top level
             // This includes: fill_color, border_color, border_width, content, font_size, 
             // text_color, background_color, media_url, file_name, media_type, etc.
+            // Exclude timer_trigger and timer_delay from properties to prevent overwriting appearance_config values
             if (copiedElementData.properties) {
-                Object.keys(copiedElementData.properties).forEach(key => {
-                    newElement[key] = copiedElementData.properties[key];
+                const { timer_trigger: propsTimerTrigger, timer_delay: propsTimerDelay, ...otherProperties } = copiedElementData.properties;
+                Object.keys(otherProperties).forEach(key => {
+                    newElement[key] = otherProperties[key];
                 });
             }
             
-            // Copy appearance config properties
+            // Copy appearance config properties (this is the source of truth for visibility rules)
             if (copiedElementData.appearance_config) {
                 const appearanceConfig = copiedElementData.appearance_config;
                 newElement.appearance_type = appearanceConfig.appearance_type || 'on_load';
@@ -101,7 +132,8 @@
                         newElement.appearance_name = appearanceConfig.config.name;
                     }
                 }
-                // Copy timer-specific properties
+                // Copy timer-specific properties from appearance_config (source of truth)
+                // Only use appearance_config values, never properties values
                 if (appearanceConfig.timer_trigger !== undefined) {
                     newElement.timer_trigger = appearanceConfig.timer_trigger;
                 }
@@ -110,113 +142,38 @@
                 }
             }
             
-            // Copy question config properties
-            if (copiedElementData.question_config && newElement.is_question) {
-                const questionConfig = copiedElementData.question_config;
-                newElement.question_type = questionConfig.question_type || 'text';
-                newElement.answer_type = questionConfig.question_type || 'text'; // For compatibility
-                newElement.question_title = questionConfig.question_title || '';
-                newElement.question_correct_answer = questionConfig.question_correct_answer || '';
-                if (questionConfig.options) {
-                    newElement.options = JSON.parse(JSON.stringify(questionConfig.options));
-                }
-            }
+            // Don't copy question config properties - pasted elements are never questions
             
-            // Get width/height from copied view configs (display view) or use defaults
+            // Get width/height from copied display config or use defaults
             let defaultWidth = 200;
             let defaultHeight = 100;
-            if (this.copiedViewConfigs && this.copiedViewConfigs.display && this.copiedViewConfigs.display.config) {
-                defaultWidth = this.copiedViewConfigs.display.config.width || 200;
-                defaultHeight = this.copiedViewConfigs.display.config.height || 100;
+            if (this.copiedDisplayConfig) {
+                defaultWidth = this.copiedDisplayConfig.width || 200;
+                defaultHeight = this.copiedDisplayConfig.height || 100;
             }
             newElement.width = defaultWidth;
             newElement.height = defaultHeight;
+            if (this.copiedDisplayConfig && this.copiedDisplayConfig.rotation !== undefined) {
+                newElement.rotation = this.copiedDisplayConfig.rotation || 0;
+            }
             
             // Use QuizStructure helper to add element
+            // setPageElement will automatically create the display view config
+            // For media elements, control elements will need to be created separately if needed
             let updatedPage = null;
             if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
                 updatedPage = Editor.QuizStructure.setPageElement(page, newElement);
                 currentQuiz.pages[currentPageIndex] = updatedPage;
                 
-                // Copy view-specific configs if they exist
-                if (this.copiedViewConfigs && updatedPage.views) {
-                    ['display', 'participant', 'control'].forEach(viewName => {
-                        const view = updatedPage.views[viewName];
-                        if (view && view.local_element_configs) {
-                            if (this.copiedViewConfigs[viewName]) {
-                                // Deep clone the config and update position
-                                const config = JSON.parse(JSON.stringify(this.copiedViewConfigs[viewName]));
-                                
-                                // Update position in config based on view
-                                if (viewName === 'display') {
-                                    if (config.config) {
-                                        config.config.x = x;
-                                        config.config.y = y;
-                                        // Preserve width and height from original
-                                        if (this.copiedViewConfigs[viewName].config) {
-                                            config.config.width = this.copiedViewConfigs[viewName].config.width || defaultWidth;
-                                            config.config.height = this.copiedViewConfigs[viewName].config.height || defaultHeight;
-                                            config.config.rotation = this.copiedViewConfigs[viewName].config.rotation || 0;
-                                        }
-                                    }
-                                } else if (viewName === 'control') {
-                                    if (config.config) {
-                                        config.config.x = x;
-                                        config.config.y = y;
-                                        // Preserve width, height, and rotation from original
-                                        if (this.copiedViewConfigs[viewName].config) {
-                                            config.config.width = this.copiedViewConfigs[viewName].config.width || defaultWidth;
-                                            config.config.height = this.copiedViewConfigs[viewName].config.height || defaultHeight;
-                                            config.config.rotation = this.copiedViewConfigs[viewName].config.rotation || 0;
-                                        }
-                                    }
-                                    // Also update control_config if it exists (for audio/video elements)
-                                    if (config.control_config) {
-                                        config.control_config.x = x;
-                                        config.control_config.y = y;
-                                        if (this.copiedViewConfigs[viewName].control_config) {
-                                            config.control_config.width = this.copiedViewConfigs[viewName].control_config.width;
-                                            config.control_config.height = this.copiedViewConfigs[viewName].control_config.height;
-                                            config.control_config.rotation = this.copiedViewConfigs[viewName].control_config.rotation || 0;
-                                        }
-                                    }
-                                    // Update answer_display_config if it exists (for questions)
-                                    if (config.answer_display_config) {
-                                        config.answer_display_config.x = x;
-                                        config.answer_display_config.y = y;
-                                        if (this.copiedViewConfigs[viewName].answer_display_config) {
-                                            config.answer_display_config.width = this.copiedViewConfigs[viewName].answer_display_config.width;
-                                            config.answer_display_config.height = this.copiedViewConfigs[viewName].answer_display_config.height;
-                                            config.answer_display_config.rotation = this.copiedViewConfigs[viewName].answer_display_config.rotation || 0;
-                                        }
-                                    }
-                                } else if (viewName === 'participant') {
-                                    if (config.config) {
-                                        config.config.x = x;
-                                        config.config.y = y;
-                                        // Preserve width, height, and rotation from original
-                                        if (this.copiedViewConfigs[viewName].config) {
-                                            config.config.width = this.copiedViewConfigs[viewName].config.width || defaultWidth;
-                                            config.config.height = this.copiedViewConfigs[viewName].config.height || defaultHeight;
-                                            config.config.rotation = this.copiedViewConfigs[viewName].config.rotation || 0;
-                                        }
-                                    }
-                                    // Update answer_input_config if it exists (for questions)
-                                    if (config.answer_input_config) {
-                                        config.answer_input_config.x = x;
-                                        config.answer_input_config.y = y;
-                                        if (this.copiedViewConfigs[viewName].answer_input_config) {
-                                            config.answer_input_config.width = this.copiedViewConfigs[viewName].answer_input_config.width;
-                                            config.answer_input_config.height = this.copiedViewConfigs[viewName].answer_input_config.height;
-                                            config.answer_input_config.rotation = this.copiedViewConfigs[viewName].answer_input_config.rotation || 0;
-                                        }
-                                    }
-                                }
-                                
-                                view.local_element_configs[newElement.id] = config;
-                            }
-                        }
-                    });
+                // For media elements (audio/video), create control element if needed
+                // This mimics what ElementCreator does when creating new media elements
+                if ((newElement.type === 'audio' || newElement.type === 'video') && 
+                    Editor.ElementCreator && Editor.ElementCreator.createMediaControlElement) {
+                    const controlElement = Editor.ElementCreator.createMediaControlElement(newElement, updatedPage);
+                    if (controlElement) {
+                        updatedPage = Editor.QuizStructure.setPageElement(updatedPage, controlElement);
+                        currentQuiz.pages[currentPageIndex] = updatedPage;
+                    }
                 }
             } else {
                 console.error('[CopyPaste] QuizStructure.setPageElement not available');

@@ -57,7 +57,7 @@
             
             if (el) {
                 el.classList.add('selected');
-                if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(element.type)) {
+                if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                     Editor.InteractionHandlers.addRotateHandle(el, element);
                 } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {
@@ -185,7 +185,7 @@
             
             if (el) {
                 el.classList.add('selected');
-                if (['rectangle', 'circle', 'triangle', 'arrow', 'line'].includes(element.type)) {
+                if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                     Editor.InteractionHandlers.addRotateHandle(el, element);
                 } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {

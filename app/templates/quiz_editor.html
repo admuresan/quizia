@@ -16,22 +16,41 @@
     </div>
     <div class="editor-main">
         <div class="editor-sidebar">
-            <div id="sidebar-zoom-controls"></div>
-            <h3>Elements</h3>
-            <div class="element-list">
-                <div class="element-item" data-type="media">Media</div>
-                <div class="element-item" data-type="richtext">Rich Text</div>
-                <div class="element-item" data-type="rectangle">Rectangle</div>
-                <div class="element-item" data-type="circle">Circle</div>
-                <div class="element-item" data-type="triangle">Triangle</div>
-                <div class="element-item" data-type="arrow">Arrow</div>
-                <div class="element-item" data-type="line">Line</div>
+            <div class="sidebar-header">
+                <div id="sidebar-zoom-controls"></div>
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab active" data-tab="elements">Elements</button>
+                    <button class="sidebar-tab" data-tab="pages">Pages</button>
+                </div>
             </div>
-            <h3>Pages</h3>
-            <div id="pages-list"></div>
-            <button id="add-page-btn" class="btn btn-small">Add Page</button>
-            <button id="add-status-page-btn" class="btn btn-small">Add Status Page</button>
-            <button id="add-results-page-btn" class="btn btn-small">Add Results Page</button>
+            <div class="sidebar-content">
+                <div class="sidebar-tab-content active" id="sidebar-tab-elements">
+                    <div class="element-list">
+                        <div class="element-item" data-type="media">Media</div>
+                        <div class="element-item" data-type="richtext">Rich Text</div>
+                        <div class="shapes-category">
+                            <div class="shapes-header" id="shapes-header">
+                                <span>Shapes</span>
+                                <span class="shapes-arrow">▼</span>
+                            </div>
+                            <div class="shapes-menu" id="shapes-menu" style="display: none;">
+                                <div class="shape-item" data-type="rectangle">Rectangle</div>
+                                <div class="shape-item" data-type="circle">Circle</div>
+                                <div class="shape-item" data-type="arrow">Arrow</div>
+                                <div class="shape-item" data-type="line">Line</div>
+                                <div class="shape-item" data-type="triangle">Triangle</div>
+                                <div class="shape-item" data-type="plus">Plus</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sidebar-tab-content" id="sidebar-tab-pages">
+                    <div id="pages-list"></div>
+                    <button id="add-page-btn" class="btn btn-small">Add Page</button>
+                    <button id="add-status-page-btn" class="btn btn-small">Add Status Page</button>
+                    <button id="add-results-page-btn" class="btn btn-small">Add Results Page</button>
+                </div>
+            </div>
         </div>
         <div class="editor-canvas-container">
             <div class="canvas-tabs">
@@ -73,6 +92,9 @@
             <button class="modal-tab active" data-tab="images">Images</button>
             <button class="modal-tab" data-tab="audio">Audio</button>
             <button class="modal-tab" data-tab="video">Video</button>
+        </div>
+        <div class="modal-search" style="padding: 1rem; border-bottom: 1px solid #ddd;">
+            <input type="text" id="media-search-input" placeholder="Search media files..." style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;">
         </div>
         <div class="modal-body">
             <div id="media-tab-images" class="modal-tab-content active">

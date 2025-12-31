@@ -6,6 +6,10 @@ from flask import Flask
 from flask_socketio import SocketIO
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 socketio = SocketIO(cors_allowed_origins="*")
 
@@ -26,11 +30,24 @@ def create_app():
     app.config['QUIZES_FOLDER'].mkdir(exist_ok=True)
     app.config['AVATARS_FOLDER'].mkdir(exist_ok=True)
     
-    # Initialize Socket.IO with threading mode (better for Windows)
-    socketio.init_app(app, async_mode='threading', cors_allowed_origins="*")
+    # Initialize Socket.IO - try eventlet first, fallback to threading
+    # eventlet has better WebSocket support, threading is fallback for Windows
+    try:
+        import eventlet
+        socketio.init_app(app, async_mode='eventlet', cors_allowed_origins="*")
+    except ImportError:
+        socketio.init_app(app, async_mode='threading', cors_allowed_origins="*")
     
-    # Restore rooms from disk on startup (only in main process, not on reloads)
-    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    # Restore rooms from disk on startup
+    # In development (with reloader), only restore in the main process (not on reloads)
+    # In production (Gunicorn), WERKZEUG_RUN_MAIN is not set, so we always restore
+    # This ensures rooms are restored in production after server restarts
+    should_restore = True
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'false':
+        # Development mode reloader child process - skip restoration
+        should_restore = False
+    
+    if should_restore:
         from app.utils.room_manager import restore_rooms
         restored = restore_rooms()
         if restored > 0:

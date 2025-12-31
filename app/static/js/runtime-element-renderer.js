@@ -101,6 +101,9 @@ RuntimeRenderer.ElementRenderer = (function() {
             case 'line':
                 renderLine(el, element);
                 break;
+            case 'plus':
+                renderPlus(el, element);
+                break;
             case 'text':
                 renderText(el, element);
                 break;
@@ -259,6 +262,49 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.style.border = 'none';
     }
     
+    function renderPlus(el, element) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', '100%');
+        svg.setAttribute('height', '100%');
+        svg.setAttribute('viewBox', `0 0 ${element.width} ${element.height}`);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        
+        // Calculate plus sign dimensions (thickness based on smaller dimension)
+        const plusThickness = Math.min(element.width, element.height) * 0.2;
+        const centerX = element.width / 2;
+        const centerY = element.height / 2;
+        const halfThickness = plusThickness / 2;
+        
+        // Create a single unified path for the plus sign
+        // This creates a plus shape without overlapping borders
+        const plusPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const pathData = `
+            M ${centerX - halfThickness} 0
+            L ${centerX + halfThickness} 0
+            L ${centerX + halfThickness} ${centerY - halfThickness}
+            L ${element.width} ${centerY - halfThickness}
+            L ${element.width} ${centerY + halfThickness}
+            L ${centerX + halfThickness} ${centerY + halfThickness}
+            L ${centerX + halfThickness} ${element.height}
+            L ${centerX - halfThickness} ${element.height}
+            L ${centerX - halfThickness} ${centerY + halfThickness}
+            L 0 ${centerY + halfThickness}
+            L 0 ${centerY - halfThickness}
+            L ${centerX - halfThickness} ${centerY - halfThickness}
+            Z
+        `.replace(/\s+/g, ' ').trim();
+        
+        plusPath.setAttribute('d', pathData);
+        plusPath.setAttribute('fill', element.fill_color || '#ddd');
+        plusPath.setAttribute('stroke', element.border_color || '#999');
+        plusPath.setAttribute('stroke-width', element.border_width || 2);
+        plusPath.setAttribute('stroke-linejoin', 'miter');
+        svg.appendChild(plusPath);
+        
+        el.appendChild(svg);
+        el.style.border = 'none';
+    }
+    
     function renderLine(el, element) {
         // Line elements need special handling for rotation
         // Width and height are set by applyElementPosition, but line overrides width
@@ -314,6 +360,7 @@ RuntimeRenderer.ElementRenderer = (function() {
     function renderRichText(el, element) {
         // Simple approach - just render the HTML content as-is (formatting is in HTML)
         el.innerHTML = element.content || '';
+        el.style.color = element.color || element.text_color || '#000000';
         el.style.backgroundColor = element.background_color || 'transparent';
         el.style.padding = '8px';
         el.style.overflow = 'auto';
@@ -405,10 +452,27 @@ RuntimeRenderer.ElementRenderer = (function() {
     }
     
     function renderAnswerInput(el, element, options) {
-        const answerType = (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
+        let answerType = (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
         const questionId = element.parent_id;
         const question = options.question || null;
         const submittedAnswer = options.submittedAnswer || null;
+        
+        // Normalize multiple_choice to radio (they're the same thing)
+        if (answerType === 'multiple_choice') {
+            answerType = 'radio';
+        }
+        
+        // Ensure options are available for radio/checkbox questions
+        // Options can be on element.options, element.question_config.options, or question.question_config.options
+        if ((answerType === 'radio' || answerType === 'checkbox') && (!element.options || element.options.length === 0)) {
+            if (element.question_config && element.question_config.options && element.question_config.options.length > 0) {
+                element.options = element.question_config.options;
+            } else if (question && question.question_config && question.question_config.options && question.question_config.options.length > 0) {
+                element.options = question.question_config.options;
+            } else if (question && question.options && question.options.length > 0) {
+                element.options = question.options;
+            }
+        }
         
         const container = document.createElement('div');
         container.style.cssText = 'background-color: white; padding: 1rem; border: 2px solid #2196F3; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column;';
@@ -441,6 +505,11 @@ RuntimeRenderer.ElementRenderer = (function() {
         // Normalize 'image' to 'image_click' for consistency
         if (answerType === 'image') {
             answerType = 'image_click';
+        }
+        
+        // Normalize multiple_choice to radio (they're the same thing)
+        if (answerType === 'multiple_choice') {
+            answerType = 'radio';
         }
         
         // Create inner container - width/height are already set by applyElementPosition

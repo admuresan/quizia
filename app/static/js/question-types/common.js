@@ -6,8 +6,8 @@
 var QuestionTypes = QuestionTypes || {};
 
 QuestionTypes.Common = (function() {
-    // Participant colors for image_click questions
-    const PARTICIPANT_COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00', '#FF8000', '#8000FF', '#00FF80', '#FF0080'];
+    // Participant colors for image_click questions (green #00FF00 reserved for correct answer only)
+    const PARTICIPANT_COLORS = ['#FF0000', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00', '#FF8000', '#8000FF', '#00FF80', '#FF0080', '#FFA500'];
     
     /**
      * Get color for a participant based on their index

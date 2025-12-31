@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Display - {{ room_code }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #display-image {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+        
+        .loading {
+            color: white;
+            font-size: 2rem;
+            text-align: center;
+        }
+        
+        .error {
+            color: red;
+            font-size: 2rem;
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <img id="display-image" src="/api/tvdisplay/image/{{ room_code }}" alt="Quiz Display" />
+    
+    <script>
+        // TV Display - Only refreshes when visibility changes (version check)
+        (function() {
+            var roomCode = '{{ room_code }}';
+            var imageUrl = '/api/tvdisplay/image/' + roomCode;
+            var versionUrl = '/api/tvdisplay/version/' + roomCode;
+            var versionCheckInterval = 500; // Check version every 0.5 seconds (faster updates)
+            var img = document.getElementById('display-image');
+            var currentVersion = 0;
+            var errorCount = 0;
+            var maxErrors = 5;
+            
+            function loadImage() {
+                // Add timestamp to prevent caching
+                var url = imageUrl + '?t=' + new Date().getTime();
+                
+                img.onload = function() {
+                    errorCount = 0; // Reset error count on success
+                    img.style.display = 'block';
+                };
+                
+                img.onerror = function() {
+                    errorCount++;
+                    if (errorCount >= maxErrors) {
+                        // Show error after multiple failures
+                        document.body.innerHTML = '<div class="error">Failed to load display. Please check the server.</div>';
+                        return;
+                    }
+                    // Retry after a short delay
+                    setTimeout(loadImage, 2000);
+                };
+                
+                img.src = url;
+            }
+            
+            function checkVersion() {
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4) {
+                        if (xhr.status === 200) {
+                            try {
+                                var data = JSON.parse(xhr.responseText);
+                                if (data.version !== undefined && data.version !== currentVersion) {
+                                    // Version changed - load new image
+                                    currentVersion = data.version;
+                                    loadImage();
+                                }
+                                errorCount = 0; // Reset error count on success
+                            } catch (e) {
+                                console.error('Error parsing version response:', e);
+                            }
+                        } else if (xhr.status === 404) {
+                            // Room not found or ended
+                            document.body.innerHTML = '<div class="error">Quiz not running</div>';
+                            return;
+                        } else {
+                            errorCount++;
+                            if (errorCount >= maxErrors) {
+                                document.body.innerHTML = '<div class="error">Connection error</div>';
+                                return;
+                            }
+                        }
+                    }
+                };
+                xhr.onerror = function() {
+                    errorCount++;
+                    if (errorCount >= maxErrors) {
+                        document.body.innerHTML = '<div class="error">Connection error</div>';
+                        return;
+                    }
+                };
+                xhr.open('GET', versionUrl + '?t=' + new Date().getTime(), true);
+                xhr.send();
+            }
+            
+            // Initial load
+            loadImage();
+            
+            // Check version periodically (lightweight check)
+            setInterval(checkVersion, versionCheckInterval);
+        })();
+    </script>
+</body>
+</html>
+

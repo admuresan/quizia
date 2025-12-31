@@ -92,6 +92,22 @@ def handle_start_quiz(data):
     quizmaster_username = session.get('username', 'unknown')
     quiz_name = quiz.get('name', 'Unknown Quiz')  # Name is only for display
     
+    # Initialize visibility states for all elements in all pages
+    # This ensures display page respects control visibility settings from the start
+    for page in quiz.get('pages', []):
+        if page.get('elements'):
+            for element_id, element_data in page['elements'].items():
+                appearance_config = element_data.get('appearance_config', {})
+                appearance_type = appearance_config.get('appearance_type', 'on_load')
+                
+                # Set initial visibility based on appearance_type
+                if appearance_type == 'control':
+                    element_data['appearance_visible'] = False  # Control mode starts hidden
+                elif appearance_type == 'timer':
+                    element_data['appearance_visible'] = False  # Timer mode starts hidden
+                else:
+                    element_data['appearance_visible'] = True  # on_load starts visible
+    
     # Create room (stores both quiz_id and quiz_name - quiz_id is the authoritative identifier)
     room_code = create_room(quiz_id, quiz_name, quiz, quizmaster_username)
     
@@ -191,10 +207,37 @@ def handle_quizmaster_rerender_quiz(data):
         emit('error', {'message': f'Failed to load quiz with ID: {quiz_id}'})
         return
     
+    # Preserve visibility states from old quiz before updating
+    old_quiz = room.get('quiz', {})
+    visibility_states = {}  # {page_index: {element_id: appearance_visible}}
+    for old_page_idx, old_page in enumerate(old_quiz.get('pages', [])):
+        if old_page.get('elements'):
+            visibility_states[old_page_idx] = {}
+            for element_id, element_data in old_page['elements'].items():
+                if 'appearance_visible' in element_data:
+                    visibility_states[old_page_idx][element_id] = element_data['appearance_visible']
+    
     # Update room's quiz data
     room['quiz'] = updated_quiz
     # Update quiz_name in case it changed
     room['quiz_name'] = updated_quiz.get('name', 'Unknown Quiz')
+    
+    # RESET visibility states to defaults from editor settings when rerendering
+    # This ensures rerender starts fresh with default visibility from editor
+    for page_idx, page in enumerate(updated_quiz.get('pages', [])):
+        if page.get('elements'):
+            for element_id, element_data in page['elements'].items():
+                # Always reset to defaults when rerendering (don't preserve previous state)
+                appearance_config = element_data.get('appearance_config', {})
+                appearance_type = appearance_config.get('appearance_type', 'on_load')
+                
+                # Set initial visibility based on appearance_type (editor defaults)
+                if appearance_type == 'control':
+                    element_data['appearance_visible'] = False  # Control mode starts hidden
+                elif appearance_type == 'timer':
+                    element_data['appearance_visible'] = False  # Timer mode starts hidden
+                else:
+                    element_data['appearance_visible'] = True  # on_load starts visible
     
     # Ensure current_page is still valid after reload
     pages = updated_quiz.get('pages', [])
@@ -207,6 +250,13 @@ def handle_quizmaster_rerender_quiz(data):
     
     room['last_activity'] = time.time()
     save_room_state_now(room_code)
+    
+    # Clear TV display render cache so it gets fresh image
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
     
     # Get current page
     current_page = pages[current_page_index] if current_page_index < len(pages) else None
@@ -415,6 +465,20 @@ def handle_display_join(data):
                           for pid, p in room.get('participants', {}).items()}
     scores = room.get('scores', {})
     
+    # Get active answer overlay state if any
+    answer_overlay = room.get('answer_overlay', {})
+    if answer_overlay and answer_overlay.get('visible'):
+        # Get answers and participants for the overlay
+        question_id = answer_overlay.get('question_id')
+        overlay_answers = room.get('answers', {}).get(question_id, {}) if question_id else {}
+        
+        # Send overlay state with display_state so it can be recreated on page load
+        answer_overlay_with_data = answer_overlay.copy()
+        answer_overlay_with_data['answers'] = overlay_answers
+        answer_overlay_with_data['participants'] = participants_dict
+    else:
+        answer_overlay_with_data = None
+    
     # Send current state
     emit('display_state', {
         'room_code': room_code,
@@ -423,7 +487,8 @@ def handle_display_join(data):
         'quiz': quiz,
         'state': room.get('state', {}),
         'participants': participants_dict,
-        'scores': scores
+        'scores': scores,
+        'answer_overlay': answer_overlay_with_data  # Include overlay state
     })
 
 @socketio.on('quizmaster_navigate')
@@ -465,10 +530,34 @@ def handle_navigate(data):
     if 'question_start_times' not in room:
         room['question_start_times'] = {}
     room['last_activity'] = time.time()
+    
+    # Preserve visibility states when navigating - only set defaults if not already set
+    # This ensures user-set visibility toggles are preserved when navigating between pages
+    current_page = pages[new_index] if new_index < len(pages) else None
+    if current_page and current_page.get('elements'):
+        for element_id, element_data in current_page['elements'].items():
+            # Only set defaults if appearance_visible is not already set (preserve user-set state)
+            if 'appearance_visible' not in element_data:
+                appearance_config = element_data.get('appearance_config', {})
+                appearance_type = appearance_config.get('appearance_type', 'on_load')
+                
+                # Set initial visibility based on appearance_type (editor defaults)
+                if appearance_type == 'control':
+                    element_data['appearance_visible'] = False  # Control mode starts hidden
+                elif appearance_type == 'timer':
+                    element_data['appearance_visible'] = False  # Timer mode starts hidden
+                else:
+                    element_data['appearance_visible'] = True  # on_load starts visible
+    
     # Save room state when page changes
     save_room_state_now(room_code)
     
-    current_page = pages[new_index] if new_index < len(pages) else None
+    # Clear TV display render cache so it gets fresh image
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
     
     # Get participants and scores for status page
     participants_dict = {pid: {'name': p.get('name'), 'avatar': p.get('avatar')}
@@ -645,6 +734,13 @@ def handle_mark_answer(data):
     # Save room state when scores are updated
     save_room_state_now(room_code)
     
+    # Clear TV display render cache (scores affect status/result pages)
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
+    
     # Broadcast score update
     emit('score_updated', {
         'scores': scores,
@@ -672,6 +768,14 @@ def handle_control_element(data):
     # Check authorization
     if not check_quizmaster_access(room_code):
         return
+    
+    # Clear TV display render cache if showing/hiding elements
+    if action in ['show', 'hide']:
+        try:
+            from app.utils.display_renderer import clear_cache
+            clear_cache(room_code)
+        except Exception as e:
+            print(f"Warning: Failed to clear TV display cache: {e}")
     
     # Broadcast to display
     emit('element_control', {
@@ -711,6 +815,13 @@ def handle_control_element_appearance(data):
                 break
         update_room_state(room_code, room['quiz']) # Persist the change
     
+    # Clear TV display render cache so it gets fresh image
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
+    
     # Broadcast to display
     emit('element_appearance_control', {
         'element_id': element_id,
@@ -732,7 +843,12 @@ def handle_control_element_appearance(data):
 
 @socketio.on('element_appearance_changed')
 def handle_element_appearance_changed(data):
-    """Display screen notifies that an element appeared (via delays, etc.)"""
+    """Display screen notifies that an element appeared via timer/delay.
+    
+    This is different from control toggles - timers on display can update visibility
+    and the server will sync this to control. Control remains the source of truth
+    for manual toggles, but timer-based changes are accepted from display.
+    """
     room_code = data.get('room_code')
     element_id = data.get('element_id')
     visible = data.get('visible')
@@ -740,22 +856,34 @@ def handle_element_appearance_changed(data):
     if not all([room_code, element_id, visible is not None]):
         return
     
-    # Update the element's visibility state in the room data
+    # Update the element's visibility state in the room data (timer-based changes)
     room = get_room(room_code)
     if room:
         for page in room['quiz']['pages']:
             elements = page.get('elements', {})
-            # Elements is a dict with element IDs as keys
             if element_id in elements:
                 elements[element_id]['appearance_visible'] = visible
                 break
         update_room_state(room_code, room['quiz'])
     
-    # Broadcast to control room so toggles update
+    # Clear TV display render cache so it gets fresh image
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
+    
+    # Broadcast to control room so toggles update (timer-based visibility change)
     emit('element_appearance_control', {
         'element_id': element_id,
         'visible': visible
     }, room=f'control_{room_code}')
+    
+    # Broadcast to display room so element becomes visible (triggered by control toggle change)
+    emit('element_appearance_control', {
+        'element_id': element_id,
+        'visible': visible
+    }, room=f'display_{room_code}')
     
     # Broadcast to participant room so answer elements appear when questions appear on display
     emit('element_appearance_changed', {
@@ -792,6 +920,35 @@ def handle_toggle_answer_display(data):
     # Get answer visibility state and correct answer from data
     answer_visibility = data.get('answerVisibility', {})
     correct_answer = data.get('correctAnswer')
+    
+    # Store overlay state in room data so it can be recreated on page load
+    if 'answer_overlay' not in room:
+        room['answer_overlay'] = {}
+    
+    if visible:
+        # Store active overlay state
+        room['answer_overlay'] = {
+            'question_id': question_id,
+            'visible': True,
+            'questionTitle': data.get('questionTitle', 'Question'),
+            'answerType': data.get('answerType', 'text'),
+            'imageSrc': data.get('imageSrc'),
+            'answerVisibility': answer_visibility,
+            'correctAnswer': correct_answer
+        }
+    else:
+        # Clear overlay state
+        room['answer_overlay'] = {}
+    
+    # Save room state
+    save_room_state_now(room_code)
+    
+    # Clear TV display render cache so it gets fresh image
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
     
     # Broadcast to display room
     emit('answer_display_toggle', {
@@ -886,6 +1043,13 @@ def handle_finalize_scores(data):
     
     # Save room state when scores are finalized
     save_room_state_now(room_code)
+    
+    # Clear TV display render cache (final scores affect result pages)
+    try:
+        from app.utils.display_renderer import clear_cache
+        clear_cache(room_code)
+    except Exception as e:
+        print(f"Warning: Failed to clear TV display cache: {e}")
     
     # Get final rankings
     final_rankings = get_final_rankings(room)
