@@ -829,6 +829,37 @@ def handle_control_element(data):
         except Exception as e:
             print(f"Warning: Failed to clear TV display cache: {e}")
 
+@socketio.on('media_finished')
+def handle_media_finished(data):
+    """Handle when a media element finishes playing on the display."""
+    room_code = data.get('room_code')
+    element_id = data.get('element_id')
+    
+    if not all([room_code, element_id]):
+        return
+    
+    # Broadcast to control room to update play/pause button
+    emit('element_media_control', {
+        'element_id': element_id,
+        'playing': False
+    }, room=f'control_{room_code}')
+    
+    # Update media playing state in room data
+    room = get_room(room_code)
+    if room:
+        for page in room['quiz']['pages']:
+            elements = page.get('elements', {})
+            if element_id in elements:
+                element = elements[element_id]
+                # Check if this is a media element or counter
+                is_media = (element.get('type') in ['audio', 'video', 'counter'] or 
+                           element.get('media_type') in ['audio', 'video'])
+                if is_media:
+                    element['media_playing'] = False
+                    # Save room state after broadcast (non-blocking)
+                    save_room_state_now(room_code)  # Persist the change
+                break
+
 @socketio.on('quizmaster_control_element_appearance')
 def handle_control_element_appearance(data):
     """Quizmaster controls element appearance (show/hide via control mode)."""

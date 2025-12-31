@@ -154,12 +154,22 @@
             const answerType = (parentElement.question_config && parentElement.question_config.question_type) || parentElement.answer_type || 'text';
             const options = parentElement.options || (parentElement.question_config && parentElement.question_config.options) || [];
             
+            // Get default dimensions based on answer type
+            function getDefaultAnswerInputDimensions(answerType) {
+                if (answerType === 'stopwatch') {
+                    return { width: 370, height: 120 };
+                }
+                // Default for other types
+                return { width: 380, height: 175 };
+            }
+            
+            const defaultDims = getDefaultAnswerInputDimensions(answerType);
+            
             // Find non-overlapping position for answer_input on participant view
-            // Default: x=5, width=380, height=175
             const defaultAnswerInputX = 5;
             const defaultAnswerInputY = 100;
-            const answerInputWidth = 380;
-            const answerInputHeight = 175;
+            const answerInputWidth = defaultDims.width;
+            const answerInputHeight = defaultDims.height;
             const answerInputPosition = page ? findNonOverlappingPosition(page, 'participant', defaultAnswerInputX, defaultAnswerInputY, answerInputWidth, answerInputHeight, parentElement.id) : { x: defaultAnswerInputX, y: defaultAnswerInputY };
             
             const answerElement = {

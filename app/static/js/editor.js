@@ -232,6 +232,15 @@ function updateElementPropertiesInQuiz(element) {
     if (element.type === 'counter' && element.properties) {
         Object.assign(elementData.properties, element.properties);
     }
+    
+    // Update question_config if element has it
+    if (element.hasOwnProperty('question_config') && element.question_config) {
+        if (!elementData.question_config) {
+            elementData.question_config = {};
+        }
+        // Merge question_config properties (don't replace entire object to preserve other properties)
+        Object.assign(elementData.question_config, element.question_config);
+    }
 }
 
 // Update element position/size in quiz structure
@@ -270,12 +279,28 @@ function updateElementConfigInQuiz(element) {
             if (!view.local_element_configs[parentId].answer_input_config) {
                 view.local_element_configs[parentId].answer_input_config = {};
             }
+            
+            // Get default dimensions based on question type
+            const parentElement = page.elements && page.elements[parentId];
+            const questionType = (parentElement && parentElement.question_config && parentElement.question_config.question_type) || 
+                               (parentElement && parentElement.answer_type) || 
+                               (element.question_type || element.answer_type) || 'text';
+            function getDefaultAnswerInputDimensions(answerType) {
+                if (answerType === 'stopwatch') {
+                    return { width: 370, height: 120 };
+                }
+                // Default for other types
+                return { width: 380, height: 175 };
+            }
+            const defaultDims = getDefaultAnswerInputDimensions(questionType);
+            
             // Save coordinates as absolute pixel values from top-left corner of canvas (0,0 = top-left)
-            view.local_element_configs[parentId].answer_input_config.x = element.x || 5;
-            view.local_element_configs[parentId].answer_input_config.y = element.y || 0;
-            view.local_element_configs[parentId].answer_input_config.width = element.width || 380;
-            view.local_element_configs[parentId].answer_input_config.height = element.height || 175;
-            view.local_element_configs[parentId].answer_input_config.rotation = element.rotation || 0;
+            // Use explicit values from element, only use defaults if value is undefined/null
+            view.local_element_configs[parentId].answer_input_config.x = (element.x !== undefined && element.x !== null) ? element.x : 5;
+            view.local_element_configs[parentId].answer_input_config.y = (element.y !== undefined && element.y !== null) ? element.y : 0;
+            view.local_element_configs[parentId].answer_input_config.width = (element.width !== undefined && element.width !== null) ? element.width : defaultDims.width;
+            view.local_element_configs[parentId].answer_input_config.height = (element.height !== undefined && element.height !== null) ? element.height : defaultDims.height;
+            view.local_element_configs[parentId].answer_input_config.rotation = (element.rotation !== undefined && element.rotation !== null) ? element.rotation : 0;
         } else if (element.type === 'answer_display' && element.view === 'control') {
             const view = page.views.control;
             if (!view.local_element_configs[parentId]) {
@@ -285,11 +310,12 @@ function updateElementConfigInQuiz(element) {
                 view.local_element_configs[parentId].answer_display_config = {};
             }
             // Save coordinates as absolute pixel values from top-left corner of canvas (0,0 = top-left)
-            view.local_element_configs[parentId].answer_display_config.x = element.x || 0;
-            view.local_element_configs[parentId].answer_display_config.y = element.y || 0;
-            view.local_element_configs[parentId].answer_display_config.width = element.width || 600;
-            view.local_element_configs[parentId].answer_display_config.height = element.height || 300;
-            view.local_element_configs[parentId].answer_display_config.rotation = element.rotation || 0;
+            // Use explicit values from element, only use defaults if value is undefined/null
+            view.local_element_configs[parentId].answer_display_config.x = (element.x !== undefined && element.x !== null) ? element.x : 0;
+            view.local_element_configs[parentId].answer_display_config.y = (element.y !== undefined && element.y !== null) ? element.y : 0;
+            view.local_element_configs[parentId].answer_display_config.width = (element.width !== undefined && element.width !== null && element.width > 0) ? element.width : 600;
+            view.local_element_configs[parentId].answer_display_config.height = (element.height !== undefined && element.height !== null && element.height > 0) ? element.height : 300;
+            view.local_element_configs[parentId].answer_display_config.rotation = (element.rotation !== undefined && element.rotation !== null) ? element.rotation : 0;
         } else if (element.type === 'audio_control' && element.view === 'control') {
             const view = page.views.control;
             if (!view.local_element_configs[parentId]) {

@@ -54,7 +54,15 @@
                         counterText.textContent = displayText;
                     }
                 };
-                window.CounterManager.startCounter(elementId, properties, updateCallback);
+                window.CounterManager.startCounter(elementId, properties, updateCallback, (id) => {
+                    // Completion callback: notify control that counter finished playing
+                    if (window.socket && window.roomCode) {
+                        window.socket.emit('media_finished', {
+                            room_code: window.roomCode,
+                            element_id: id
+                        });
+                    }
+                });
                 mediaStates[elementId] = { playing: true, element: null };
                 updatePlayPauseButtons(elementId, true);
             }
@@ -450,7 +458,15 @@
                                         }
                                     };
                                     console.log('[MediaControlManager] Starting counter:', otherElementId);
-                                    window.CounterManager.startCounter(otherElementId, properties, updateCallback);
+                                    window.CounterManager.startCounter(otherElementId, properties, updateCallback, (id) => {
+                                        // Completion callback: notify control that counter finished playing
+                                        if (window.socket && window.roomCode) {
+                                            window.socket.emit('media_finished', {
+                                                room_code: window.roomCode,
+                                                element_id: id
+                                            });
+                                        }
+                                    });
                                     mediaStates[otherElementId] = { playing: true, element: null };
                                     updatePlayPauseButtons(otherElementId, true);
                                 } else {

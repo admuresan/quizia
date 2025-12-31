@@ -657,6 +657,14 @@ function handleElementControl(elementId, action) {
                         if (textEl) {
                             textEl.textContent = displayText;
                         }
+                    }, (id) => {
+                        // Completion callback: notify control that counter finished playing
+                        if (socket && window.roomCode) {
+                            socket.emit('media_finished', {
+                                room_code: window.roomCode,
+                                element_id: id
+                            });
+                        }
                     });
                 }
             } else {
@@ -789,6 +797,14 @@ function handleElementControl(elementId, action) {
                     
                     // Add event listener for when audio ends
                     audio.addEventListener('ended', () => {
+                        // Notify control that media finished playing
+                        if (socket && window.roomCode) {
+                            socket.emit('media_finished', {
+                                room_code: window.roomCode,
+                                element_id: baseId
+                            });
+                        }
+                        
                         // Check for stopwatch questions that should start on end
                         if (quiz && quiz.pages) {
                             quiz.pages.forEach(page => {
@@ -887,6 +903,14 @@ function handleElementControl(elementId, action) {
                     
                     // Add event listener for when video ends
                     video.addEventListener('ended', () => {
+                        // Notify control that media finished playing
+                        if (socket && window.roomCode) {
+                            socket.emit('media_finished', {
+                                room_code: window.roomCode,
+                                element_id: baseId
+                            });
+                        }
+                        
                         // Check for stopwatch questions that should start on end
                         if (quiz && quiz.pages) {
                             quiz.pages.forEach(page => {

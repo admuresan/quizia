@@ -59,6 +59,34 @@
         const positionContainer = document.createElement('div');
         positionContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;';
         
+        // For answer_input/answer_display elements, read position from config
+        let currentX = selectedElement.x || 0;
+        let currentY = selectedElement.y || 0;
+        
+        if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+            // Read from answer_input_config in parent element's local_element_configs
+            const parentId = selectedElement.parent_id;
+            const participantView = page.views && page.views.participant;
+            if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                const answerInputConfig = participantView.local_element_configs[parentId].answer_input_config;
+                if (answerInputConfig) {
+                    currentX = answerInputConfig.x !== undefined ? answerInputConfig.x : currentX;
+                    currentY = answerInputConfig.y !== undefined ? answerInputConfig.y : currentY;
+                }
+            }
+        } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+            // Read from answer_display_config in parent element's local_element_configs
+            const parentId = selectedElement.parent_id;
+            const controlView = page.views && page.views.control;
+            if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                const answerDisplayConfig = controlView.local_element_configs[parentId].answer_display_config;
+                if (answerDisplayConfig) {
+                    currentX = answerDisplayConfig.x !== undefined ? answerDisplayConfig.x : currentX;
+                    currentY = answerDisplayConfig.y !== undefined ? answerDisplayConfig.y : currentY;
+                }
+            }
+        }
+        
         const xGroup = document.createElement('div');
         const xLabel = document.createElement('label');
         xLabel.textContent = 'X (left)';
@@ -68,12 +96,32 @@
         xInput.step = '1';
         xInput.dataset.property = 'x'; // Add data attribute for easy selection
         // Display absolute pixel value from top-left corner (0,0 = top-left)
-        xInput.value = Math.round(selectedElement.x || 0);
+        xInput.value = Math.round(currentX);
         xInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;';
         xInput.title = 'Absolute pixel position from left edge of canvas (0 = left edge)';
         xInput.onchange = () => {
-                // Save as absolute pixel value from top-left corner
-                selectedElement.x = parseFloat(xInput.value) || 0;
+                const newX = parseFloat(xInput.value) || 0;
+                selectedElement.x = newX;
+                // Also update the config immediately
+                if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const participantView = page.views && page.views.participant;
+                    if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                        if (!participantView.local_element_configs[parentId].answer_input_config) {
+                            participantView.local_element_configs[parentId].answer_input_config = {};
+                        }
+                        participantView.local_element_configs[parentId].answer_input_config.x = newX;
+                    }
+                } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const controlView = page.views && page.views.control;
+                    if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                        if (!controlView.local_element_configs[parentId].answer_display_config) {
+                            controlView.local_element_configs[parentId].answer_display_config = {};
+                        }
+                        controlView.local_element_configs[parentId].answer_display_config.x = newX;
+                    }
+                }
                 if (self.updateElementConfigInQuiz) {
                     self.updateElementConfigInQuiz(selectedElement);
                 }
@@ -92,12 +140,32 @@
         yInput.step = '1';
         yInput.dataset.property = 'y'; // Add data attribute for easy selection
         // Display absolute pixel value from top-left corner (0,0 = top-left)
-        yInput.value = Math.round(selectedElement.y || 0);
+        yInput.value = Math.round(currentY);
         yInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;';
         yInput.title = 'Absolute pixel position from top edge of canvas (0 = top edge)';
         yInput.onchange = () => {
-                // Save as absolute pixel value from top-left corner
-                selectedElement.y = parseFloat(yInput.value) || 0;
+                const newY = parseFloat(yInput.value) || 0;
+                selectedElement.y = newY;
+                // Also update the config immediately
+                if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const participantView = page.views && page.views.participant;
+                    if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                        if (!participantView.local_element_configs[parentId].answer_input_config) {
+                            participantView.local_element_configs[parentId].answer_input_config = {};
+                        }
+                        participantView.local_element_configs[parentId].answer_input_config.y = newY;
+                    }
+                } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const controlView = page.views && page.views.control;
+                    if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                        if (!controlView.local_element_configs[parentId].answer_display_config) {
+                            controlView.local_element_configs[parentId].answer_display_config = {};
+                        }
+                        controlView.local_element_configs[parentId].answer_display_config.y = newY;
+                    }
+                }
                 if (self.updateElementConfigInQuiz) {
                     self.updateElementConfigInQuiz(selectedElement);
                 }
@@ -122,6 +190,35 @@
         const sizeContainer = document.createElement('div');
         sizeContainer.style.cssText = 'display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;';
         
+        // For answer_input elements in participant view, read from answer_input_config
+        // For answer_display elements in control view, read from answer_display_config
+        let currentWidth = selectedElement.width || 100;
+        let currentHeight = selectedElement.height || 100;
+        
+        if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+            // Read from answer_input_config in parent element's local_element_configs
+            const parentId = selectedElement.parent_id;
+            const participantView = page.views && page.views.participant;
+            if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                const answerInputConfig = participantView.local_element_configs[parentId].answer_input_config;
+                if (answerInputConfig) {
+                    currentWidth = answerInputConfig.width !== undefined ? answerInputConfig.width : currentWidth;
+                    currentHeight = answerInputConfig.height !== undefined ? answerInputConfig.height : currentHeight;
+                }
+            }
+        } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+            // Read from answer_display_config in parent element's local_element_configs
+            const parentId = selectedElement.parent_id;
+            const controlView = page.views && page.views.control;
+            if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                const answerDisplayConfig = controlView.local_element_configs[parentId].answer_display_config;
+                if (answerDisplayConfig) {
+                    currentWidth = answerDisplayConfig.width !== undefined ? answerDisplayConfig.width : currentWidth;
+                    currentHeight = answerDisplayConfig.height !== undefined ? answerDisplayConfig.height : currentHeight;
+                }
+            }
+        }
+        
         const widthGroup = document.createElement('div');
         const widthLabel = document.createElement('label');
         widthLabel.textContent = 'Width';
@@ -129,11 +226,32 @@
         const widthInput = document.createElement('input');
         widthInput.type = 'number';
         widthInput.dataset.property = 'width'; // Add data attribute for easy selection
-        widthInput.value = selectedElement.width || 100;
+        widthInput.value = currentWidth;
         widthInput.min = '1';
         widthInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;';
         widthInput.onchange = () => {
-                selectedElement.width = parseFloat(widthInput.value) || 100;
+                const newWidth = parseFloat(widthInput.value) || 100;
+                selectedElement.width = newWidth;
+                // Also update the element object immediately so it reflects the change
+                if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const participantView = page.views && page.views.participant;
+                    if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                        if (!participantView.local_element_configs[parentId].answer_input_config) {
+                            participantView.local_element_configs[parentId].answer_input_config = {};
+                        }
+                        participantView.local_element_configs[parentId].answer_input_config.width = newWidth;
+                    }
+                } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const controlView = page.views && page.views.control;
+                    if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                        if (!controlView.local_element_configs[parentId].answer_display_config) {
+                            controlView.local_element_configs[parentId].answer_display_config = {};
+                        }
+                        controlView.local_element_configs[parentId].answer_display_config.width = newWidth;
+                    }
+                }
                 if (self.updateElementConfigInQuiz) {
                     self.updateElementConfigInQuiz(selectedElement);
                 }
@@ -150,11 +268,32 @@
         const heightInput = document.createElement('input');
         heightInput.type = 'number';
         heightInput.dataset.property = 'height'; // Add data attribute for easy selection
-        heightInput.value = selectedElement.height || 100;
+        heightInput.value = currentHeight;
         heightInput.min = '1';
         heightInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;';
         heightInput.onchange = () => {
-                selectedElement.height = parseFloat(heightInput.value) || 100;
+                const newHeight = parseFloat(heightInput.value) || 100;
+                selectedElement.height = newHeight;
+                // Also update the element object immediately so it reflects the change
+                if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const participantView = page.views && page.views.participant;
+                    if (participantView && participantView.local_element_configs && participantView.local_element_configs[parentId]) {
+                        if (!participantView.local_element_configs[parentId].answer_input_config) {
+                            participantView.local_element_configs[parentId].answer_input_config = {};
+                        }
+                        participantView.local_element_configs[parentId].answer_input_config.height = newHeight;
+                    }
+                } else if (selectedElement.type === 'answer_display' && selectedElement.view === 'control' && selectedElement.parent_id) {
+                    const parentId = selectedElement.parent_id;
+                    const controlView = page.views && page.views.control;
+                    if (controlView && controlView.local_element_configs && controlView.local_element_configs[parentId]) {
+                        if (!controlView.local_element_configs[parentId].answer_display_config) {
+                            controlView.local_element_configs[parentId].answer_display_config = {};
+                        }
+                        controlView.local_element_configs[parentId].answer_display_config.height = newHeight;
+                    }
+                }
                 if (self.updateElementConfigInQuiz) {
                     self.updateElementConfigInQuiz(selectedElement);
                 }
@@ -1177,11 +1316,23 @@
                             if (!currentPage.views.participant.local_element_configs[selectedElement.id]) {
                                 currentPage.views.participant.local_element_configs[selectedElement.id] = { config: {} };
                             }
+                            
+                            // Get default dimensions based on question type
+                            const questionType = (selectedElement.question_config && selectedElement.question_config.question_type) || selectedElement.answer_type || 'text';
+                            function getDefaultAnswerInputDimensions(answerType) {
+                                if (answerType === 'stopwatch') {
+                                    return { width: 370, height: 120 };
+                                }
+                                // Default for other types
+                                return { width: 380, height: 175 };
+                            }
+                            const defaultDims = getDefaultAnswerInputDimensions(questionType);
+                            
                             currentPage.views.participant.local_element_configs[selectedElement.id].answer_input_config = {
                                 x: answerInput.x || 5,
                                 y: answerInput.y || 0,
-                                width: answerInput.width || 380,
-                                height: answerInput.height || 175,
+                                width: answerInput.width || defaultDims.width,
+                                height: answerInput.height || defaultDims.height,
                                 rotation: answerInput.rotation || 0
                             };
                         }

@@ -365,11 +365,13 @@ function renderPage(pageIndex, page) {
         // Add question title if available
         // Note: We don't render the question element content (image, richtext, etc.) on participant page
         // The question content is shown on the display page; participants only see the title and answer input
-        if (question.question_title && question.question_title.trim()) {
+        // Check both question_title (old format) and question_config.question_title (new format)
+        const questionTitle = question.question_title || (question.question_config && question.question_config.question_title) || '';
+        if (questionTitle && questionTitle.trim()) {
             const title = document.createElement('div');
             title.className = 'question-title';
             title.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-bottom: 1rem; margin-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: block; width: 100%;';
-            title.textContent = question.question_title;
+            title.textContent = questionTitle;
             questionContainer.appendChild(title);
         }
         
@@ -411,7 +413,15 @@ function renderPage(pageIndex, page) {
                 });
             });
             
-            if (submitBtns.length === 0) {
+            // Check if this is a stopwatch answer type (which submits automatically on stop, no submit button needed)
+            const answerType = (answerInput.question_config && answerInput.question_config.question_type) || 
+                              answerInput.answer_type || 
+                              (question.question_config && question.question_config.question_type) || 
+                              question.answer_type || 
+                              'text';
+            
+            // Only warn if there are no submit buttons AND it's not a stopwatch (which doesn't need one)
+            if (submitBtns.length === 0 && answerType !== 'stopwatch') {
                 console.warn(`No submit buttons found for answer_input of question ${question.id}`);
             }
         } else {

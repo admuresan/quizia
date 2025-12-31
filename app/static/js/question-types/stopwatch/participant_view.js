@@ -20,13 +20,7 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         container.style.overflow = 'hidden';
         container.style.boxSizing = 'border-box';
         
-        // Title header at top (matching control view aesthetic)
-        if (questionTitle) {
-            const titleHeader = document.createElement('div');
-            titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0;';
-            titleHeader.textContent = questionTitle;
-            container.appendChild(titleHeader);
-        }
+        // Note: Title is rendered by participant.js in the questionContainer, not here
         
         // Content area (scrollable if needed)
         const contentArea = document.createElement('div');
@@ -71,6 +65,15 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         let intervalId = null;
         let isSubmitted = !!submittedAnswer;
         
+        // Find the question title element in the parent question container
+        const findQuestionTitle = () => {
+            const questionContainer = document.getElementById(`question-${questionId}`);
+            if (questionContainer) {
+                return questionContainer.querySelector('.question-title');
+            }
+            return null;
+        };
+        
         // If already submitted, show the time
         if (submittedAnswer && submittedAnswer.answer) {
             const totalSeconds = elapsedTime / 1000;
@@ -93,6 +96,13 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             stopBtn.disabled = false;
             timerDisplay.style.display = 'none'; // Hide timer while running
             
+            // Update title to show "Timing"
+            const titleElement = findQuestionTitle();
+            if (titleElement) {
+                const originalTitle = questionTitle || 'Question';
+                titleElement.textContent = `${originalTitle} - Timing`;
+            }
+            
             intervalId = setInterval(() => {
                 elapsedTime = Date.now() - startTime;
                 // Don't update display text while running - only show time after stopping
@@ -107,8 +117,6 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             if (startTime) {
                 elapsedTime = Date.now() - startTime;
             }
-            stopBtn.disabled = true;
-            stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
             
             // Show the final time with tenths of a second
             const totalSeconds = elapsedTime / 1000;
@@ -116,8 +124,21 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             const seconds = totalSeconds % 60;
             const secs = Math.floor(seconds);
             const tenths = Math.floor((seconds % 1) * 10);
-            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
+            const timeString = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
+            timerDisplay.textContent = timeString;
             timerDisplay.style.display = 'block';
+            
+            // Replace stop button with "Submitted" button
+            stopBtn.textContent = 'Submitted';
+            stopBtn.disabled = true;
+            stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
+            
+            // Update title to show the time
+            const titleElement = findQuestionTitle();
+            if (titleElement) {
+                const originalTitle = questionTitle || 'Question';
+                titleElement.textContent = `${originalTitle} - ${timeString}`;
+            }
             
             if (elapsedTime > 0 && !isSubmitted && submitAnswerCallback) {
                 isSubmitted = true;
@@ -141,7 +162,13 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         
         // Expose a function to programmatically start the stopwatch (for auto-start)
         container.startStopwatch = () => {
-            if (!isSubmitted && !startBtn.disabled && startTime === null) {
+            if (!isSubmitted && startTime === null) {
+                // Temporarily enable button if it's disabled (for auto-start)
+                const wasDisabled = startBtn.disabled;
+                if (wasDisabled) {
+                    startBtn.disabled = false;
+                    startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                }
                 startBtn.click();
             }
         };

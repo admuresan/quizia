@@ -533,16 +533,8 @@ Editor.ElementRenderer = (function() {
                 });
                 break;
             case 'answer_input': {
-                // Match control view styling: white background with blue border
-                el.style.backgroundColor = 'white';
-                el.style.border = '2px solid #2196F3';
-                el.style.borderRadius = '8px';
-                el.style.display = 'flex';
-                el.style.flexDirection = 'column';
-                el.style.padding = '1rem';
-                el.style.overflow = 'hidden';
-                el.style.boxSizing = 'border-box';
-                el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                // Use participant view renderers (matching runtime) - no extra wrapper
+                let answerType = (element.question_config && element.question_config.question_type) || element.answer_type || 'text';
                 
                 const quizForInput = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
                 const pageIndexForInput = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
@@ -552,226 +544,100 @@ Editor.ElementRenderer = (function() {
                 if (pageForInput && pageForInput.elements && typeof pageForInput.elements === 'object' && !Array.isArray(pageForInput.elements)) {
                     parentQuestionForInput = pageForInput.elements[element.parent_id] || null;
                 }
+                
                 // Get question_type from question_config or fallback to old answer_type
                 const parentQuestionType = parentQuestionForInput ? 
                     ((parentQuestionForInput.question_config && parentQuestionForInput.question_config.question_type) || parentQuestionForInput.answer_type) : null;
-                const answerType = (element.question_config && element.question_config.question_type) || element.answer_type || parentQuestionType || 'text';
-                const options = element.options || (parentQuestionForInput && parentQuestionForInput.question_config ? parentQuestionForInput.question_config.options : []);
+                answerType = (element.question_config && element.question_config.question_type) || element.answer_type || parentQuestionType || 'text';
                 
-                // Get question title from question element (new format: in question_config)
+                // Normalize multiple_choice to radio (they're the same thing)
+                if (answerType === 'multiple_choice') {
+                    answerType = 'radio';
+                }
+                
+                // Ensure options are available for radio/checkbox questions
+                const options = element.options || (parentQuestionForInput && parentQuestionForInput.question_config ? parentQuestionForInput.question_config.options : []);
+                if ((answerType === 'radio' || answerType === 'checkbox') && (!element.options || element.options.length === 0)) {
+                    if (element.question_config && element.question_config.options && element.question_config.options.length > 0) {
+                        element.options = element.question_config.options;
+                    } else if (parentQuestionForInput && parentQuestionForInput.question_config && parentQuestionForInput.question_config.options && parentQuestionForInput.question_config.options.length > 0) {
+                        element.options = parentQuestionForInput.question_config.options;
+                    } else if (parentQuestionForInput && parentQuestionForInput.options && parentQuestionForInput.options.length > 0) {
+                        element.options = parentQuestionForInput.options;
+                    }
+                }
+                
+                // Style el directly (matching runtime approach) - no extra wrapper
+                // Base visual styling that participant view renderer expects
+                el.style.backgroundColor = 'white';
+                el.style.border = '2px solid #2196F3';
+                el.style.borderRadius = '8px';
+                el.style.padding = '1rem';
+                el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                el.style.boxSizing = 'border-box';
+                el.style.overflow = 'hidden';
+                // Layout styles will be set by participant view renderer
+                
                 const questionTitle = parentQuestionForInput && parentQuestionForInput.question_config ? (parentQuestionForInput.question_config.question_title || '') : '';
                 
-                el.innerHTML = '';
-                
-                // Title header at top (matching control view aesthetic)
-                if (questionTitle) {
-                    const titleHeader = document.createElement('div');
-                    titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0; margin-bottom: 0.5rem;';
-                    titleHeader.textContent = questionTitle;
-                    el.appendChild(titleHeader);
-                }
-                
-                // Content area (scrollable if needed)
-                const contentArea = document.createElement('div');
-                contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
-                
-                if (answerType === 'text') {
-                    const textInput = document.createElement('input');
-                    textInput.type = 'text';
-                    textInput.placeholder = 'Type your answer...';
-                    textInput.style.cssText = 'width: 100%; padding: 0.5rem; border: 2px solid #ddd; border-radius: 4px; font-size: 0.9rem;';
-                    contentArea.appendChild(textInput);
-                    
-                    const submitBtn = document.createElement('button');
-                    submitBtn.textContent = 'Submit';
-                    submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-                    submitBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        alert('Submit clicked (editor mode)');
-                    };
-                    contentArea.appendChild(submitBtn);
-                } else if (answerType === 'radio') {
-                    const optionsDiv = document.createElement('div');
-                    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
-                    
-                    (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option, index) => {
-                        const label = document.createElement('label');
-                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem; word-wrap: break-word; overflow-wrap: break-word;';
-                        const radio = document.createElement('input');
-                        radio.type = 'radio';
-                        radio.name = `answer-${element.id}`;
-                        radio.value = option;
-                        radio.onclick = (e) => e.stopPropagation();
-                        label.appendChild(radio);
-                        label.appendChild(document.createTextNode(option));
-                        optionsDiv.appendChild(label);
-                    });
-                    contentArea.appendChild(optionsDiv);
-                    
-                    const submitBtn = document.createElement('button');
-                    submitBtn.textContent = 'Submit';
-                    submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-                    submitBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        alert('Submit clicked (editor mode)');
-                    };
-                    contentArea.appendChild(submitBtn);
-                } else if (answerType === 'checkbox') {
-                    const checkboxesDiv = document.createElement('div');
-                    checkboxesDiv.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%;';
-                    
-                    (options.length > 0 ? options : ['Option 1', 'Option 2', 'Option 3']).forEach((option) => {
-                        const label = document.createElement('label');
-                        label.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.25rem; word-wrap: break-word; overflow-wrap: break-word;';
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.value = option;
-                        checkbox.onclick = (e) => e.stopPropagation();
-                        label.appendChild(checkbox);
-                        label.appendChild(document.createTextNode(option));
-                        checkboxesDiv.appendChild(label);
-                    });
-                    contentArea.appendChild(checkboxesDiv);
-                    
-                    const submitBtn = document.createElement('button');
-                    submitBtn.textContent = 'Submit';
-                    submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-                    submitBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        alert('Submit clicked (editor mode)');
-                    };
-                    contentArea.appendChild(submitBtn);
-                } else if (answerType === 'image' || answerType === 'image_click') {
-                    let imageSrc = null;
-                    if (parentQuestionForInput) {
-                        // New format: image sources are in properties
-                        const properties = parentQuestionForInput.properties || {};
-                        imageSrc = properties.media_url || 
-                                  (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
-                                  (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
-                                  '';
-                    }
-                    
-                    if (imageSrc) {
-                        const imageContainer = document.createElement('div');
-                        imageContainer.style.cssText = 'position: relative; width: 100%; display: inline-block;';
-                        
-                        let clickIndicator = null;
-                        
-                        const img = document.createElement('img');
-                        img.src = imageSrc;
-                        img.style.cssText = 'max-width: 100%; height: auto; display: block; cursor: crosshair; border: 2px solid #ddd; border-radius: 4px;';
-                        img.onclick = (e) => {
+                // Editor mode: submit buttons should show alerts instead of actually submitting
+                const editorSubmitCallback = (questionId, answerType, buttonElement) => {
+                    if (buttonElement) {
+                        buttonElement.onclick = (e) => {
                             e.stopPropagation();
-                            const rect = img.getBoundingClientRect();
-                            const x = ((e.clientX - rect.left) / rect.width) * 100;
-                            const y = ((e.clientY - rect.top) / rect.height) * 100;
-                            
-                            if (clickIndicator) {
-                                clickIndicator.remove();
-                            }
-                            
-                            clickIndicator = document.createElement('div');
-                            clickIndicator.style.cssText = `position: absolute; border-radius: 50%; background: rgba(33, 150, 243, 0.3); border: 2px solid rgba(33, 150, 243, 0.8); pointer-events: none; left: ${x - 5}%; top: ${y - 5}%; width: 10%; height: 10%;`;
-                            imageContainer.appendChild(clickIndicator);
+                            alert('Submit clicked (editor mode)');
                         };
-                        imageContainer.appendChild(img);
-                        contentArea.appendChild(imageContainer);
-                    } else {
-                        const placeholder = document.createElement('div');
-                        placeholder.textContent = 'Image (set image source on parent question)';
-                        placeholder.style.cssText = 'padding: 2rem; text-align: center; border: 2px dashed #ddd; border-radius: 4px; color: #666;';
-                        contentArea.appendChild(placeholder);
                     }
-                    
-                    const submitBtn = document.createElement('button');
-                    submitBtn.textContent = 'Submit';
-                    submitBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500; margin-top: 0.5rem;';
-                    submitBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        alert('Submit clicked (editor mode)');
-                    };
-                    contentArea.appendChild(submitBtn);
-                } else if (answerType === 'stopwatch') {
-                    const stopwatchContainer = document.createElement('div');
-                    stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; align-items: center;';
-                    
-                    const timerDisplay = document.createElement('div');
-                    timerDisplay.textContent = '0:00.0';
-                    timerDisplay.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333; display: none;';
-                    stopwatchContainer.appendChild(timerDisplay);
-                    
-                    const controlsDiv = document.createElement('div');
-                    controlsDiv.style.cssText = 'display: flex; gap: 0.5rem;';
-                    
-                    let startTime = null;
-                    let intervalId = null;
-                    let elapsedTime = 0;
-                    
-                    const startBtn = document.createElement('button');
-                    startBtn.textContent = 'Start';
-                    startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-                    startBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        startTime = Date.now();
-                        startBtn.disabled = true;
-                        startBtn.style.opacity = '0.5';
-                        stopBtn.disabled = false;
-                        stopBtn.style.opacity = '1';
-                        timerDisplay.style.display = 'block';
-                        
-                        intervalId = setInterval(() => {
-                            elapsedTime = Date.now() - startTime;
-                            // Update display with tenths of a second
-                            const totalSeconds = elapsedTime / 1000;
-                            const minutes = Math.floor(totalSeconds / 60);
-                            const seconds = totalSeconds % 60;
-                            const secs = Math.floor(seconds);
-                            const tenths = Math.floor((seconds % 1) * 10);
-                            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
-                        }, 100);
-                    };
-                    
-                    const stopBtn = document.createElement('button');
-                    stopBtn.textContent = 'Stop';
-                    stopBtn.disabled = true;
-                    stopBtn.style.opacity = '0.5';
-                    stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #f44336; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
-                    stopBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        if (startTime) {
-                            elapsedTime = Date.now() - startTime;
-                            clearInterval(intervalId);
-                            
-                            const totalSeconds = elapsedTime / 1000;
-                            const minutes = Math.floor(totalSeconds / 60);
-                            const seconds = totalSeconds % 60;
-                            const secs = Math.floor(seconds);
-                            const tenths = Math.floor((seconds % 1) * 10);
-                            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
-                            timerDisplay.style.display = 'block';
-                            
-                            startBtn.disabled = true;
-                            stopBtn.disabled = true;
-                            startBtn.style.opacity = '0.5';
-                            stopBtn.style.opacity = '0.5';
-                        }
-                    };
-                    
-                    controlsDiv.appendChild(startBtn);
-                    controlsDiv.appendChild(stopBtn);
-                    stopwatchContainer.appendChild(controlsDiv);
-                    contentArea.appendChild(stopwatchContainer);
+                };
+                
+                const renderOptions = {
+                    question: parentQuestionForInput,
+                    questionTitle: questionTitle,
+                    submitAnswerCallback: editorSubmitCallback,
+                    submittedAnswer: null,
+                    isEditor: true // Flag for editor mode
+                };
+                
+                // Call participant view renderer directly on el (no extra wrapper) - matching runtime
+                if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ParticipantView) {
+                    QuestionTypes.Text.ParticipantView.render(el, element, renderOptions);
+                } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ParticipantView) {
+                    QuestionTypes.Radio.ParticipantView.render(el, element, renderOptions);
+                } else if (answerType === 'checkbox' && QuestionTypes.Checkbox && QuestionTypes.Checkbox.ParticipantView) {
+                    QuestionTypes.Checkbox.ParticipantView.render(el, element, renderOptions);
+                } else if ((answerType === 'image' || answerType === 'image_click') && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ParticipantView) {
+                    QuestionTypes.ImageClick.ParticipantView.render(el, element, renderOptions);
+                } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ParticipantView) {
+                    QuestionTypes.Stopwatch.ParticipantView.render(el, element, renderOptions);
                 } else {
-                    contentArea.textContent = `Answer Input (${answerType})`;
-                    contentArea.style.backgroundColor = '#e3f2fd';
-                    contentArea.style.border = '2px dashed #2196F3';
-                    contentArea.style.borderRadius = '4px';
-                    contentArea.style.padding = '1rem';
+                    console.error('[Editor] Question type', answerType, 'participant view not found');
+                    el.textContent = `Answer input type "${answerType}" not supported`;
+                    el.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
                 }
                 
-                // Append content area to element
-                el.appendChild(contentArea);
+                // CRITICAL: Re-apply explicit width and height after participant view renderer
+                // Participant view renderers may set width/height to 100%, which we need to override
+                // with the actual configured dimensions for the editor
+                if (!insideContainer) {
+                    el.style.width = `${element.width}px`;
+                    el.style.height = `${element.height}px`;
+                    el.style.minWidth = `${element.width}px`;
+                    el.style.maxWidth = `${element.width}px`;
+                    el.style.minHeight = `${element.height}px`;
+                    el.style.maxHeight = `${element.height}px`;
+                }
+                
+                // After rendering, replace submit button handlers with editor mode alerts
+                // Use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    const submitBtns = el.querySelectorAll('.submit-answer-btn');
+                    submitBtns.forEach(btn => {
+                        btn.onclick = (e) => {
+                            e.stopPropagation();
+                            alert('Submit clicked (editor mode)');
+                        };
+                    });
+                }, 0);
                 
                 // Add right-click context menu for answer_input in participant view (even when inside container)
                 // This allows alignment of answer elements

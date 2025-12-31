@@ -68,8 +68,9 @@
      * @param {string} elementId - The element ID
      * @param {Object} properties - Counter properties (value, increment, count_up, prefix, suffix)
      * @param {Function} updateCallback - Function to call when counter value changes (elementId, newValue)
+     * @param {Function} completionCallback - Optional function to call when counter finishes naturally (elementId)
      */
-    function startCounter(elementId, properties, updateCallback) {
+    function startCounter(elementId, properties, updateCallback, completionCallback) {
         // Stop existing counter if running
         stopCounter(elementId);
         
@@ -100,7 +101,8 @@
             countUp: countUp,
             prefix: prefix,
             suffix: suffix,
-            updateCallback: updateCallback
+            updateCallback: updateCallback,
+            completionCallback: completionCallback
         };
         
         // Initial update (round to increment precision)
@@ -119,18 +121,26 @@
             }
             
             // Update value
+            let finished = false;
             if (counter.countUp) {
                 counter.currentValue += counter.increment;
                 if (counter.currentValue >= counter.targetValue) {
                     counter.currentValue = counter.targetValue;
+                    finished = true;
                     stopCounter(elementId);
                 }
             } else {
                 counter.currentValue -= counter.increment;
                 if (counter.currentValue <= counter.targetValue) {
                     counter.currentValue = counter.targetValue;
+                    finished = true;
                     stopCounter(elementId);
                 }
+            }
+            
+            // Call completion callback if counter finished naturally
+            if (finished && counter.completionCallback) {
+                counter.completionCallback(elementId);
             }
             
             // Call update callback (round to increment precision)

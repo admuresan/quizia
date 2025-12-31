@@ -21,13 +21,7 @@ QuestionTypes.Text.ParticipantView = (function() {
         container.style.overflow = 'hidden';
         container.style.boxSizing = 'border-box';
         
-        // Title header at top (matching control view aesthetic)
-        if (questionTitle) {
-            const titleHeader = document.createElement('div');
-            titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; flex-shrink: 0;';
-            titleHeader.textContent = questionTitle;
-            container.appendChild(titleHeader);
-        }
+        // Note: Title is rendered by participant.js in the questionContainer, not here
         
         // Content area (scrollable if needed)
         const contentArea = document.createElement('div');

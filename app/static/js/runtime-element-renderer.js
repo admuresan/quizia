@@ -778,27 +778,29 @@ RuntimeRenderer.ElementRenderer = (function() {
             }
         }
         
-        const container = document.createElement('div');
-        container.style.cssText = 'background-color: white; padding: 1rem; border: 2px solid #2196F3; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column;';
-        el.appendChild(container);
+        // No wrapper styling needed - the questionContainer in participant.js already provides the wrapper
+        // Just set basic layout styles that participant view renderer expects
+        el.style.boxSizing = 'border-box';
+        // Layout styles will be set by participant view renderer
         
         const questionTitle = question && question.question_config ? (question.question_config.question_title || '') : '';
         const renderOptions = Object.assign({}, options, { question: question, questionTitle: questionTitle });
         
+        // Call participant view renderer directly on el (no extra wrapper)
         if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ParticipantView) {
-            QuestionTypes.Text.ParticipantView.render(container, element, renderOptions);
+            QuestionTypes.Text.ParticipantView.render(el, element, renderOptions);
         } else if (answerType === 'radio' && QuestionTypes.Radio && QuestionTypes.Radio.ParticipantView) {
-            QuestionTypes.Radio.ParticipantView.render(container, element, renderOptions);
+            QuestionTypes.Radio.ParticipantView.render(el, element, renderOptions);
         } else if (answerType === 'checkbox' && QuestionTypes.Checkbox && QuestionTypes.Checkbox.ParticipantView) {
-            QuestionTypes.Checkbox.ParticipantView.render(container, element, renderOptions);
+            QuestionTypes.Checkbox.ParticipantView.render(el, element, renderOptions);
         } else if (answerType === 'image_click' && QuestionTypes.ImageClick && QuestionTypes.ImageClick.ParticipantView) {
-            QuestionTypes.ImageClick.ParticipantView.render(container, element, renderOptions);
+            QuestionTypes.ImageClick.ParticipantView.render(el, element, renderOptions);
         } else if (answerType === 'stopwatch' && QuestionTypes.Stopwatch && QuestionTypes.Stopwatch.ParticipantView) {
-            QuestionTypes.Stopwatch.ParticipantView.render(container, element, renderOptions);
+            QuestionTypes.Stopwatch.ParticipantView.render(el, element, renderOptions);
         } else {
             console.error('[RuntimeRenderer] Question type', answerType, 'participant view not found');
-            container.textContent = `Answer input type "${answerType}" not supported`;
-            container.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
+            el.textContent = `Answer input type "${answerType}" not supported`;
+            el.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
         }
     }
     
