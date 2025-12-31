@@ -247,16 +247,24 @@
             
             item.addEventListener('click', () => {
                 const mediaType = tabType === 'images' ? 'image' : tabType;
-                if (mediaModalCallback) {
-                    mediaModalCallback({
-                        media_type: mediaType,
-                        url: `/api/media/serve/${file.filename}`,
-                        filename: file.filename
-                    });
-                }
                 const modal = document.getElementById('media-modal');
+                
+                // Close modal first to ensure it closes even if callback throws an error
                 if (modal) {
                     modal.style.display = 'none';
+                }
+                
+                // Then call the callback
+                if (mediaModalCallback) {
+                    try {
+                        mediaModalCallback({
+                            media_type: mediaType,
+                            url: `/api/media/serve/${file.filename}`,
+                            filename: file.filename
+                        });
+                    } catch (error) {
+                        console.error('Error in media modal callback:', error);
+                    }
                 }
             });
             

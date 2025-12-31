@@ -79,6 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
             participantAvatar = data.participant_avatar;
         }
         
+        // Update score from server (important for rejoins)
+        if (data.participant_score !== undefined) {
+            currentScore = data.participant_score;
+        }
+        
         // Always update header after receiving data
         updateParticipantHeader();
         
@@ -190,6 +195,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Question element appeared on display page - show its answer container
                 questionContainer.style.display = 'block';
                 questionContainer.style.visibility = 'visible';
+            }
+        }
+    });
+    
+    // Listen for stopwatch start triggers from display page
+    socket.on('stopwatch_start', (data) => {
+        if (data.question_id) {
+            // Find the question container
+            const questionContainer = document.getElementById(`question-${data.question_id}`);
+            if (questionContainer) {
+                // Find the stopwatch container
+                const stopwatchContainer = questionContainer.querySelector('.stopwatch-container');
+                if (stopwatchContainer) {
+                    // Try to find a container with startStopwatch function
+                    const containers = questionContainer.querySelectorAll('div');
+                    for (const container of containers) {
+                        if (container.startStopwatch && typeof container.startStopwatch === 'function') {
+                            container.startStopwatch();
+                            return;
+                        }
+                    }
+                    
+                    // Fallback: try to find and click the start button
+                    const startBtn = stopwatchContainer.querySelector('button');
+                    if (startBtn) {
+                        // Temporarily enable the button if it's disabled (for auto-start)
+                        const wasDisabled = startBtn.disabled;
+                        if (wasDisabled) {
+                            startBtn.disabled = false;
+                            startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+                        }
+                        startBtn.click();
+                    }
+                }
             }
         }
     });
@@ -339,6 +378,13 @@ function renderPage(pageIndex, page) {
             // Check if this question was already answered
             const submittedAnswer = submittedAnswers[question.id];
             
+            // If question has a submitted answer, grey out the container
+            if (submittedAnswer) {
+                questionContainer.style.opacity = '0.6';
+                questionContainer.style.backgroundColor = '#f5f5f5';
+                questionContainer.style.pointerEvents = 'none';
+            }
+            
             // Render the answer input inside the question container
             const renderedEl = RuntimeRenderer.ElementRenderer.renderElement(questionContainer, answerInput, {
                 mode: 'participant',
@@ -420,12 +466,11 @@ function submitAnswer(questionId, answerType, buttonElement, customAnswer = null
     if (!participantId) return;
     
     let answer = customAnswer;
+    const questionContainer = document.getElementById(`question-${questionId}`);
+    if (!questionContainer) return;
     
     if (!answer) {
         // Get answer from form elements
-        const questionContainer = document.getElementById(`question-${questionId}`);
-        if (!questionContainer) return;
-        
         if (answerType === 'text') {
             const input = questionContainer.querySelector('.answer-text-input');
             answer = input ? input.value : '';
@@ -442,6 +487,18 @@ function submitAnswer(questionId, answerType, buttonElement, customAnswer = null
         return;
     }
     
+    // Update submittedAnswers immediately so the UI reflects the submission
+    submittedAnswers[questionId] = {
+        answer: answer,
+        submission_time: Date.now() / 1000, // Approximate timestamp
+        timestamp: Date.now() / 1000
+    };
+    
+    // Grey out the question container immediately
+    questionContainer.style.opacity = '0.6';
+    questionContainer.style.backgroundColor = '#f5f5f5';
+    questionContainer.style.pointerEvents = 'none';
+    
     socket.emit('participant_submit_answer', {
         room_code: window.roomCode,
         participant_id: participantId,
@@ -454,19 +511,42 @@ function submitAnswer(questionId, answerType, buttonElement, customAnswer = null
     if (buttonElement) {
         buttonElement.disabled = true;
         buttonElement.textContent = 'Submitted';
+        buttonElement.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
     } else {
         questionContainer.querySelectorAll('.submit-answer-btn').forEach(btn => {
             btn.disabled = true;
             btn.textContent = 'Submitted';
+            btn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
         });
     }
     
-    // Disable input fields
+    // Disable and style input fields
     questionContainer.querySelectorAll('input, button').forEach(el => {
         if (!el.classList.contains('submit-answer-btn')) {
             el.disabled = true;
+            if (el.tagName === 'INPUT') {
+                el.style.backgroundColor = '#f5f5f5';
+                el.style.cursor = 'not-allowed';
+            }
         }
     });
+    
+    // Add "Answer already submitted" message if it doesn't exist
+    const existingMsg = questionContainer.querySelector('.submitted-message');
+    if (!existingMsg) {
+        const submittedMsg = document.createElement('div');
+        submittedMsg.className = 'submitted-message';
+        submittedMsg.textContent = 'Answer already submitted';
+        submittedMsg.style.cssText = 'color: #666; font-size: 0.85rem; font-style: italic; margin-top: 0.5rem;';
+        // Insert after the submit button or at the end of the content area
+        const contentArea = questionContainer.querySelector('div[style*="flex: 1"]') || questionContainer;
+        const submitBtn = questionContainer.querySelector('.submit-answer-btn');
+        if (submitBtn && submitBtn.parentElement) {
+            submitBtn.parentElement.appendChild(submittedMsg);
+        } else {
+            contentArea.appendChild(submittedMsg);
+        }
+    }
 }
 
 function showQuizNotRunning() {

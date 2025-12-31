@@ -233,6 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateElementToggle(elementId, visible);
     });
     
+    socket.on('element_media_control', (data) => {
+        // Update media play/pause state when changed
+        const elementId = data.element_id;
+        const playing = data.playing;
+        if (window.MediaControlManager) {
+            window.MediaControlManager.setMediaState(elementId, playing);
+        }
+    });
+    
     // REMOVED: Listen for element_appearance_changed from display
     // Control is the source of truth - display should never update control
     // Control initializes visibility from room data on load, and only updates via user toggles
@@ -469,10 +478,15 @@ function loadPage() {
     }
     
     if (controlElements.length > 0 || displayElements.length > 0) {
-        // Audio/video control elements (for controlling media)
-        const audioVideoElements = displayElements.filter(el => 
-            el.type === 'audio' || el.type === 'video' || el.media_type === 'audio' || el.media_type === 'video'
-        );
+        // Playable elements (audio/video/counter) control elements (for controlling media)
+        const audioVideoElements = displayElements.filter(el => {
+            if (window.ElementTypes && window.ElementTypes.isElementPlayable) {
+                return window.ElementTypes.isElementPlayable(el);
+            }
+            // Fallback for when ElementTypes is not loaded
+            return (el.type === 'audio' || el.type === 'video' || el.type === 'counter' || 
+                   el.media_type === 'audio' || el.media_type === 'video');
+        });
         
         audioVideoElements.forEach(mediaElement => {
             // Check if control element exists
@@ -482,7 +496,8 @@ function loadPage() {
             
             if (existingControl) {
                 RuntimeRenderer.ElementRenderer.renderElement(canvas, existingControl, {
-                    mode: 'control'
+                    mode: 'control',
+                    page: page // Pass page so runtime renderer can look up parent element
                 });
             }
         });

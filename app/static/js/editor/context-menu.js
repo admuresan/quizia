@@ -461,7 +461,7 @@
                         el.y = targetY; // Update element's y property for visual update
                     }
                     // Update DOM element immediately for visual feedback
-                    const domElement = document.getElementById(`element-${elementId}`);
+                    const domElement = document.getElementById(elementId);
                     if (domElement) {
                         if (action === 'alignVertical') {
                             domElement.style.left = `${targetX}px`;
@@ -519,7 +519,7 @@
                         }
                     }
                     // Update DOM element immediately for visual feedback
-                    const domElement = document.getElementById(`element-${elementId}`);
+                    const domElement = document.getElementById(elementId);
                     console.log('[ContextMenu] Child element DOM:', domElement ? 'found' : 'not found', 'id:', `element-${elementId}`, 'type:', el.type);
                     if (domElement) {
                         if (action === 'alignVertical') {
@@ -633,7 +633,7 @@
                 }
             } else if (element.type === 'richtext') {
                 // For richtext elements, extract text from HTML content
-                const elementId = `element-${element.id}`;
+                const elementId = element.id;
                 const domElement = document.getElementById(elementId);
                 if (domElement) {
                     // Get selected text if any, otherwise get all text
@@ -654,7 +654,7 @@
                 }
             } else if (element.type === 'text') {
                 // For text elements, get text content
-                const elementId = `element-${element.id}`;
+                const elementId = element.id;
                 const domElement = document.getElementById(elementId);
                 if (domElement) {
                     // Get selected text if any, otherwise get all text
@@ -669,7 +669,7 @@
                 }
             } else {
                 // For other elements, try to find textarea inside
-                const elementId = `element-${element.id}`;
+                const elementId = element.id;
                 const domElement = document.getElementById(elementId);
                 if (domElement) {
                     const textarea = domElement.querySelector('textarea');

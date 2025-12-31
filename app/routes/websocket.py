@@ -238,6 +238,12 @@ def handle_quizmaster_rerender_quiz(data):
                     element_data['appearance_visible'] = False  # Timer mode starts hidden
                 else:
                     element_data['appearance_visible'] = True  # on_load starts visible
+                
+                # Reset media playing state to False when rerendering
+                is_media = (element_data.get('type') in ['audio', 'video', 'counter'] or 
+                           element_data.get('media_type') in ['audio', 'video'])
+                if is_media:
+                    element_data['media_playing'] = False
     
     # Ensure current_page is still valid after reload
     pages = updated_quiz.get('pages', [])
@@ -396,6 +402,19 @@ def handle_participant_join(data):
     participant_name = participant.get('name') if participant else name
     participant_avatar = participant.get('avatar') if participant else avatar
     
+    # Get this participant's current score
+    # Prefer room['scores'] if it exists, otherwise use participant['score'], or calculate if needed
+    participant_score = 0
+    if 'scores' in room and participant_id in room['scores']:
+        participant_score = room['scores'][participant_id]
+    elif participant and 'score' in participant:
+        participant_score = participant['score']
+    else:
+        # Calculate score if not available
+        from app.utils.scoring import calculate_score
+        scores = calculate_score(room)
+        participant_score = scores.get(participant_id, 0)
+    
     # Get this participant's submitted answers
     participant_answers = {}
     room_answers = room.get('answers', {})
@@ -409,6 +428,7 @@ def handle_participant_join(data):
         'participant_id': participant_id,
         'participant_name': participant_name,
         'participant_avatar': participant_avatar,
+        'participant_score': participant_score,  # Include participant's current score
         'current_page': current_page_index,  # Always send to keep views in sync
         'page': current_page,
         'quiz': quiz,
@@ -769,6 +789,38 @@ def handle_control_element(data):
     if not check_quizmaster_access(room_code):
         return
     
+    # Broadcast to display FIRST (before any blocking operations)
+    # This ensures immediate response for play/pause actions
+    emit('element_control', {
+        'element_id': element_id,
+        'action': action
+    }, room=f'display_{room_code}')
+    
+    # Also broadcast to control room so media controls update
+    if action in ['play', 'pause']:
+        emit('element_media_control', {
+            'element_id': element_id,
+            'playing': action == 'play'
+        }, room=f'control_{room_code}')
+    
+    # Update media playing state AFTER broadcasting (non-blocking for user experience)
+    # This happens in the background and doesn't delay the play action
+    if action in ['play', 'pause']:
+        room = get_room(room_code)
+        if room:
+            for page in room['quiz']['pages']:
+                elements = page.get('elements', {})
+                if element_id in elements:
+                    element = elements[element_id]
+                    # Check if this is a media element or counter
+                    is_media = (element.get('type') in ['audio', 'video', 'counter'] or 
+                               element.get('media_type') in ['audio', 'video'])
+                    if is_media:
+                        element['media_playing'] = (action == 'play')
+                        # Save room state after broadcast (non-blocking)
+                        save_room_state_now(room_code)  # Persist the change
+                    break
+    
     # Clear TV display render cache if showing/hiding elements
     if action in ['show', 'hide']:
         try:
@@ -776,12 +828,6 @@ def handle_control_element(data):
             clear_cache(room_code)
         except Exception as e:
             print(f"Warning: Failed to clear TV display cache: {e}")
-    
-    # Broadcast to display
-    emit('element_control', {
-        'element_id': element_id,
-        'action': action
-    }, room=f'display_{room_code}')
 
 @socketio.on('quizmaster_control_element_appearance')
 def handle_control_element_appearance(data):
@@ -889,6 +935,25 @@ def handle_element_appearance_changed(data):
     emit('element_appearance_changed', {
         'element_id': element_id,
         'visible': visible
+    }, room=f'participant_{room_code}')
+
+@socketio.on('stopwatch_start_trigger')
+def handle_stopwatch_start_trigger(data):
+    """Display screen triggers stopwatch start for a question.
+    
+    This is called when a stopwatch question should auto-start based on timer_start_method.
+    """
+    room_code = data.get('room_code')
+    question_id = data.get('question_id')
+    trigger_type = data.get('trigger_type')
+    
+    if not all([room_code, question_id, trigger_type]):
+        return
+    
+    # Broadcast to participant room to start the stopwatch
+    emit('stopwatch_start', {
+        'question_id': question_id,
+        'trigger_type': trigger_type
     }, room=f'participant_{room_code}')
 
 @socketio.on('quizmaster_toggle_answer_display')

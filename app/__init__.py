@@ -54,12 +54,13 @@ def create_app():
             print(f"Restored {restored} room(s) from disk")
     
     # Register blueprints
-    from app.routes import main, auth, quiz, websocket, media
+    from app.routes import main, auth, quiz, websocket, media, debug
     app.register_blueprint(main.bp)
     app.register_blueprint(auth.bp)
     app.register_blueprint(quiz.bp)
     app.register_blueprint(websocket.bp)
     app.register_blueprint(media.bp)
+    app.register_blueprint(debug.bp)
     
     return app
 

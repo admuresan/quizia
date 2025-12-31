@@ -15,6 +15,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         userInfoDiv.innerHTML = `<p style="color: white; text-align: right; margin-bottom: 1rem;">Logged in as: <strong>${checkData.username}</strong></p>`;
     }
 
+    // Check if running on server and show warning
+    try {
+        const localhostCheck = await fetch('/api/quiz/check-localhost');
+        const localhostData = await localhostCheck.json();
+        const isLocalhost = localhostData.is_localhost;
+        
+        const warningDiv = document.getElementById('server-warning');
+        if (warningDiv) {
+            // Show warning only if NOT on localhost (i.e., on server)
+            if (!isLocalhost) {
+                warningDiv.style.display = 'block';
+            }
+        }
+    } catch (error) {
+        // If check fails, assume server and show warning for safety
+        const warningDiv = document.getElementById('server-warning');
+        if (warningDiv) {
+            warningDiv.style.display = 'block';
+        }
+    }
+
     // Tab switching
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
@@ -154,6 +175,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadMedia();
     });
 
+    // Media subtab switching
+    const mediaSubtabBtns = document.querySelectorAll('.media-subtab-btn');
+    mediaSubtabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            mediaSubtabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadMedia();
+        });
+    });
+
+    // Media search filter
+    const mediaSearchFilter = document.getElementById('media-search-filter');
+    if (mediaSearchFilter) {
+        mediaSearchFilter.addEventListener('input', () => {
+            filterMediaList();
+        });
+    }
+
     // Tab data loading is now handled in the main tab click handler above
     
     // Auto-refresh running quizzes every 5 seconds
@@ -209,6 +248,12 @@ async function loadRunningQuizzes() {
                     </div>
                 </div>
                 <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
+                        <input type="checkbox" ${quiz.public ? 'checked' : ''} 
+                               onchange="toggleRunningQuizPublic('${quiz.code}', this.checked)"
+                               style="margin-right: 0.5rem;">
+                        <span>Publish</span>
+                    </label>
                     <button class="btn btn-small btn-primary" onclick="goToQuiz('${quiz.code}')">Go to Quiz</button>
                     <button class="btn btn-small btn-danger" onclick="endRunningQuiz('${quiz.code}', '${quiz.quiz_name}')">End Quiz</button>
                 </div>
@@ -248,6 +293,29 @@ async function endRunningQuiz(roomCode, quizName) {
     } catch (error) {
         alert('Error ending quiz');
         console.error('Error ending quiz:', error);
+    }
+}
+
+async function toggleRunningQuizPublic(roomCode, isPublic) {
+    try {
+        const response = await fetch(`/api/quiz/running/toggle-public/${roomCode}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            // Optionally reload to ensure UI is in sync
+            // await loadRunningQuizzes();
+        } else {
+            alert('Error: ' + data.error);
+            // Reload to reset checkbox on error
+            await loadRunningQuizzes();
+        }
+    } catch (error) {
+        alert('Error toggling publish status');
+        console.error('Error toggling publish status:', error);
+        // Reload to reset checkbox on error
+        await loadRunningQuizzes();
     }
 }
 
@@ -602,27 +670,124 @@ async function toggleQuizPublic(quizId, isPublic) {
     }
 }
 
-async function loadMedia() {
+// Store current media data for filtering
+let currentMediaData = {
+    myMedia: [],
+    publicMedia: [],
+    currentUsername: '',
+    mediaType: 'images'
+};
+
+async function loadMedia(preserveScroll = false) {
     try {
+        // Save scroll position if we want to preserve it
+        const mediaTab = document.getElementById('media-tab');
+        let scrollPosition = 0;
+        if (preserveScroll && mediaTab) {
+            scrollPosition = window.scrollY || document.documentElement.scrollTop;
+        }
+        
         const response = await fetch('/api/media/list');
         const data = await response.json();
         
         const listDiv = document.getElementById('media-list');
         listDiv.innerHTML = '';
 
-        if (data.files.length === 0) {
-            listDiv.innerHTML = '<p>No media files yet. Upload some to get started!</p>';
-            return;
-        }
+        // Get current active media type subtab
+        const activeSubtab = document.querySelector('.media-subtab-btn.active');
+        const mediaType = activeSubtab ? activeSubtab.dataset.mediaType : 'images';
+        currentMediaData.mediaType = mediaType;
+        
+        // Define file type mappings
+        const fileTypes = {
+            images: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'],
+            audio: ['mp3', 'wav', 'ogg'],
+            video: ['mp4', 'webm']
+        };
+
+        // Filter files by media type
+        const filteredFiles = data.files.filter(file => {
+            const ext = file.filename.split('.').pop().toLowerCase();
+            return fileTypes[mediaType].includes(ext);
+        });
 
         // Get current user info
         const checkResponse = await fetch('/api/auth/check');
         const checkData = await checkResponse.json();
         const currentUsername = checkData.username;
+        currentMediaData.currentUsername = currentUsername;
 
-        // Create select all checkbox and bulk actions container
+        // Separate files into "My Media" (user's own files, even if public) and "Public" (other users' public files)
+        const myMedia = filteredFiles.filter(file => file.creator === currentUsername);
+        const publicMedia = filteredFiles.filter(file => file.public && file.creator !== currentUsername);
+        
+        // Store for filtering
+        currentMediaData.myMedia = myMedia;
+        currentMediaData.publicMedia = publicMedia;
+
+        // Clear search filter when switching media types
+        const searchInput = document.getElementById('media-search-filter');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        renderMediaSections(preserveScroll ? scrollPosition : undefined);
+    } catch (error) {
+        console.error('Error loading media:', error);
+    }
+}
+
+function renderMediaSections(scrollPosition) {
+    const listDiv = document.getElementById('media-list');
+    listDiv.innerHTML = '';
+
+    const searchInput = document.getElementById('media-search-filter');
+    const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    
+    // Filter media by search term
+    const filteredMyMedia = currentMediaData.myMedia.filter(file => {
+        if (!searchTerm) return true;
+        return file.original_name.toLowerCase().includes(searchTerm) ||
+               (file.creator && file.creator.toLowerCase().includes(searchTerm));
+    });
+    
+    const filteredPublicMedia = currentMediaData.publicMedia.filter(file => {
+        if (!searchTerm) return true;
+        return file.original_name.toLowerCase().includes(searchTerm) ||
+               (file.creator && file.creator.toLowerCase().includes(searchTerm));
+    });
+
+    if (filteredMyMedia.length === 0 && filteredPublicMedia.length === 0) {
+        const searchMsg = searchTerm ? `No ${currentMediaData.mediaType} files match "${searchTerm}"` : `No ${currentMediaData.mediaType} files yet. Upload some to get started!`;
+        listDiv.innerHTML = `<p>${searchMsg}</p>`;
+        return;
+    }
+
+    // Display "My Media" section with collapse functionality
+    if (filteredMyMedia.length > 0) {
+        const myMediaSection = document.createElement('div');
+        myMediaSection.className = 'media-section';
+        myMediaSection.dataset.section = 'my-media';
+        myMediaSection.style.cssText = 'margin-bottom: 2rem; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; padding: 1rem;';
+        
+        const myMediaHeading = document.createElement('h3');
+        myMediaHeading.className = 'collapsible-section-header';
+        myMediaHeading.dataset.collapsed = 'false';
+        myMediaHeading.style.cssText = 'margin-top: 0; margin-bottom: 1rem; padding: 0.75rem; background: #e8f4f8; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; border: 1px solid #b3d9e6;';
+        myMediaHeading.innerHTML = `
+            <span style="font-weight: bold; color: #1976d2;">My Media <span style="color: #666; font-weight: normal;">(${filteredMyMedia.length})</span></span>
+            <span class="collapse-icon" style="font-size: 1.2rem; transition: transform 0.3s; color: #1976d2;">▼</span>
+        `;
+        myMediaHeading.onclick = () => toggleSection('my-media');
+        
+        const myMediaContent = document.createElement('div');
+        myMediaContent.className = 'media-section-content';
+        myMediaContent.id = 'my-media-content';
+        myMediaContent.style.cssText = 'padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e0e0e0;';
+        
+        // Create select all checkbox and bulk actions container (inside My Media section)
         const selectAllDiv = document.createElement('div');
-        selectAllDiv.style.cssText = 'margin-bottom: 1rem; padding: 0.5rem; display: flex; align-items: center; gap: 0.5rem;';
+        selectAllDiv.style.cssText = 'margin-bottom: 1rem; padding: 0.75rem; display: flex; align-items: center; gap: 0.5rem; background: #f5f5f5; border-radius: 4px;';
         
         const selectAllCheckbox = document.createElement('input');
         selectAllCheckbox.type = 'checkbox';
@@ -641,12 +806,12 @@ async function loadMedia() {
         
         selectAllDiv.appendChild(selectAllCheckbox);
         selectAllDiv.appendChild(selectAllLabel);
-        listDiv.appendChild(selectAllDiv);
+        myMediaContent.appendChild(selectAllDiv);
         
         // Create bulk actions container
         const bulkActionsDiv = document.createElement('div');
         bulkActionsDiv.id = 'media-bulk-actions';
-        bulkActionsDiv.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 8px; display: none; align-items: center; gap: 1rem;';
+        bulkActionsDiv.style.cssText = 'margin-bottom: 1rem; padding: 1rem; background: #fff3cd; border-radius: 6px; display: none; align-items: center; gap: 1rem; border: 1px solid #ffc107;';
         
         const selectedCountSpan = document.createElement('span');
         selectedCountSpan.id = 'selected-count';
@@ -671,70 +836,142 @@ async function loadMedia() {
         bulkActionsDiv.appendChild(bulkDeleteBtn);
         bulkActionsDiv.appendChild(bulkMakePublicBtn);
         bulkActionsDiv.appendChild(bulkMakePrivateBtn);
-        listDiv.appendChild(bulkActionsDiv);
-
-        data.files.forEach(file => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            const isOwner = file.creator === currentUsername;
-            const fileSize = formatFileSize(file.size);
-            const fileType = getFileType(file.filename);
-            const ext = file.filename.split('.').pop().toLowerCase();
-            const mediaUrl = `/api/media/serve/${file.filename}`;
-            const referenceCount = file.reference_count || 0;
-            
-            // Determine media type and create preview
-            let previewHtml = '';
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
-                // Image thumbnail
-                previewHtml = `<img src="${mediaUrl}" alt="${file.original_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0;">`;
-            } else if (['mp4', 'webm'].includes(ext)) {
-                // Video thumbnail - show first frame
-                previewHtml = `<video src="${mediaUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; pointer-events: none;" preload="metadata" muted playsinline></video>`;
-            } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
-                // Audio icon
-                previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 2rem;">🔊</div>`;
-            } else {
-                // Default file icon
-                previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 1.5rem;">📄</div>`;
-            }
-            
-            // Escape filename for use in HTML attributes and JavaScript
-            // For data attributes, we can use the filename directly as the browser handles encoding
-            // For JavaScript in onclick handlers, we need to escape quotes
-            const escapedFilenameJs = file.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-            // Store both filename and original_name for bulk operations
-            const escapedFilename = file.filename.replace(/"/g, '&quot;');
-            const escapedOriginalName = file.original_name.replace(/"/g, '&quot;');
-            
-            item.innerHTML = `
-                ${isOwner ? `<input type="checkbox" class="media-select-checkbox" data-filename="${escapedFilename}" data-original-name="${escapedOriginalName}" style="margin-right: 1rem; width: 20px; height: 20px; cursor: pointer;" onchange="updateBulkActions()">` : '<div style="width: 20px; margin-right: 1rem;"></div>'}
-                ${previewHtml}
-                <div style="flex: 1;">
-                    <strong>${file.original_name}</strong>
-                    <div style="color: #666; font-size: 0.9rem;">
-                        ${fileType} | ${fileSize}
-                        ${file.creator ? ` | Created by: ${file.creator}` : ''}
-                        ${file.public ? ' | <span style="color: green;">Public</span>' : ' | <span style="color: #666;">Private</span>'}
-                        ${referenceCount > 0 ? ` | Referenced in ${referenceCount} quiz${referenceCount !== 1 ? 'es' : ''}` : ' | Not referenced'}
-                    </div>
-                </div>
-                <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
-                    ${isOwner ? `<label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
-                        <input type="checkbox" ${file.public ? 'checked' : ''} 
-                               onchange="toggleMediaPublic('${escapedFilenameJs}', this.checked)"
-                               style="margin-right: 0.5rem;">
-                        <span>Public</span>
-                    </label>` : ''}
-                    <button class="btn btn-small" onclick="downloadMedia('${escapedFilenameJs}')">Download</button>
-                    ${isOwner ? `<button class="btn btn-small btn-danger" onclick="deleteMedia('${escapedFilenameJs}')">Delete</button>` : ''}
-                </div>
-            `;
-            listDiv.appendChild(item);
+        myMediaContent.appendChild(bulkActionsDiv);
+        
+        filteredMyMedia.forEach(file => {
+            const item = createMediaItem(file, currentMediaData.currentUsername, true);
+            myMediaContent.appendChild(item);
         });
-    } catch (error) {
-        console.error('Error loading media:', error);
+        
+        myMediaSection.appendChild(myMediaHeading);
+        myMediaSection.appendChild(myMediaContent);
+        listDiv.appendChild(myMediaSection);
     }
+
+    // Display "Public" section with collapse functionality
+    if (filteredPublicMedia.length > 0) {
+        const publicMediaSection = document.createElement('div');
+        publicMediaSection.className = 'media-section';
+        publicMediaSection.dataset.section = 'public-media';
+        publicMediaSection.style.cssText = 'margin-bottom: 2rem; border: 1px solid #e0e0e0; border-radius: 8px; background: #fafafa; padding: 1rem;';
+        
+        const publicMediaHeading = document.createElement('h3');
+        publicMediaHeading.className = 'collapsible-section-header';
+        publicMediaHeading.dataset.collapsed = 'false';
+        publicMediaHeading.style.cssText = 'margin-top: 0; margin-bottom: 1rem; padding: 0.75rem; background: #f3e5f5; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; border: 1px solid #ce93d8;';
+        publicMediaHeading.innerHTML = `
+            <span style="font-weight: bold; color: #7b1fa2;">Public <span style="color: #666; font-weight: normal;">(${filteredPublicMedia.length})</span></span>
+            <span class="collapse-icon" style="font-size: 1.2rem; transition: transform 0.3s; color: #7b1fa2;">▼</span>
+        `;
+        publicMediaHeading.onclick = () => toggleSection('public-media');
+        
+        const publicMediaContent = document.createElement('div');
+        publicMediaContent.className = 'media-section-content';
+        publicMediaContent.id = 'public-media-content';
+        publicMediaContent.style.cssText = 'padding: 0.5rem; background: white; border-radius: 6px; border: 1px solid #e0e0e0;';
+        
+        filteredPublicMedia.forEach(file => {
+            const item = createMediaItem(file, currentMediaData.currentUsername, false);
+            publicMediaContent.appendChild(item);
+        });
+        
+        publicMediaSection.appendChild(publicMediaHeading);
+        publicMediaSection.appendChild(publicMediaContent);
+        listDiv.appendChild(publicMediaSection);
+    }
+    
+    // Restore scroll position if provided
+    if (scrollPosition !== undefined) {
+        // Use requestAnimationFrame to ensure DOM is fully rendered
+        requestAnimationFrame(() => {
+            window.scrollTo(0, scrollPosition);
+        });
+    }
+}
+
+function toggleSection(sectionName) {
+    const section = document.querySelector(`[data-section="${sectionName}"]`);
+    if (!section) return;
+    
+    const header = section.querySelector('.collapsible-section-header');
+    const content = section.querySelector('.media-section-content');
+    const icon = header.querySelector('.collapse-icon');
+    const isCollapsed = header.dataset.collapsed === 'true';
+    
+    if (isCollapsed) {
+        content.style.display = 'block';
+        icon.style.transform = 'rotate(0deg)';
+        header.dataset.collapsed = 'false';
+    } else {
+        content.style.display = 'none';
+        icon.style.transform = 'rotate(-90deg)';
+        header.dataset.collapsed = 'true';
+    }
+}
+
+function filterMediaList() {
+    renderMediaSections();
+}
+
+function createMediaItem(file, currentUsername, isMyMedia) {
+    const item = document.createElement('div');
+    item.className = 'list-item';
+    const isOwner = file.creator === currentUsername;
+    const fileSize = formatFileSize(file.size);
+    const fileType = getFileType(file.filename);
+    const ext = file.filename.split('.').pop().toLowerCase();
+    const mediaUrl = `/api/media/serve/${file.filename}`;
+    const referenceCount = file.reference_count || 0;
+    
+    // Determine media type and create preview
+    let previewHtml = '';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+        // Image thumbnail
+        previewHtml = `<img src="${mediaUrl}" alt="${file.original_name}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0;">`;
+    } else if (['mp4', 'webm'].includes(ext)) {
+        // Video thumbnail - show first frame
+        previewHtml = `<video src="${mediaUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; pointer-events: none;" preload="metadata" muted playsinline></video>`;
+    } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+        // Audio icon
+        previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 2rem;">🔊</div>`;
+    } else {
+        // Default file icon
+        previewHtml = `<div style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: #e0e0e0; border-radius: 4px; margin-right: 1rem; flex-shrink: 0; font-size: 1.5rem;">📄</div>`;
+    }
+    
+    // Escape filename for use in HTML attributes and JavaScript
+    const escapedFilenameJs = file.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const escapedFilename = file.filename.replace(/"/g, '&quot;');
+    const escapedOriginalName = file.original_name.replace(/"/g, '&quot;');
+    
+    // For My Media: show checkbox, public toggle, rename button, delete button
+    // For Public Media: no checkbox, no public toggle, no rename, no delete button (read-only)
+    item.innerHTML = `
+        ${isMyMedia ? `<input type="checkbox" class="media-select-checkbox" data-filename="${escapedFilename}" data-original-name="${escapedOriginalName}" style="margin-right: 1rem; width: 20px; height: 20px; cursor: pointer;" onchange="updateBulkActions()">` : '<div style="width: 20px; margin-right: 1rem;"></div>'}
+        ${previewHtml}
+        <div style="flex: 1;">
+            <strong class="media-display-name">${file.original_name}</strong>
+            <div style="color: #666; font-size: 0.9rem;">
+                ${fileType} | ${fileSize}
+                ${file.creator ? ` | Created by: ${file.creator}` : ''}
+                ${file.public ? ' | <span style="color: green;">Public</span>' : ' | <span style="color: #666;">Private</span>'}
+                ${referenceCount > 0 ? ` | Referenced in ${referenceCount} quiz${referenceCount !== 1 ? 'es' : ''}` : ' | Not referenced'}
+            </div>
+        </div>
+        <div class="list-item-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+            ${isMyMedia ? `<label style="display: flex; align-items: center; cursor: pointer; margin-right: 0.5rem;">
+                <input type="checkbox" ${file.public ? 'checked' : ''} 
+                       onchange="toggleMediaPublic('${escapedFilenameJs}', this.checked)"
+                       style="margin-right: 0.5rem;">
+                <span>Public</span>
+            </label>` : ''}
+            <button class="btn btn-small" onclick="downloadMedia('${escapedFilenameJs}')">Download</button>
+            ${isMyMedia ? `<button class="btn btn-small" style="background-color: #17a2b8; color: white;" onclick="renameMedia('${escapedFilenameJs}', '${escapedOriginalName.replace(/'/g, "\\'")}')">Rename</button>` : ''}
+            ${isMyMedia ? `<button class="btn btn-small btn-danger" onclick="deleteMedia('${escapedFilenameJs}')">Delete</button>` : ''}
+        </div>
+    `;
+    
+    return item;
 }
 
 function updateBulkActions() {
@@ -841,7 +1078,7 @@ async function bulkDeleteMedia() {
             } else {
                 alert(`Successfully deleted ${count} file${count !== 1 ? 's' : ''}`);
             }
-            await loadMedia();
+            await loadMedia(true); // Preserve scroll position
         } else {
             alert(`Error: ${data.error || 'Failed to delete files'}`);
         }
@@ -879,7 +1116,7 @@ async function bulkToggleMediaPublic(makePublic) {
                 alert(`${action.charAt(0).toUpperCase() + action.slice(1)} ${count - failed.length} file(s). Failed: ${failed.map(f => f.filename).join(', ')}`);
             }
             // Always reload to update UI (even if some failed)
-            await loadMedia();
+            await loadMedia(true); // Preserve scroll position
         } else {
             alert(`Error: ${data.error || `Failed to ${action} files`}`);
         }
@@ -921,7 +1158,7 @@ async function deleteMedia(filename) {
         const data = await response.json();
         if (response.ok) {
             alert('File deleted');
-            await loadMedia();
+            await loadMedia(true); // Preserve scroll position
         } else {
             alert('Error: ' + data.error);
         }
@@ -938,14 +1175,46 @@ async function toggleMediaPublic(filename, isPublic) {
 
         const data = await response.json();
         if (response.ok) {
-            await loadMedia();
+            await loadMedia(true); // Preserve scroll position
         } else {
             alert('Error: ' + data.error);
-            await loadMedia(); // Reload to reset checkbox
+            await loadMedia(true); // Reload to reset checkbox, preserve scroll
         }
     } catch (error) {
         alert('Error toggling public status');
-        await loadMedia(); // Reload to reset checkbox
+        await loadMedia(true); // Reload to reset checkbox, preserve scroll
+    }
+}
+
+async function renameMedia(filename, currentName) {
+    const newName = prompt('Enter new display name:', currentName);
+    
+    if (!newName || newName.trim() === '') {
+        return; // User cancelled or entered empty name
+    }
+    
+    if (newName.trim() === currentName) {
+        return; // No change
+    }
+    
+    try {
+        const response = await fetch(`/api/media/rename/${encodeURIComponent(filename)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ new_display_name: newName.trim() })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            await loadMedia(true); // Preserve scroll position
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error renaming file');
+        console.error('Error renaming media:', error);
     }
 }
 

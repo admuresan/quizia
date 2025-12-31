@@ -109,7 +109,8 @@ def create_room(quiz_id, quiz_name, quiz_data, quizmaster_username):
         'answers': {},
         'scores': {},
         'state': {},
-        'ended': False
+        'ended': False,
+        'public': False  # Mark run as public (available for future use)
     }
     
     with rooms_lock:
@@ -264,7 +265,8 @@ def get_running_rooms_for_quizmaster(quizmaster_username):
                         'created_at': room.get('created_at', current_time),
                         'last_activity': room.get('last_activity', current_time),
                         'current_page': room.get('current_page', 0),
-                        'participant_count': len(room.get('participants', {}))
+                        'participant_count': len(room.get('participants', {})),
+                        'public': room.get('public', False)
                     })
                 else:
                     # Room expired - mark as ended and delete file
@@ -272,6 +274,37 @@ def get_running_rooms_for_quizmaster(quizmaster_username):
                     _delete_room_file(code)
     
     return running_rooms
+
+def get_public_rooms():
+    """Get all public running (non-ended) rooms."""
+    current_time = time.time()
+    public_rooms = []
+    
+    with rooms_lock:
+        for code, room in rooms.items():
+            # Check if room is public, not ended, and still active
+            if room.get('public', False) and not room.get('ended', False):
+                # Check if room is still active (not expired)
+                if current_time - room['last_activity'] <= ROOM_EXPIRATION:
+                    quiz = room.get('quiz', {})
+                    pages = quiz.get('pages', [])
+                    total_pages = len(pages)
+                    current_page = room.get('current_page', 0)
+                    
+                    public_rooms.append({
+                        'code': code,
+                        'quiz_name': room.get('quiz_name', 'Unknown'),
+                        'quizmaster': room.get('quizmaster', 'Unknown'),
+                        'current_page': current_page,
+                        'total_pages': total_pages,
+                        'participant_count': len(room.get('participants', {}))
+                    })
+                else:
+                    # Room expired - mark as ended and delete file
+                    room['ended'] = True
+                    _delete_room_file(code)
+    
+    return public_rooms
 
 def cleanup_expired_rooms():
     """Clean up expired rooms. Should be called periodically."""
@@ -318,7 +351,12 @@ def restore_rooms():
                 _delete_room_file(room_code)
                 continue
             
-            # Restore room to memory
+            # Ensure public field exists (for backward compatibility)
+            # If public exists in saved data, it will be preserved as-is
+            if 'public' not in room_data:
+                room_data['public'] = False
+            
+            # Restore room to memory (preserves all fields including public status)
             rooms[room_code] = room_data
             restored_count += 1
     

@@ -232,6 +232,33 @@ def toggle_media_public(filename, username):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
+def rename_media_display_name(filename, new_display_name, username):
+    """Rename the display name (original_name) of a media file (only creator can rename)."""
+    try:
+        metadata = _load_media_metadata()
+        file_meta = metadata.get(filename)
+        
+        if not file_meta:
+            return {'success': False, 'error': 'File not found in metadata'}
+        
+        if file_meta.get('creator') != username:
+            return {'success': False, 'error': 'Only the creator can rename the file'}
+        
+        # Validate new display name
+        if not new_display_name or not new_display_name.strip():
+            return {'success': False, 'error': 'Display name cannot be empty'}
+        
+        new_display_name = new_display_name.strip()
+        
+        # Update the original_name (display name) in metadata
+        file_meta['original_name'] = new_display_name
+        metadata[filename] = file_meta
+        _save_media_metadata(metadata)
+        
+        return {'success': True, 'original_name': new_display_name}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
 def count_media_references(filename):
     """Count how many quizzes reference a media file."""
     try:

@@ -37,19 +37,34 @@ QuestionTypes.Common = (function() {
     }
     
     /**
+     * Format time with tenths of a second (e.g., "0:05.3")
+     */
+    function formatTimeWithTenths(milliseconds) {
+        const totalSeconds = milliseconds / 1000;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const secs = Math.floor(seconds);
+        const tenths = Math.floor((seconds % 1) * 10);
+        return `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
+    }
+    
+    /**
      * Format stopwatch time
      */
     function formatStopwatchTime(milliseconds) {
-        const seconds = Math.floor(milliseconds / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${minutes}:${secs.toString().padStart(2, '0')} (${(milliseconds / 1000).toFixed(1)}s)`;
+        const totalSeconds = milliseconds / 1000;
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const secs = Math.floor(seconds);
+        const tenths = Math.floor((seconds % 1) * 10);
+        return `${minutes}:${secs.toString().padStart(2, '0')}.${tenths} (${totalSeconds.toFixed(1)}s)`;
     }
     
     return {
         getParticipantColor: getParticipantColor,
         hexToRgba: hexToRgba,
         formatSubmissionTime: formatSubmissionTime,
-        formatStopwatchTime: formatStopwatchTime
+        formatStopwatchTime: formatStopwatchTime,
+        formatTimeWithTenths: formatTimeWithTenths
     };
 })();

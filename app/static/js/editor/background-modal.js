@@ -2,7 +2,34 @@
 
 (function(Editor) {
     'use strict';
-
+    
+    // Use centralized color picker from Editor.ColorPicker
+    if (!Editor.ColorPicker) {
+        console.error('Editor.ColorPicker not loaded. Make sure color-picker.js is included before background-modal.js');
+    }
+    
+    // Legacy helper functions - redirect to centralized picker
+    function parseColorWithOpacity(colorValue) {
+        if (Editor.ColorPicker && Editor.ColorPicker.parseColor) {
+            return Editor.ColorPicker.parseColor(colorValue);
+        }
+        return { hex: colorValue || '#000000', opacity: 1 };
+    }
+    
+    function hexToRgba(hex, opacity) {
+        if (Editor.ColorPicker && Editor.ColorPicker.hexToRgba) {
+            return Editor.ColorPicker.hexToRgba(hex, opacity);
+        }
+        return hex;
+    }
+    
+    // Legacy function - redirects to centralized picker
+    function openColorPickerModal(currentColor, onColorChange, getCurrentQuizFn) {
+        if (Editor.ColorPicker && Editor.ColorPicker.open) {
+            Editor.ColorPicker.open(currentColor, onColorChange, getCurrentQuizFn);
+        }
+    }
+    
     Editor.BackgroundModal = {
         open: function(page, currentQuiz, callback, currentView) {
             // Default to display view if not provided
@@ -108,7 +135,8 @@
             let angle = 135;
             
             if (isGradient) {
-                const match = currentBg.match(/linear-gradient\((\d+)deg,\s*([^,]+)\s+\d+%,\s*([^)]+)\s+\d+%\)/);
+                // Match gradient with rgba or hex colors
+                const match = currentBg.match(/linear-gradient\((\d+)deg,\s*([^,]+?)\s+\d+%,\s*([^)]+?)\s+\d+%\)/);
                 if (match) {
                     angle = parseInt(match[1]);
                     color1 = match[2].trim();
@@ -118,16 +146,27 @@
                 color1 = currentBg;
             }
             
-            // Color tab content
+            // Color tab content - use color picker modal
             const colorTab = tabContents['color'];
             const colorLabel = document.createElement('label');
             colorLabel.textContent = 'Color';
             colorLabel.style.cssText = 'display: block; margin-bottom: 0.5rem; font-weight: 500;';
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = isGradient ? color1 : color1;
-            colorInput.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;';
             colorTab.appendChild(colorLabel);
+            
+            // Store the selected color for apply button
+            let selectedColor = isGradient ? color1 : color1;
+            
+            const colorInput = document.createElement('button');
+            const parsedColor = parseColorWithOpacity(selectedColor);
+            colorInput.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: ' + (parsedColor.opacity < 1 ? hexToRgba(parsedColor.hex, parsedColor.opacity) : parsedColor.hex) + '; position: relative;';
+            colorInput.onclick = (e) => {
+                e.preventDefault();
+                openColorPickerModal(selectedColor, (rgbaColor) => {
+                    selectedColor = rgbaColor;
+                    const newParsed = parseColorWithOpacity(rgbaColor);
+                    colorInput.style.background = newParsed.opacity < 1 ? hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;
+                }, () => currentQuiz);
+            };
             colorTab.appendChild(colorInput);
             
             // Gradient tab content
@@ -142,11 +181,23 @@
             const color1Label = document.createElement('label');
             color1Label.textContent = 'Color 1';
             color1Label.style.cssText = 'display: block; margin-bottom: 0.5rem;';
-            const color1Input = document.createElement('input');
-            color1Input.type = 'color';
-            color1Input.value = color1;
-            color1Input.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;';
             color1Group.appendChild(color1Label);
+            
+            const color1Input = document.createElement('button');
+            const parsedColor1 = parseColorWithOpacity(color1);
+            color1Input.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: ' + (parsedColor1.opacity < 1 ? hexToRgba(parsedColor1.hex, parsedColor1.opacity) : parsedColor1.hex) + '; position: relative;';
+            
+            // Store selected colors for gradient
+            let selectedColor1 = color1;
+            color1Input.onclick = (e) => {
+                e.preventDefault();
+                openColorPickerModal(selectedColor1, (rgbaColor) => {
+                    selectedColor1 = rgbaColor;
+                    const newParsed = parseColorWithOpacity(rgbaColor);
+                    color1Input.style.background = newParsed.opacity < 1 ? hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;
+                    updateGradientPreview();
+                }, () => currentQuiz);
+            };
             color1Group.appendChild(color1Input);
             
             const color2Group = document.createElement('div');
@@ -154,11 +205,22 @@
             const color2Label = document.createElement('label');
             color2Label.textContent = 'Color 2';
             color2Label.style.cssText = 'display: block; margin-bottom: 0.5rem;';
-            const color2Input = document.createElement('input');
-            color2Input.type = 'color';
-            color2Input.value = color2;
-            color2Input.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;';
             color2Group.appendChild(color2Label);
+            
+            const color2Input = document.createElement('button');
+            const parsedColor2 = parseColorWithOpacity(color2);
+            color2Input.style.cssText = 'width: 100%; height: 50px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; background: ' + (parsedColor2.opacity < 1 ? hexToRgba(parsedColor2.hex, parsedColor2.opacity) : parsedColor2.hex) + '; position: relative;';
+            
+            let selectedColor2 = color2;
+            color2Input.onclick = (e) => {
+                e.preventDefault();
+                openColorPickerModal(selectedColor2, (rgbaColor) => {
+                    selectedColor2 = rgbaColor;
+                    const newParsed = parseColorWithOpacity(rgbaColor);
+                    color2Input.style.background = newParsed.opacity < 1 ? hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;
+                    updateGradientPreview();
+                }, () => currentQuiz);
+            };
             color2Group.appendChild(color2Input);
             
             const angleGroup = document.createElement('div');
@@ -184,12 +246,10 @@
             gradientPreview.style.cssText = 'width: 100%; height: 60px; border: 1px solid #ddd; border-radius: 4px; margin-top: 1rem;';
             
             const updateGradientPreview = () => {
-                const grad = `linear-gradient(${angleSlider.value}deg, ${color1Input.value} 0%, ${color2Input.value} 100%)`;
+                const grad = `linear-gradient(${angleSlider.value}deg, ${selectedColor1} 0%, ${selectedColor2} 100%)`;
                 gradientPreview.style.background = grad;
             };
             
-            color1Input.oninput = updateGradientPreview;
-            color2Input.oninput = updateGradientPreview;
             updateGradientPreview();
             
             gradientTab.appendChild(color1Group);
@@ -295,9 +355,9 @@
                 // Use QuizStructure helper to set background in new format
                 if (Editor.QuizStructure && Editor.QuizStructure.setViewBackground) {
                     if (activeTab === 'color') {
-                        Editor.QuizStructure.setViewBackground(page, currentView, colorInput.value, null);
+                        Editor.QuizStructure.setViewBackground(page, currentView, selectedColor, null);
                     } else if (activeTab === 'gradient') {
-                        const gradient = `linear-gradient(${angleSlider.value}deg, ${color1Input.value} 0%, ${color2Input.value} 100%)`;
+                        const gradient = `linear-gradient(${angleSlider.value}deg, ${selectedColor1} 0%, ${selectedColor2} 100%)`;
                         Editor.QuizStructure.setViewBackground(page, currentView, gradient, null);
                     } else if (activeTab === 'image') {
                         Editor.QuizStructure.setViewBackground(page, currentView, null, selectedImageUrl || null);
@@ -305,10 +365,10 @@
                 } else {
                     // Fallback for old format
                     if (activeTab === 'color') {
-                        page.background_color = colorInput.value;
+                        page.background_color = selectedColor;
                         delete page.background_image;
                     } else if (activeTab === 'gradient') {
-                        page.background_color = `linear-gradient(${angleSlider.value}deg, ${color1Input.value} 0%, ${color2Input.value} 100%)`;
+                        page.background_color = `linear-gradient(${angleSlider.value}deg, ${selectedColor1} 0%, ${selectedColor2} 100%)`;
                         delete page.background_image;
                     } else if (activeTab === 'image') {
                         if (selectedImageUrl) {

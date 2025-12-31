@@ -17,7 +17,7 @@
         
         selectElement: function(element) {
             // Sync element position and size from DOM to element data when selecting
-            const el = document.getElementById(`element-${element.id}`);
+            const el = document.getElementById(element.id);
             if (el) {
                 // Read actual position from inline styles (absolute positioning)
                 // These are in canvas coordinates, not affected by zoom
@@ -145,7 +145,7 @@
         
         selectElement: function(element) {
             // Sync element position and size from DOM to element data when selecting
-            const el = document.getElementById(`element-${element.id}`);
+            const el = document.getElementById(element.id);
             if (el) {
                 // Read actual position from inline styles (absolute positioning)
                 // These are in canvas coordinates, not affected by zoom

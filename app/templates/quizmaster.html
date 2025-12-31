@@ -3,6 +3,9 @@
 {% block content %}
 <div class="container">
     <h1>Quizmaster Dashboard</h1>
+    <div id="server-warning" class="server-warning" style="display: none;">
+        <strong>⚠️ Work in Progress:</strong> This is a WIP project and data could be lost at any time. We recommend users download quiz files for safety.
+    </div>
     <div id="user-info"></div>
     <nav class="tabs">
         <button class="tab-btn" data-tab="running">Running Quizzes</button>
@@ -28,6 +31,14 @@
         <div class="actions">
             <button id="upload-media-btn" class="btn btn-primary">Upload Media</button>
             <input type="file" id="upload-media-file" accept="image/*,video/*,audio/*,.pdf,.svg" style="display: none;" multiple>
+        </div>
+        <div class="media-subtabs" style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid #ddd;">
+            <button class="media-subtab-btn active" data-media-type="images">Images</button>
+            <button class="media-subtab-btn" data-media-type="audio">Audio</button>
+            <button class="media-subtab-btn" data-media-type="video">Video</button>
+        </div>
+        <div class="media-search-container" style="margin-bottom: 1rem;">
+            <input type="text" id="media-search-filter" placeholder="Search media files..." style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem;">
         </div>
         <div id="media-list"></div>
     </div>

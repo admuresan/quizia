@@ -42,6 +42,15 @@
                                 <div class="shape-item" data-type="plus">Plus</div>
                             </div>
                         </div>
+                        <div class="shapes-category">
+                            <div class="shapes-header" id="special-header">
+                                <span>Special</span>
+                                <span class="shapes-arrow">▼</span>
+                            </div>
+                            <div class="shapes-menu" id="special-menu" style="display: none;">
+                                <div class="shape-item" data-type="counter">Counter</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="sidebar-tab-content" id="sidebar-tab-pages">
@@ -151,6 +160,8 @@
 <script src="{{ url_for('static', filename='js/question-types/image_click/control_mockup.js') }}"></script>
 <!-- Background utilities (shared between editor and runtime) -->
 <script src="{{ url_for('static', filename='js/background-utils.js') }}"></script>
+<!-- Element type definitions -->
+<script src="{{ url_for('static', filename='js/element-types.js') }}"></script>
 <!-- Editor modules -->
 <script src="{{ url_for('static', filename='js/editor/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/quiz-structure.js') }}"></script>
@@ -158,6 +169,7 @@
 <script src="{{ url_for('static', filename='js/editor/page-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/element-creator.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/media-modal.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/color-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/background-modal.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/interaction-handlers.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/context-menu.js') }}"></script>
@@ -173,8 +185,10 @@
 <script src="{{ url_for('static', filename='js/editor/properties-panel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/properties/page-properties.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/properties/general-properties.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/properties/counter-properties.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/properties/visibility-properties.js') }}"></script>
 <script src="{{ url_for('static', filename='js/editor/properties/page-visibility-properties.js') }}"></script>
+<script src="{{ url_for('static', filename='js/editor/properties/media-properties.js') }}"></script>
 <!-- Main editor file -->
 <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
 {% endblock %}

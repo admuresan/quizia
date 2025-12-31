@@ -39,16 +39,27 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         const timerDisplay = document.createElement('div');
         timerDisplay.className = 'timer-display';
         timerDisplay.style.cssText = 'font-size: 2rem; font-weight: bold; display: none;';
-        timerDisplay.textContent = '0:00';
+        timerDisplay.textContent = '0:00.0';
         stopwatchContainer.appendChild(timerDisplay);
         
         const controlsDiv = document.createElement('div');
         controlsDiv.style.cssText = 'display: flex; gap: 1rem;';
         
+        // Get timer start method from question config
+        const question = options.question || null;
+        const timerStartMethod = (question && question.question_config && question.question_config.timer_start_method) || 'user';
+        const isAutoStart = timerStartMethod !== 'user';
+        
         const startBtn = document.createElement('button');
         startBtn.textContent = 'Start';
-        startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
-        startBtn.disabled = !!submittedAnswer;
+        // Grey out if auto-start or already submitted
+        if (isAutoStart || submittedAnswer) {
+            startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
+            startBtn.disabled = true;
+        } else {
+            startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 500;';
+            startBtn.disabled = false;
+        }
         
         const stopBtn = document.createElement('button');
         stopBtn.textContent = 'Stop';
@@ -62,10 +73,12 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         
         // If already submitted, show the time
         if (submittedAnswer && submittedAnswer.answer) {
-            const seconds = Math.floor(elapsedTime / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+            const totalSeconds = elapsedTime / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const secs = Math.floor(seconds);
+            const tenths = Math.floor((seconds % 1) * 10);
+            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
             timerDisplay.style.display = 'block';
             startBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
             stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
@@ -97,11 +110,13 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             stopBtn.disabled = true;
             stopBtn.style.cssText = 'padding: 0.5rem 1rem; background: #9e9e9e; color: white; border: none; border-radius: 4px; cursor: not-allowed; font-size: 0.9rem; font-weight: 500;';
             
-            // Show the final time only after stopping
-            const seconds = Math.floor(elapsedTime / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+            // Show the final time with tenths of a second
+            const totalSeconds = elapsedTime / 1000;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            const secs = Math.floor(seconds);
+            const tenths = Math.floor((seconds % 1) * 10);
+            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
             timerDisplay.style.display = 'block';
             
             if (elapsedTime > 0 && !isSubmitted && submitAnswerCallback) {
@@ -123,6 +138,13 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         }
         
         container.appendChild(contentArea);
+        
+        // Expose a function to programmatically start the stopwatch (for auto-start)
+        container.startStopwatch = () => {
+            if (!isSubmitted && !startBtn.disabled && startTime === null) {
+                startBtn.click();
+            }
+        };
     }
     
     return { render: render };

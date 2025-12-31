@@ -9,110 +9,31 @@
         Editor.PropertiesPanel = {};
     }
     
-    // Helper function to collect all colors used in the quiz
-    function getUsedColors(quiz) {
-        const colors = new Set();
-        
-        if (!quiz || !quiz.pages) return Array.from(colors);
-        
-        quiz.pages.forEach(page => {
-            if (!page.elements) return;
-            
-            Object.values(page.elements).forEach(element => {
-                // Collect fill colors
-                if (element.properties && element.properties.fill_color) {
-                    colors.add(element.properties.fill_color.toLowerCase());
-                }
-                // Collect border colors
-                if (element.properties && element.properties.border_color) {
-                    colors.add(element.properties.border_color.toLowerCase());
-                }
-                // Collect background colors
-                if (element.properties && element.properties.background_color) {
-                    colors.add(element.properties.background_color.toLowerCase());
-                }
-                // Collect text colors
-                if (element.properties && element.properties.text_color) {
-                    colors.add(element.properties.text_color.toLowerCase());
-                }
-            });
-            
-            // Also check view configs for background colors
-            if (page.views) {
-                Object.values(page.views).forEach(view => {
-                    if (view.view_config && view.view_config.background) {
-                        if (view.view_config.background.type === 'color' && view.view_config.background.config && view.view_config.background.config.colour) {
-                            colors.add(view.view_config.background.config.colour.toLowerCase());
-                        }
-                    }
-                });
-            }
-        });
-        
-        return Array.from(colors);
+    // Use centralized color picker from Editor.ColorPicker
+    if (!Editor.ColorPicker) {
+        console.error('Editor.ColorPicker not loaded. Make sure color-picker.js is included before general-properties.js');
     }
     
-    // Helper function to render recently used colors
-    function renderRecentColors(container, colorInput, onColorSelect, context) {
-        const currentQuiz = context ? context.getCurrentQuiz() : (this.getCurrentQuiz ? this.getCurrentQuiz() : null);
-        if (!currentQuiz) return;
-        
-        const usedColors = getUsedColors(currentQuiz);
-        
-        if (usedColors.length === 0) return;
-        
-        const recentColorsContainer = document.createElement('div');
-        recentColorsContainer.style.cssText = 'margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee;';
-        
-        const recentLabel = document.createElement('div');
-        recentLabel.textContent = 'Recently Used';
-        recentLabel.style.cssText = 'font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;';
-        recentColorsContainer.appendChild(recentLabel);
-        
-        const colorsGrid = document.createElement('div');
-        colorsGrid.style.cssText = 'display: flex; flex-wrap: wrap; gap: 0.5rem;';
-        
-        // Show up to 12 most recent colors
-        const colorsToShow = usedColors.slice(0, 12);
-        
-        colorsToShow.forEach(color => {
-            const colorSquare = document.createElement('div');
-            colorSquare.style.cssText = `
-                width: 24px;
-                height: 24px;
-                background-color: ${color};
-                border: 1px solid #ddd;
-                border-radius: 3px;
-                cursor: pointer;
-                transition: transform 0.1s, box-shadow 0.1s;
-            `;
-            colorSquare.title = color;
-            
-            colorSquare.addEventListener('mouseenter', () => {
-                colorSquare.style.transform = 'scale(1.1)';
-                colorSquare.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-            });
-            
-            colorSquare.addEventListener('mouseleave', () => {
-                colorSquare.style.transform = 'scale(1)';
-                colorSquare.style.boxShadow = 'none';
-            });
-            
-            colorSquare.addEventListener('click', () => {
-                colorInput.value = color;
-                if (onColorSelect) {
-                    onColorSelect(color);
-                } else {
-                    // Trigger the color input's onchange event
-                    colorInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-            
-            colorsGrid.appendChild(colorSquare);
-        });
-        
-        recentColorsContainer.appendChild(colorsGrid);
-        container.appendChild(recentColorsContainer);
+    // Legacy function for backwards compatibility - redirects to centralized picker
+    function openColorPickerModal(currentColor, onColorChange) {
+        if (Editor.ColorPicker && Editor.ColorPicker.open) {
+            Editor.ColorPicker.open(currentColor, onColorChange);
+        }
+    }
+    
+    // Legacy helper functions - redirect to centralized picker
+    function parseColorWithOpacity(colorValue) {
+        if (Editor.ColorPicker && Editor.ColorPicker.parseColor) {
+            return Editor.ColorPicker.parseColor(colorValue);
+        }
+        return { hex: colorValue || '#000000', opacity: 1 };
+    }
+    
+    function hexToRgba(hex, opacity) {
+        if (Editor.ColorPicker && Editor.ColorPicker.hexToRgba) {
+            return Editor.ColorPicker.hexToRgba(hex, opacity);
+        }
+        return hex;
     }
     
     Editor.PropertiesPanel.renderGeneralProperties = function(container, selectedElement) {
@@ -277,62 +198,50 @@
         
         // Fill and border properties for shapes
         if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(selectedElement.type)) {
-            // Fill color
+            // Fill color with opacity
             const fillColorGroup = document.createElement('div');
             fillColorGroup.className = 'property-group';
             const fillColorLabel = document.createElement('label');
             fillColorLabel.textContent = 'Fill Color';
-            const fillColorInput = document.createElement('input');
-            fillColorInput.type = 'color';
-            fillColorInput.value = selectedElement.fill_color || '#ddd';
-            fillColorInput.onchange = () => {
-                selectedElement.fill_color = fillColorInput.value;
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
-                self.updateElementDisplay();
-                self.autosaveQuiz();
-            };
+            fillColorLabel.style.cssText = 'display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;';
             fillColorGroup.appendChild(fillColorLabel);
-            fillColorGroup.appendChild(fillColorInput);
-            // Add recently used colors below fill color input
-            renderRecentColors(fillColorGroup, fillColorInput, (color) => {
-                selectedElement.fill_color = color;
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
-                self.updateElementDisplay();
-                self.autosaveQuiz();
-            }, self);
+            
+            const fillColorButton = Editor.ColorPicker.createButton(
+                selectedElement.fill_color || '#ddd',
+                (rgbaColor) => {
+                    selectedElement.fill_color = rgbaColor;
+                    if (self.updateElementPropertiesInQuiz) {
+                        self.updateElementPropertiesInQuiz(selectedElement);
+                    }
+                    self.updateElementDisplay();
+                    self.autosaveQuiz();
+                },
+                () => self.getCurrentQuiz()
+            );
+            fillColorGroup.appendChild(fillColorButton);
             container.appendChild(fillColorGroup);
             
-            // Border color
+            // Border color with opacity
             const borderColorGroup = document.createElement('div');
             borderColorGroup.className = 'property-group';
             const borderColorLabel = document.createElement('label');
             borderColorLabel.textContent = 'Border Color';
-            const borderColorInput = document.createElement('input');
-            borderColorInput.type = 'color';
-            borderColorInput.value = selectedElement.border_color || '#999';
-            borderColorInput.onchange = () => {
-                selectedElement.border_color = borderColorInput.value;
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
-                self.updateElementDisplay();
-                self.autosaveQuiz();
-            };
+            borderColorLabel.style.cssText = 'display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;';
             borderColorGroup.appendChild(borderColorLabel);
-            borderColorGroup.appendChild(borderColorInput);
-            // Add recently used colors below border color input
-            renderRecentColors(borderColorGroup, borderColorInput, (color) => {
-                selectedElement.border_color = color;
-                if (self.updateElementPropertiesInQuiz) {
-                    self.updateElementPropertiesInQuiz(selectedElement);
-                }
-                self.updateElementDisplay();
-                self.autosaveQuiz();
-            }, self);
+            
+            const borderColorButton = Editor.ColorPicker.createButton(
+                selectedElement.border_color || '#999',
+                (rgbaColor) => {
+                    selectedElement.border_color = rgbaColor;
+                    if (self.updateElementPropertiesInQuiz) {
+                        self.updateElementPropertiesInQuiz(selectedElement);
+                    }
+                    self.updateElementDisplay();
+                    self.autosaveQuiz();
+                },
+                () => self.getCurrentQuiz()
+            );
+            borderColorGroup.appendChild(borderColorButton);
             container.appendChild(borderColorGroup);
             
             // Border width
@@ -517,17 +426,17 @@
             separator1.style.cssText = 'width: 1px; height: 20px; background: #dee2e6; margin: 0 2px;';
             toolbar.appendChild(separator1);
             
-            // Text color picker
-            const colorInput = document.createElement('input');
-            colorInput.type = 'color';
-            colorInput.value = '#000000';
+            // Text color picker button that opens modal
+            const colorInput = document.createElement('button');
+            const parsedTextColor = Editor.ColorPicker ? Editor.ColorPicker.parseColor(editor.style.color || '#000000') : { hex: '#000000', opacity: 1 };
             colorInput.title = 'Text Color';
-            colorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0;';
+            colorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0; background: ' + (parsedTextColor.opacity < 1 && Editor.ColorPicker ? Editor.ColorPicker.hexToRgba(parsedTextColor.hex, parsedTextColor.opacity) : parsedTextColor.hex) + '; position: relative;';
             
             // Store selection before clicking color input
             let savedSelection = null;
             colorInput.onmousedown = (e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 // Save current selection before focus is lost
                 const selection = window.getSelection();
                 if (selection.rangeCount > 0) {
@@ -538,19 +447,29 @@
                         savedSelection = range.cloneRange();
                     }
                 }
-            };
-            
-            colorInput.onchange = () => {
-                editor.focus();
                 
-                // Restore selection if we had one
-                const selection = window.getSelection();
-                if (savedSelection) {
-                    try {
-                        selection.removeAllRanges();
-                        selection.addRange(savedSelection);
-                    } catch (e) {
-                        // If range is invalid, try to get current selection
+                // Open color picker modal
+                const currentColor = editor.style.color || '#000000';
+                if (Editor.ColorPicker && Editor.ColorPicker.open) {
+                    Editor.ColorPicker.open(currentColor, (rgbaColor) => {
+                    editor.focus();
+                    
+                    // Restore selection if we had one
+                    const selection = window.getSelection();
+                    if (savedSelection) {
+                        try {
+                            selection.removeAllRanges();
+                            selection.addRange(savedSelection);
+                        } catch (e) {
+                            if (selection.rangeCount === 0) {
+                                const range = document.createRange();
+                                range.selectNodeContents(editor);
+                                range.collapse(false);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                            }
+                        }
+                    } else {
                         if (selection.rangeCount === 0) {
                             const range = document.createRange();
                             range.selectNodeContents(editor);
@@ -559,53 +478,60 @@
                             selection.addRange(range);
                         }
                     }
-                } else {
-                    // If no saved selection, try to get current one or place at end
-                    if (selection.rangeCount === 0) {
-                        const range = document.createRange();
-                        range.selectNodeContents(editor);
-                        range.collapse(false);
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                    }
-                }
-                
-                // Apply color to selection
-                if (selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    if (!range.collapsed) {
-                        // Apply to selected text
-                        document.execCommand('foreColor', false, colorInput.value);
+                    
+                    // Apply color to selection
+                    if (selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        if (!range.collapsed) {
+                            const span = document.createElement('span');
+                            span.style.color = rgbaColor;
+                            try {
+                                range.surroundContents(span);
+                            } catch (e) {
+                                const contents = range.extractContents();
+                                span.appendChild(contents);
+                                range.insertNode(span);
+                            }
+                        } else {
+                            editor.style.color = rgbaColor;
+                        }
                     } else {
-                        // No selection - apply to entire editor as default
-                        editor.style.color = colorInput.value;
+                        editor.style.color = rgbaColor;
                     }
-                } else {
-                    // No selection - apply to entire editor
-                    editor.style.color = colorInput.value;
+                    
+                    // Update button appearance
+                    const newParsed = Editor.ColorPicker ? Editor.ColorPicker.parseColor(rgbaColor) : { hex: rgbaColor, opacity: 1 };
+                    colorInput.style.background = newParsed.opacity < 1 && Editor.ColorPicker ? Editor.ColorPicker.hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;
+                    
+                    // Update toolbar to reflect changes
+                    setTimeout(updateToolbarFromContent, 0);
+                    savedSelection = null;
+                    }, () => self.getCurrentQuiz());
                 }
-                
-                // Update toolbar to reflect changes
-                setTimeout(updateToolbarFromContent, 0);
-                // Don't save - wait for Apply button
-                savedSelection = null; // Clear saved selection
             };
             
             toolbar.appendChild(colorInput);
             
-            // Background color picker
-            bgColorInput = document.createElement('input');
-            bgColorInput.type = 'color';
-            bgColorInput.value = selectedElement.background_color || '#ffffff';
+            // Background color picker button that opens modal
+            bgColorInput = document.createElement('button');
+            const parsedBgColor = Editor.ColorPicker ? Editor.ColorPicker.parseColor(selectedElement.background_color || editor.style.backgroundColor || '#ffffff') : { hex: '#ffffff', opacity: 1 };
             bgColorInput.title = 'Background Color';
-            bgColorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0;';
+            bgColorInput.style.cssText = 'width: 28px; height: 24px; border: 1px solid #dee2e6; border-radius: 3px; cursor: pointer; padding: 0; background: ' + (parsedBgColor.opacity < 1 && Editor.ColorPicker ? Editor.ColorPicker.hexToRgba(parsedBgColor.hex, parsedBgColor.opacity) : parsedBgColor.hex) + '; position: relative;';
+            
             bgColorInput.onclick = (e) => {
                 e.stopPropagation();
+                e.preventDefault();
+                const currentBgColor = editor.style.backgroundColor || selectedElement.background_color || '#ffffff';
+                if (Editor.ColorPicker && Editor.ColorPicker.open) {
+                    Editor.ColorPicker.open(currentBgColor, (rgbaColor) => {
+                        editor.style.backgroundColor = rgbaColor;
+                        // Update button appearance
+                        const newParsed = Editor.ColorPicker ? Editor.ColorPicker.parseColor(rgbaColor) : { hex: rgbaColor, opacity: 1 };
+                        bgColorInput.style.background = newParsed.opacity < 1 && Editor.ColorPicker ? Editor.ColorPicker.hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;
+                    }, () => self.getCurrentQuiz());
+                }
             };
-            bgColorInput.onchange = () => {
-                editor.style.backgroundColor = bgColorInput.value;
-                // Don't save - wait for Apply button
-            };
+            
             toolbar.appendChild(bgColorInput);
             
             // Separator
@@ -1703,8 +1629,96 @@
                 
                 container.appendChild(correctAnswerGroup);
                 
-                // Options for radio/checkbox
+                // Timer Start Method for stopwatch questions
                 const currentType = (selectedElement.question_config && selectedElement.question_config.question_type) || 'text';
+                if (currentType === 'stopwatch') {
+                    const timerStartMethodGroup = document.createElement('div');
+                    timerStartMethodGroup.className = 'property-group';
+                    const timerStartMethodLabel = document.createElement('label');
+                    timerStartMethodLabel.textContent = 'Timer Start Method';
+                    timerStartMethodGroup.appendChild(timerStartMethodLabel);
+                    
+                    const timerStartMethodSelect = document.createElement('select');
+                    timerStartMethodSelect.style.width = '100%';
+                    timerStartMethodSelect.style.padding = '0.5rem';
+                    timerStartMethodSelect.style.border = '1px solid #ddd';
+                    timerStartMethodSelect.style.borderRadius = '4px';
+                    
+                    // Get current timer start method (default to 'user')
+                    const currentTimerStartMethod = (selectedElement.question_config && selectedElement.question_config.timer_start_method) || 'user';
+                    
+                    // Check if the question element is playable
+                    let isPlayable = false;
+                    // If this is a child element (answer_input), find the parent question
+                    if (selectedElement.parent_id) {
+                        const currentQuiz = self.getCurrentQuiz();
+                        const currentPageIndex = self.getCurrentPageIndex();
+                        if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex]) {
+                            const page = currentQuiz.pages[currentPageIndex];
+                            if (page.elements && page.elements[selectedElement.parent_id]) {
+                                const parentElement = page.elements[selectedElement.parent_id];
+                                if (window.ElementTypes && window.ElementTypes.isElementPlayable) {
+                                    isPlayable = window.ElementTypes.isElementPlayable(parentElement);
+                                } else {
+                                    isPlayable = (parentElement.type === 'audio' || parentElement.type === 'video' || parentElement.type === 'counter' ||
+                                                 parentElement.media_type === 'audio' || parentElement.media_type === 'video');
+                                }
+                            }
+                        }
+                    } else {
+                        // This is the question element itself
+                        if (window.ElementTypes && window.ElementTypes.isElementPlayable) {
+                            isPlayable = window.ElementTypes.isElementPlayable(selectedElement);
+                        } else {
+                            isPlayable = (selectedElement.type === 'audio' || selectedElement.type === 'video' || selectedElement.type === 'counter' ||
+                                         selectedElement.media_type === 'audio' || selectedElement.media_type === 'video');
+                        }
+                    }
+                    
+                    // Add options
+                    const options = [
+                        { value: 'user', label: 'User' },
+                        { value: 'on_appear', label: 'On Appear' }
+                    ];
+                    
+                    // Add playable-only options if element is playable
+                    if (isPlayable) {
+                        options.push(
+                            { value: 'on_play', label: 'On Play' },
+                            { value: 'on_end', label: 'On End' }
+                        );
+                    }
+                    
+                    options.forEach(option => {
+                        const optionEl = document.createElement('option');
+                        optionEl.value = option.value;
+                        optionEl.textContent = option.label;
+                        if (currentTimerStartMethod === option.value) {
+                            optionEl.selected = true;
+                        }
+                        timerStartMethodSelect.appendChild(optionEl);
+                    });
+                    
+                    timerStartMethodSelect.onchange = () => {
+                        const newMethod = timerStartMethodSelect.value;
+                        if (!selectedElement.question_config) {
+                            selectedElement.question_config = {};
+                        }
+                        selectedElement.question_config.timer_start_method = newMethod;
+                        
+                        // Save to quiz structure
+                        if (self.updateElementPropertiesInQuiz) {
+                            self.updateElementPropertiesInQuiz(selectedElement);
+                        }
+                        
+                        self.autosaveQuiz();
+                    };
+                    
+                    timerStartMethodGroup.appendChild(timerStartMethodSelect);
+                    container.appendChild(timerStartMethodGroup);
+                }
+                
+                // Options for radio/checkbox
                 if (currentType === 'radio' || currentType === 'checkbox') {
                     const optionsDiv = document.createElement('div');
                     optionsDiv.className = 'property-group';
@@ -1795,6 +1809,11 @@
                 mediaUrlGroup.appendChild(mediaUrlInput);
                 container.appendChild(mediaUrlGroup);
             }
+        }
+        
+        // Counter-specific properties
+        if (selectedElement.type === 'counter' && Editor.PropertiesPanel && Editor.PropertiesPanel.renderCounterProperties) {
+            Editor.PropertiesPanel.renderCounterProperties.call(self, container, selectedElement);
         }
         
         // Delete button

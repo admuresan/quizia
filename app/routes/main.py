@@ -6,6 +6,21 @@ from pathlib import Path
 
 bp = Blueprint('main', __name__)
 
+@bp.route('/favicon.ico')
+def favicon():
+    """Serve favicon or return 204 No Content to stop browser requests."""
+    from flask import Response
+    import os
+    from pathlib import Path
+    
+    # Try to serve favicon from static folder if it exists
+    favicon_path = Path(__file__).parent.parent / 'static' / 'favicon.ico'
+    if favicon_path.exists():
+        return send_from_directory(str(favicon_path.parent), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    
+    # If no favicon exists, return 204 No Content to stop browser requests
+    return Response(status=204)
+
 @bp.route('/')
 def index():
     """Home page - redirects to login or dashboard."""
@@ -18,6 +33,15 @@ def join():
     error = request.args.get('error')
     room = request.args.get('room')
     return render_template('join.html', error=error, room=room)
+
+@bp.route('/api/public-rooms', methods=['GET'])
+def get_public_rooms():
+    """Get all public running rooms for participants to browse."""
+    from app.utils.room_manager import get_public_rooms
+    from flask import jsonify
+    
+    public_rooms = get_public_rooms()
+    return jsonify({'public_rooms': public_rooms}), 200
 
 @bp.route('/api/participants/<room_code>')
 def get_room_participants(room_code):
@@ -126,39 +150,54 @@ def api_tvdisplay_image(room_code):
     if room.get('ended', False):
         return Response('Quiz has ended', status=404, mimetype='text/plain')
     
-    # Get base URL from request or use default
-    # Try to get from request, but fallback to 127.0.0.1 for local development
-    APP_PORT = 6005  # Default port
+    # Get base URL for Playwright to use
+    # Auto-detect: localhost uses port 6005 (direct Flask), server uses port 80 (through nginx)
+    import os
+    
+    # Detect if we're on localhost/development or production server
+    is_localhost = False
     try:
-        # Use request.url_root which includes scheme and host
-        base_url = request.url_root.rstrip('/')
-        # If it's localhost, use 127.0.0.1 instead (more reliable for Playwright)
-        if 'localhost' in base_url:
-            base_url = base_url.replace('localhost', '127.0.0.1')
-        # Extract port from URL if present, otherwise use default
-        if ':' in base_url.split('//')[1] if '//' in base_url else '':
-            # Port is already in URL, use as is but replace host with 127.0.0.1
-            parts = base_url.split('//')
-            if len(parts) > 1:
-                host_port = parts[1].split('/')[0]
-                if ':' in host_port:
-                    port = host_port.split(':')[1]
-                    base_url = f"{parts[0]}//127.0.0.1:{port}"
-                else:
-                    base_url = f"{parts[0]}//127.0.0.1:{APP_PORT}"
+        # Check environment variable first (most reliable)
+        flask_env = os.environ.get('FLASK_ENV', '').lower()
+        flask_debug = os.environ.get('FLASK_DEBUG', '').lower()
+        
+        # Development indicators:
+        # 1. FLASK_ENV is 'development'
+        # 2. FLASK_DEBUG is set
+        # 3. Request came from localhost/127.0.0.1 (not a public IP)
+        # 4. WERKZEUG_RUN_MAIN is set (Flask dev server)
+        if (flask_env == 'development' or 
+            flask_debug == '1' or 
+            flask_debug == 'true' or
+            os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
+            is_localhost = True
         else:
-            # No port in URL, add default port
-            if '//' in base_url:
-                base_url = f"{base_url.split('//')[0]}//127.0.0.1:{APP_PORT}"
-            else:
-                base_url = f"http://127.0.0.1:{APP_PORT}"
-        if not base_url.startswith('http'):
-            base_url = f"http://127.0.0.1:{APP_PORT}"
+            # Check request host - if it's localhost/127.0.0.1, likely development
+            request_host = request.host.lower() if request.host else ''
+            if 'localhost' in request_host or '127.0.0.1' in request_host:
+                # But check if it's port 6005 (dev) or port 80 (production nginx)
+                if ':6005' in request_host or request_host.endswith('localhost') or request_host.endswith('127.0.0.1'):
+                    is_localhost = True
+    except Exception as e:
+        print(f"[TV Display API] Error detecting environment: {e}, defaulting to production")
+    
+    if is_localhost:
+        # Development/localhost: use direct Flask on port 6005
+        base_url = "http://127.0.0.1:6005"
+        print(f"[TV Display API] Detected localhost/development - using direct Flask on port 6005")
+    else:
+        # Production/server: use nginx on port 80
+        base_url = "http://127.0.0.1:80"
+        print(f"[TV Display API] Detected production/server - using nginx on port 80")
+    
+    # Log the original request URL for debugging
+    try:
+        original_url = request.url_root.rstrip('/')
+        request_host = request.host if request.host else 'unknown'
+        print(f"[TV Display API] Request came from: {original_url} (host: {request_host})")
         print(f"[TV Display API] Using base_url: {base_url} for room {room_code}")
     except Exception as e:
-        # Fallback to 127.0.0.1 if we can't determine from request
-        base_url = f"http://127.0.0.1:{APP_PORT}"
-        print(f"[TV Display API] Error determining base_url, using fallback: {base_url}, error: {e}")
+        print(f"[TV Display API] Error reading request URL: {e}, using default: {base_url}")
     
     # Render the display page
     try:
@@ -170,7 +209,13 @@ def api_tvdisplay_image(room_code):
             return Response(image_data, mimetype='image/png')
         else:
             print(f"[TV Display API] Render returned None for room {room_code}")
-            # Return a 1x1 transparent PNG instead of 500 error to prevent continuous retries
+            # Try to get last successful image from renderer
+            from app.utils.display_renderer import _last_successful_image
+            if room_code in _last_successful_image:
+                last_image = _last_successful_image[room_code]
+                print(f"[TV Display API] Returning last successful image for room {room_code}")
+                return Response(last_image, mimetype='image/png')
+            # If no last image, return a 1x1 transparent PNG (will show as black, but better than error)
             import base64
             # 1x1 transparent PNG
             transparent_png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')

@@ -134,6 +134,53 @@ input[type="password"] {
     display: block;
 }
 
+.media-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #ddd;
+}
+
+.media-subtab-btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+}
+
+.media-subtab-btn:hover {
+    color: #333;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.media-subtab-btn.active {
+    color: #2196F3;
+    border-bottom-color: #2196F3;
+    font-weight: bold;
+}
+
+.media-section {
+    margin-bottom: 1rem;
+}
+
+.collapsible-section-header {
+    transition: background-color 0.3s;
+}
+
+.collapsible-section-header:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.media-section-content {
+    display: block;
+}
+
 .actions {
     margin-bottom: 2rem;
     display: flex;
@@ -158,6 +205,18 @@ input[type="password"] {
 .btn-small {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
+}
+
+.server-warning {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    color: #856404;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-size: 1rem;
+    line-height: 1.5;
 }
 
 

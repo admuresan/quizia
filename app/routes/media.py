@@ -7,7 +7,8 @@ from app.utils.media_storage import (
     delete_media_file,
     list_media_files,
     get_media_file_path,
-    toggle_media_public
+    toggle_media_public,
+    rename_media_display_name
 )
 
 bp = Blueprint('media', __name__, url_prefix='/api/media')
@@ -172,4 +173,24 @@ def bulk_toggle_media_public():
         results.append({'filename': filename, 'success': True, 'public': make_public})
     
     return jsonify({'results': results}), 200
+
+@bp.route('/rename/<filename>', methods=['POST'])
+def rename_media_route(filename):
+    """Rename the display name of a media file (quizmaster only, must be creator)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    data = request.get_json()
+    new_display_name = data.get('new_display_name', '').strip()
+    
+    if not new_display_name:
+        return jsonify({'error': 'Display name cannot be empty'}), 400
+    
+    result = rename_media_display_name(filename, new_display_name, username)
+    
+    if result['success']:
+        return jsonify({'message': 'Display name updated', 'original_name': result['original_name']}), 200
+    else:
+        return jsonify({'error': result['error']}), 400
 

@@ -116,9 +116,191 @@
             
             // Show ALL display elements (not just control mode in editor)
             orderedElements.forEach(displayElement => {
+                // Check if this element is playable using ElementTypes
+                let isPlayableElement = false;
+                if (window.ElementTypes && window.ElementTypes.isElementPlayable) {
+                    isPlayableElement = window.ElementTypes.isElementPlayable(displayElement);
+                } else {
+                    // Fallback for when ElementTypes is not loaded
+                    isPlayableElement = (displayElement.type === 'audio' || displayElement.type === 'video' || displayElement.type === 'counter' ||
+                                       displayElement.media_type === 'audio' || displayElement.media_type === 'video');
+                }
+                
                 const controlItem = document.createElement('div');
                 controlItem.style.cssText = 'display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px;';
                 controlItem.dataset.elementId = displayElement.id;
+                
+                // Play/Pause button for playable elements (in its own column on the left)
+                if (isPlayableElement) {
+                    const playPauseContainer = document.createElement('div');
+                    playPauseContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; min-width: 50px; flex-shrink: 0;';
+                    
+                    const playPauseBtn = document.createElement('button');
+                    playPauseBtn.innerHTML = '▶';
+                    playPauseBtn.dataset.elementId = displayElement.id;
+                    // Also set data-element-id attribute for MediaControlManager to find it
+                    playPauseBtn.setAttribute('data-element-id', displayElement.id);
+                    playPauseBtn.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #2196F3; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: background 0.2s; flex-shrink: 0;';
+                    playPauseBtn.onmouseover = () => playPauseBtn.style.background = '#1976D2';
+                    playPauseBtn.onmouseout = () => playPauseBtn.style.background = '#2196F3';
+                    
+                    // Track playing state
+                    let isPlaying = false;
+                    let mediaElement = null;
+                    
+                    // Find or create the media element for this audio/video
+                    const findMediaElement = () => {
+                        // Try to find existing audio/video element in display view
+                        // Use displayElement.id directly (no prefix) - matches runtime
+                        const displayableArea = document.getElementById('displayable-area');
+                        if (displayableArea) {
+                            const elementDiv = displayableArea.querySelector(`#${displayElement.id}`);
+                            if (elementDiv) {
+                                if (displayElement.media_type === 'video' || displayElement.type === 'video') {
+                                    mediaElement = elementDiv.querySelector('video');
+                                } else {
+                                    mediaElement = elementDiv.querySelector('audio');
+                                }
+                            }
+                        }
+                        // If not found in display view, try to create a temporary one for control
+                        if (!mediaElement) {
+                            const mediaType = displayElement.media_type || displayElement.type;
+                            if (mediaType === 'video') {
+                                mediaElement = document.createElement('video');
+                            } else {
+                                mediaElement = document.createElement('audio');
+                            }
+                            const mediaSrc = displayElement.src || displayElement.media_url || (displayElement.filename ? '/api/media/serve/' + displayElement.filename : '') || (displayElement.file_name ? '/api/media/serve/' + displayElement.file_name : '');
+                            mediaElement.src = mediaSrc;
+                            mediaElement.style.display = 'none';
+                            document.body.appendChild(mediaElement);
+                        }
+                        return mediaElement;
+                    };
+                    
+                    playPauseBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        // Use requestAnimationFrame to make click handler non-blocking
+                        // This prevents the click handler from blocking the UI thread
+                        requestAnimationFrame(() => {
+                            // Handle playable element play/pause
+                            if (displayElement.type === 'counter') {
+                                // Handle counter play/pause
+                                if (isRuntime && socket && roomCode) {
+                                    const currentState = playPauseBtn.innerHTML === '⏸';
+                                    const action = currentState ? 'pause' : 'play';
+                                    
+                                    socket.emit('quizmaster_control_element', {
+                                        room_code: roomCode,
+                                        element_id: displayElement.id,
+                                        action: action
+                                    });
+                                    
+                                    // Update button state immediately
+                                    if (action === 'play') {
+                                        playPauseBtn.innerHTML = '⏸';
+                                    } else {
+                                        playPauseBtn.innerHTML = '▶';
+                                    }
+                                } else {
+                                    // In editor, just toggle button (non-functional)
+                                    const currentText = playPauseBtn.innerHTML;
+                                    playPauseBtn.innerHTML = currentText === '▶' ? '⏸' : '▶';
+                                }
+                            } else if (displayElement.type === 'audio' || displayElement.type === 'video' || displayElement.media_type === 'audio' || displayElement.media_type === 'video') {
+                            // Handle media play/pause
+                            if (isRuntime && socket && roomCode) {
+                                // In runtime, use socket events to control media on display view
+                                const currentState = playPauseBtn.innerHTML === '⏸';
+                                const action = currentState ? 'pause' : 'play';
+                                
+                                console.log('[AppearanceControl] Sending control event:', {
+                                    room_code: roomCode,
+                                    element_id: displayElement.id,
+                                    action: action,
+                                    element_type: displayElement.type,
+                                    media_type: displayElement.media_type,
+                                    controlItem: controlItem,
+                                    playPauseBtn: playPauseBtn
+                                });
+                                
+                                // Store reference to control item to prevent it from being removed
+                                const controlItemParent = controlItem.parentElement;
+                                
+                                socket.emit('quizmaster_control_element', {
+                                    room_code: roomCode,
+                                    element_id: displayElement.id,
+                                    action: action
+                                });
+                                
+                                // Update button state immediately
+                                if (action === 'play') {
+                                    playPauseBtn.innerHTML = '⏸';
+                                    isPlaying = true;
+                                } else {
+                                    playPauseBtn.innerHTML = '▶';
+                                    isPlaying = false;
+                                }
+                                
+                                // Debug: Check if control item still exists after emit
+                                setTimeout(() => {
+                                    if (!controlItem.parentElement) {
+                                        console.error('[AppearanceControl] Control item was removed after play click!', {
+                                            element_id: displayElement.id,
+                                            action: action,
+                                            controlItem: controlItem,
+                                            controlItemParent: controlItemParent
+                                        });
+                                    }
+                                }, 100);
+                            } else {
+                                // In editor, control media directly
+                                if (!mediaElement) {
+                                    findMediaElement();
+                                }
+                                
+                                if (mediaElement) {
+                                    if (isPlaying || !mediaElement.paused) {
+                                        mediaElement.pause();
+                                        playPauseBtn.innerHTML = '▶';
+                                        isPlaying = false;
+                                    } else {
+                                        mediaElement.play().then(() => {
+                                            playPauseBtn.innerHTML = '⏸';
+                                            isPlaying = true;
+                                        }).catch(err => {
+                                            console.error('Error playing media:', err);
+                                        });
+                                        
+                                        // Update button when media ends
+                                        mediaElement.onended = () => {
+                                            playPauseBtn.innerHTML = '▶';
+                                            isPlaying = false;
+                                        };
+                                        mediaElement.onpause = () => {
+                                            if (mediaElement.paused) {
+                                                playPauseBtn.innerHTML = '▶';
+                                                isPlaying = false;
+                                            }
+                                        };
+                                    }
+                                }
+                            } // Close else block (line 259)
+                        } // Close else if block for audio/video (line 213)
+                        }); // Close requestAnimationFrame callback
+                    };
+                    
+                    playPauseContainer.appendChild(playPauseBtn);
+                    controlItem.appendChild(playPauseContainer);
+                } else {
+                    // Empty spacer for non-media elements to align columns
+                    const spacer = document.createElement('div');
+                    spacer.style.cssText = 'min-width: 50px; flex-shrink: 0;';
+                    controlItem.appendChild(spacer);
+                }
                 
                 const nameLabel = document.createElement('span');
                 // Use element_name from visibility tab, fallback to appearance_name, then generated name

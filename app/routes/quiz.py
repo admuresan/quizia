@@ -354,6 +354,33 @@ def end_running_quiz(room_code):
     
     return jsonify({'message': 'Quiz ended successfully'}), 200
 
+@bp.route('/running/toggle-public/<room_code>', methods=['POST'])
+def toggle_running_quiz_public(room_code):
+    """Toggle public status for a running quiz (quizmaster only, must be owner)."""
+    if not session.get('is_quizmaster'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    username = session.get('username')
+    
+    # Check if room exists and belongs to this quizmaster
+    from app.utils.room_manager import get_room, save_room_state_now
+    room = get_room(room_code)
+    
+    if not room:
+        return jsonify({'error': 'Room not found or expired'}), 404
+    
+    if room.get('quizmaster') != username:
+        return jsonify({'error': 'Only the quizmaster who started this quiz can modify it'}), 403
+    
+    # Toggle public status
+    room['public'] = not room.get('public', False)
+    room['last_activity'] = time.time()
+    
+    # Save room state
+    save_room_state_now(room_code)
+    
+    return jsonify({'success': True, 'public': room['public']}), 200
+
 @bp.route('/migrate/<quiz_id>', methods=['POST'])
 def migrate_quiz_route(quiz_id):
     """Migrate a quiz from localhost to server (only works on localhost)."""

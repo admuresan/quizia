@@ -277,25 +277,9 @@
                         options: questionConfig.options || []
                     };
                     result.push(answerDisplayElement);
-                } else if (elementData.type === 'audio' || elementData.type === 'video') {
-                    // Generate audio_control element from parent media element
-                    // Read position/size from control_config in local_element_configs (absolute pixel values)
-                    const controlConfig = localConfig.control_config || {};
-                    const controlElement = {
-                        id: `${elementId}-control`,
-                        type: 'audio_control',
-                        parent_id: elementId,
-                        view: 'control',
-                        media_type: properties.media_type || elementData.type,
-                        x: controlConfig.x !== undefined ? controlConfig.x : 0,
-                        y: controlConfig.y !== undefined ? controlConfig.y : 0,
-                        width: controlConfig.width !== undefined ? controlConfig.width : 400,
-                        height: controlConfig.height !== undefined ? controlConfig.height : 80,
-                        rotation: controlConfig.rotation !== undefined ? controlConfig.rotation : 0,
-                        layer_order: elementData.layer_order || 1 // Inherit layer_order from parent
-                    };
-                    result.push(controlElement);
                 }
+                // Audio/video elements are controlled via play/pause button in visibility panel
+                // No separate control element needed
                 // Skip all other main elements for control view (including appearance_control - handled separately)
                 return;
             }
@@ -475,9 +459,17 @@
             if (element.src && !properties.media_url) {
                 properties.media_url = element.src;
             }
+            // Also keep src for backwards compatibility
+            if (element.src && !properties.src) {
+                properties.src = element.src;
+            }
             // Use file_name if filename is provided but file_name is not
             if (element.filename && !properties.file_name) {
                 properties.file_name = element.filename;
+            }
+            // Also keep filename for backwards compatibility
+            if (element.filename && !properties.filename) {
+                properties.filename = element.filename;
             }
             // Ensure media_type is set
             if (!properties.media_type) {
@@ -571,6 +563,11 @@
             
             if (questionType === 'radio' || questionType === 'checkbox') {
                 elementData.question_config.options = element.options || (element.question_config && element.question_config.options) || [];
+            }
+            
+            // Save timer_start_method for stopwatch questions
+            if (questionType === 'stopwatch') {
+                elementData.question_config.timer_start_method = element.timer_start_method || (element.question_config && element.question_config.timer_start_method) || 'user';
             }
         }
         

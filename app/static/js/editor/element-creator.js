@@ -87,7 +87,7 @@
             // Find non-overlapping position for control view
             const defaultX = 50;
             const defaultY = 50;
-            const position = page ? findNonOverlappingPosition(page, 'control', defaultX, defaultY, 400, 80, parentElement.id) : { x: defaultX, y: defaultY };
+            const position = page ? findNonOverlappingPosition(page, 'control', defaultX, defaultY, 350, 120, parentElement.id) : { x: defaultX, y: defaultY };
             
             return {
                 id: `element-${Date.now()}-control`,
@@ -97,8 +97,8 @@
                 view: 'control',
                 x: position.x,
                 y: position.y,
-                width: 400,
-                height: 80,
+                width: 350,
+                height: 120,
                 filename: parentElement.filename,
                 src: parentElement.src
             };
@@ -253,27 +253,8 @@
                                         currentPage = updatedPage;
                                     }
                                     
-                                    // Store media control position in parent element's control view config (not separate entry)
-                                    const controlElement = this.createMediaControlElement(element, currentPage);
-                                    if (controlElement) {
-                                        if (!currentPage.views) {
-                                            currentPage.views = {
-                                                display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                                participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                                control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
-                                            };
-                                        }
-                                        if (!currentPage.views.control.local_element_configs[element.id]) {
-                                            currentPage.views.control.local_element_configs[element.id] = { config: {} };
-                                        }
-                                        currentPage.views.control.local_element_configs[element.id].control_config = {
-                                            x: controlElement.x || 0,
-                                            y: controlElement.y || 0,
-                                            width: controlElement.width || 400,
-                                            height: controlElement.height || 80,
-                                            rotation: controlElement.rotation || 0
-                                        };
-                                    }
+                                    // Audio/video elements are controlled via play/pause button in visibility panel
+                                    // No separate control element needed
                                 }
                                 
                                 if (callbacks.onElementAdded) {
@@ -310,27 +291,8 @@
                                         currentPage = updatedPage;
                                     }
                                     
-                                    // Store media control position in parent element's control view config (not separate entry)
-                                    const controlElement = this.createMediaControlElement(element, currentPage);
-                                    if (controlElement) {
-                                        if (!currentPage.views) {
-                                            currentPage.views = {
-                                                display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                                participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                                control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
-                                            };
-                                        }
-                                        if (!currentPage.views.control.local_element_configs[element.id]) {
-                                            currentPage.views.control.local_element_configs[element.id] = { config: {} };
-                                        }
-                                        currentPage.views.control.local_element_configs[element.id].control_config = {
-                                            x: controlElement.x || 0,
-                                            y: controlElement.y || 0,
-                                            width: controlElement.width || 400,
-                                            height: controlElement.height || 80,
-                                            rotation: controlElement.rotation || 0
-                                        };
-                                    }
+                                    // Audio/video elements are controlled via play/pause button in visibility panel
+                                    // No separate control element needed
                                 }
                                 
                                 if (callbacks.onElementAdded) {
@@ -358,22 +320,36 @@
 
                             // Use QuizStructure helper to add element
                             if (Editor.QuizStructure && Editor.QuizStructure.setPageElement) {
-                                const updatedPage = Editor.QuizStructure.setPageElement(page, element);
-                                // Update the page in the quiz (in case setPageElement created a new object)
                                 const currentQuiz = callbacks.getCurrentQuiz();
                                 const currentPageIndex = callbacks.getCurrentPageIndex();
-                                if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === page) {
+                                let currentPage = currentQuiz.pages[currentPageIndex];
+                                
+                                const updatedPage = Editor.QuizStructure.setPageElement(currentPage, element);
+                                if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === currentPage) {
                                     currentQuiz.pages[currentPageIndex] = updatedPage;
-                                    page = updatedPage; // Update local reference
+                                    currentPage = updatedPage;
                                 }
                                 
-                                const controlElement = this.createMediaControlElement(element, updatedPage);
+                                // Store media control position in parent element's control view config (not separate entry)
+                                const controlElement = this.createMediaControlElement(element, currentPage);
                                 if (controlElement) {
-                                    const updatedPage2 = Editor.QuizStructure.setPageElement(updatedPage, controlElement);
-                                    if (currentQuiz && currentQuiz.pages && currentQuiz.pages[currentPageIndex] === updatedPage) {
-                                        currentQuiz.pages[currentPageIndex] = updatedPage2;
-                                        page = updatedPage2; // Update local reference
+                                    if (!currentPage.views) {
+                                        currentPage.views = {
+                                            display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                            participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
+                                            control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
+                                        };
                                     }
+                                    if (!currentPage.views.control.local_element_configs[element.id]) {
+                                        currentPage.views.control.local_element_configs[element.id] = { config: {} };
+                                    }
+                                    currentPage.views.control.local_element_configs[element.id].control_config = {
+                                        x: controlElement.x || 0,
+                                        y: controlElement.y || 0,
+                                        width: controlElement.width || 400,
+                                        height: controlElement.height || 80,
+                                        rotation: controlElement.rotation || 0
+                                    };
                                 }
                             }
                             
@@ -418,6 +394,21 @@
                 element.font_size = 16;
                 element.text_color = '#000000';
                 element.background_color = 'transparent';
+            } else if (type === 'counter') {
+                element.width = 200;
+                element.height = 100;
+                element.properties = {
+                    shape: 'rectangle',
+                    text_color: '#000000',
+                    text_size: 24,
+                    background_color: '#ffffff',
+                    border_color: '#000000',
+                    value: 10,
+                    count_up: true,
+                    increment: 1,
+                    prefix: '',
+                    suffix: ''
+                };
             }
 
             // Use QuizStructure helper to add element

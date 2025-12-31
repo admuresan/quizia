@@ -165,16 +165,8 @@
                 updatedPage = Editor.QuizStructure.setPageElement(page, newElement);
                 currentQuiz.pages[currentPageIndex] = updatedPage;
                 
-                // For media elements (audio/video), create control element if needed
-                // This mimics what ElementCreator does when creating new media elements
-                if ((newElement.type === 'audio' || newElement.type === 'video') && 
-                    Editor.ElementCreator && Editor.ElementCreator.createMediaControlElement) {
-                    const controlElement = Editor.ElementCreator.createMediaControlElement(newElement, updatedPage);
-                    if (controlElement) {
-                        updatedPage = Editor.QuizStructure.setPageElement(updatedPage, controlElement);
-                        currentQuiz.pages[currentPageIndex] = updatedPage;
-                    }
-                }
+                // Audio/video elements are controlled via play/pause button in visibility panel
+                // No separate control element needed
             } else {
                 console.error('[CopyPaste] QuizStructure.setPageElement not available');
                 return null;

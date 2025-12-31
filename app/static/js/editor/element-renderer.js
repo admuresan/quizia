@@ -53,7 +53,8 @@ Editor.ElementRenderer = (function() {
     function renderElementOnCanvas(canvas, element, insideContainer = false) {
         const el = document.createElement('div');
         el.className = 'canvas-element';
-        el.id = `element-${element.id}`;
+        // Use element.id directly as the container ID (no prefix) - matches runtime
+        el.id = element.id;
         // Add data attribute for element type to help with CSS targeting and debugging
         if (element.type) {
             el.setAttribute('data-type', element.type);
@@ -289,76 +290,221 @@ Editor.ElementRenderer = (function() {
                 el.style.border = 'none';
                 break;
             case 'audio_control':
-                el.style.backgroundColor = '#f5f5f5';
-                el.style.border = '1px solid #ddd';
-                el.style.borderRadius = '4px';
-                el.style.padding = '0.5rem';
+                // Modern styling matching control view elements
+                el.style.backgroundColor = 'white';
+                el.style.border = '2px solid #2196F3';
+                el.style.borderRadius = '8px';
+                el.style.padding = '1rem';
                 el.style.display = 'flex';
                 el.style.flexDirection = 'column';
-                el.style.gap = '0.5rem';
+                el.style.gap = '0.75rem';
+                el.style.boxSizing = 'border-box';
+                el.style.overflow = 'hidden';
                 
-                const filenameLabel = document.createElement('div');
-                let filename = element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
-                if (filename && typeof filename === 'string') {
-                    filename = filename.split('/').pop().split('\\').pop();
+                // Get parent audio element name from visibility panel
+                // The control element is a "shadow" element - it uses parent_id to look up the original audio element
+                let parentElementName = null;
+                if (element.parent_id) {
+                    const quizForControl = getCurrentQuizCallback ? getCurrentQuizCallback() : null;
+                    const pageIndexForControl = getCurrentPageIndexCallback ? getCurrentPageIndexCallback() : 0;
+                    const pageForControl = quizForControl && quizForControl.pages ? quizForControl.pages[pageIndexForControl] : null;
+                    if (pageForControl && pageForControl.elements && typeof pageForControl.elements === 'object' && !Array.isArray(pageForControl.elements)) {
+                        // Look up the parent audio element using parent_id
+                        const parentElementData = pageForControl.elements[element.parent_id] || null;
+                        if (parentElementData) {
+                            // element_name is stored directly on elementData (set in visibility panel)
+                            parentElementName = parentElementData.element_name || null;
+                        }
+                    }
                 }
-                filenameLabel.textContent = filename || (element.media_type === 'video' ? 'Video' : 'Audio');
-                filenameLabel.style.fontWeight = '500';
-                filenameLabel.style.fontSize = '0.9rem';
-                filenameLabel.style.marginBottom = '0.25rem';
-                filenameLabel.style.color = '#333';
-                el.appendChild(filenameLabel);
                 
-                const controlsContainer = document.createElement('div');
-                controlsContainer.style.display = 'flex';
-                controlsContainer.style.gap = '0.5rem';
-                controlsContainer.style.alignItems = 'center';
+                // Title header matching control view style with loop button in top right
+                const titleHeader = document.createElement('div');
+                titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: flex; justify-content: space-between; align-items: center;';
+                const titleText = document.createElement('span');
+                // Use parent element's element_name from visibility panel (the control element is a shadow of the parent)
+                const displayName = parentElementName || element.element_name || 'Audio Controls';
+                titleText.textContent = displayName;
+                titleHeader.appendChild(titleText);
                 
-                const playBtn = document.createElement('button');
-                playBtn.textContent = '▶ Play';
-                playBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
-                playBtn.onclick = (e) => {
+                // Loop checkbox in top right
+                const loopContainer = document.createElement('div');
+                loopContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+                
+                const loopCheckbox = document.createElement('input');
+                loopCheckbox.type = 'checkbox';
+                loopCheckbox.id = `loop-${element.id}`;
+                loopCheckbox.onchange = (e) => {
                     e.stopPropagation();
-                    if (element.media_type === 'video') {
-                        const video = document.getElementById(`video-control-${element.id}`);
-                        if (video) video.play();
-                    } else {
-                        const audio = document.getElementById(`audio-control-${element.id}`);
-                        if (audio) audio.play();
+                    const media = element.media_type === 'video' 
+                        ? document.getElementById(`video-control-${element.id}`)
+                        : document.getElementById(`audio-control-${element.id}`);
+                    if (media) {
+                        media.loop = e.target.checked;
                     }
                 };
+                loopContainer.appendChild(loopCheckbox);
                 
-                const pauseBtn = document.createElement('button');
-                pauseBtn.textContent = '⏸ Pause';
-                pauseBtn.style.cssText = 'padding: 0.5rem 1rem; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
-                pauseBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    if (element.media_type === 'video') {
-                        const video = document.getElementById(`video-control-${element.id}`);
-                        if (video) video.pause();
-                    } else {
-                        const audio = document.getElementById(`audio-control-${element.id}`);
-                        if (audio) audio.pause();
-                    }
-                };
+                const loopLabel = document.createElement('label');
+                loopLabel.htmlFor = `loop-${element.id}`;
+                loopLabel.textContent = 'Loop';
+                loopLabel.style.cssText = 'font-size: 0.9rem; color: #666; cursor: pointer; font-weight: normal;';
+                loopContainer.appendChild(loopLabel);
                 
-                controlsContainer.appendChild(playBtn);
-                controlsContainer.appendChild(pauseBtn);
-                el.appendChild(controlsContainer);
+                titleHeader.appendChild(loopContainer);
+                el.appendChild(titleHeader);
                 
+                // Create hidden audio element
+                const mediaSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+                const audioControl = document.createElement('audio');
+                audioControl.style.display = 'none';
+                audioControl.src = mediaSrc;
+                audioControl.id = `audio-control-${element.id}`;
                 if (element.media_type === 'video') {
                     const videoControl = document.createElement('video');
                     videoControl.style.display = 'none';
-                    videoControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
+                    videoControl.src = mediaSrc;
                     videoControl.id = `video-control-${element.id}`;
                     el.appendChild(videoControl);
                 } else {
-                    const audioControl = document.createElement('audio');
-                    audioControl.style.display = 'none';
-                    audioControl.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
-                    audioControl.id = `audio-control-${element.id}`;
                     el.appendChild(audioControl);
                 }
+                
+                // Audio player container
+                const playerContainer = document.createElement('div');
+                playerContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem;';
+                
+                // Main controls row
+                const mainControlsRow = document.createElement('div');
+                mainControlsRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem;';
+                
+                // Play/Pause button
+                const playPauseBtn = document.createElement('button');
+                playPauseBtn.innerHTML = '▶';
+                playPauseBtn.style.cssText = 'width: 40px; height: 40px; border-radius: 50%; background: #2196F3; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; transition: background 0.2s;';
+                playPauseBtn.onmouseover = () => playPauseBtn.style.background = '#1976D2';
+                playPauseBtn.onmouseout = () => playPauseBtn.style.background = '#2196F3';
+                playPauseBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    const media = element.media_type === 'video' 
+                        ? document.getElementById(`video-control-${element.id}`)
+                        : document.getElementById(`audio-control-${element.id}`);
+                    if (media) {
+                        if (media.paused) {
+                            media.play();
+                            playPauseBtn.innerHTML = '⏸';
+                        } else {
+                            media.pause();
+                            playPauseBtn.innerHTML = '▶';
+                        }
+                    }
+                };
+                mainControlsRow.appendChild(playPauseBtn);
+                
+                // Time display
+                const timeDisplay = document.createElement('div');
+                timeDisplay.textContent = '0:00 / 0:00';
+                timeDisplay.style.cssText = 'font-size: 0.9rem; color: #666; min-width: 80px; font-variant-numeric: tabular-nums;';
+                mainControlsRow.appendChild(timeDisplay);
+                
+                // Progress bar container
+                const progressContainer = document.createElement('div');
+                progressContainer.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 0.5rem;';
+                
+                const progressBar = document.createElement('div');
+                progressBar.style.cssText = 'flex: 1; height: 6px; background: #e0e0e0; border-radius: 3px; cursor: pointer; position: relative; overflow: hidden;';
+                
+                const progressFill = document.createElement('div');
+                progressFill.style.cssText = 'height: 100%; background: #2196F3; width: 0%; border-radius: 3px; transition: width 0.1s;';
+                progressBar.appendChild(progressFill);
+                
+                progressBar.onclick = (e) => {
+                    e.stopPropagation();
+                    const media = element.media_type === 'video' 
+                        ? document.getElementById(`video-control-${element.id}`)
+                        : document.getElementById(`audio-control-${element.id}`);
+                    if (media && media.duration) {
+                        const rect = progressBar.getBoundingClientRect();
+                        const percent = (e.clientX - rect.left) / rect.width;
+                        media.currentTime = percent * media.duration;
+                    }
+                };
+                
+                progressContainer.appendChild(progressBar);
+                mainControlsRow.appendChild(progressContainer);
+                
+                // Volume control
+                const volumeContainer = document.createElement('div');
+                volumeContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;';
+                
+                const volumeIcon = document.createElement('div');
+                volumeIcon.innerHTML = '🔊';
+                volumeIcon.style.cssText = 'font-size: 1.2rem; cursor: pointer;';
+                volumeContainer.appendChild(volumeIcon);
+                
+                const volumeSlider = document.createElement('input');
+                volumeSlider.type = 'range';
+                volumeSlider.min = '0';
+                volumeSlider.max = '100';
+                volumeSlider.value = '100';
+                volumeSlider.style.cssText = 'width: 80px; cursor: pointer;';
+                volumeSlider.oninput = (e) => {
+                    e.stopPropagation();
+                    const media = element.media_type === 'video' 
+                        ? document.getElementById(`video-control-${element.id}`)
+                        : document.getElementById(`audio-control-${element.id}`);
+                    if (media) {
+                        media.volume = e.target.value / 100;
+                        volumeIcon.innerHTML = e.target.value > 50 ? '🔊' : e.target.value > 0 ? '🔉' : '🔇';
+                    }
+                };
+                volumeContainer.appendChild(volumeSlider);
+                mainControlsRow.appendChild(volumeContainer);
+                
+                playerContainer.appendChild(mainControlsRow);
+                el.appendChild(playerContainer);
+                
+                // Update progress and time display
+                const updateProgress = () => {
+                    const media = element.media_type === 'video' 
+                        ? document.getElementById(`video-control-${element.id}`)
+                        : document.getElementById(`audio-control-${element.id}`);
+                    if (media) {
+                        if (media.duration) {
+                            const percent = (media.currentTime / media.duration) * 100;
+                            progressFill.style.width = percent + '%';
+                            
+                            const formatTime = (seconds) => {
+                                const mins = Math.floor(seconds / 60);
+                                const secs = Math.floor(seconds % 60);
+                                return `${mins}:${secs.toString().padStart(2, '0')}`;
+                            };
+                            
+                            timeDisplay.textContent = `${formatTime(media.currentTime)} / ${formatTime(media.duration)}`;
+                        }
+                        
+                        // Update play/pause button
+                        playPauseBtn.innerHTML = media.paused ? '▶' : '⏸';
+                    }
+                };
+                
+                if (element.media_type === 'video') {
+                    const video = document.getElementById(`video-control-${element.id}`);
+                    if (video) {
+                        video.addEventListener('timeupdate', updateProgress);
+                        video.addEventListener('loadedmetadata', updateProgress);
+                        video.addEventListener('play', () => playPauseBtn.innerHTML = '⏸');
+                        video.addEventListener('pause', () => playPauseBtn.innerHTML = '▶');
+                    }
+                } else {
+                    if (audioControl) {
+                        audioControl.addEventListener('timeupdate', updateProgress);
+                        audioControl.addEventListener('loadedmetadata', updateProgress);
+                        audioControl.addEventListener('play', () => playPauseBtn.innerHTML = '⏸');
+                        audioControl.addEventListener('pause', () => playPauseBtn.innerHTML = '▶');
+                    }
+                }
+                
                 break;
             case 'navigation_control':
                 el.style.backgroundColor = '#2196F3';
@@ -551,7 +697,7 @@ Editor.ElementRenderer = (function() {
                     stopwatchContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.5rem; width: 100%; align-items: center;';
                     
                     const timerDisplay = document.createElement('div');
-                    timerDisplay.textContent = '0:00';
+                    timerDisplay.textContent = '0:00.0';
                     timerDisplay.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #333; display: none;';
                     stopwatchContainer.appendChild(timerDisplay);
                     
@@ -572,11 +718,18 @@ Editor.ElementRenderer = (function() {
                         startBtn.style.opacity = '0.5';
                         stopBtn.disabled = false;
                         stopBtn.style.opacity = '1';
-                        timerDisplay.style.display = 'none';
+                        timerDisplay.style.display = 'block';
                         
                         intervalId = setInterval(() => {
                             elapsedTime = Date.now() - startTime;
-                        }, 10);
+                            // Update display with tenths of a second
+                            const totalSeconds = elapsedTime / 1000;
+                            const minutes = Math.floor(totalSeconds / 60);
+                            const seconds = totalSeconds % 60;
+                            const secs = Math.floor(seconds);
+                            const tenths = Math.floor((seconds % 1) * 10);
+                            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
+                        }, 100);
                     };
                     
                     const stopBtn = document.createElement('button');
@@ -590,10 +743,12 @@ Editor.ElementRenderer = (function() {
                             elapsedTime = Date.now() - startTime;
                             clearInterval(intervalId);
                             
-                            const seconds = Math.floor(elapsedTime / 1000);
-                            const minutes = Math.floor(seconds / 60);
-                            const secs = seconds % 60;
-                            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}`;
+                            const totalSeconds = elapsedTime / 1000;
+                            const minutes = Math.floor(totalSeconds / 60);
+                            const seconds = totalSeconds % 60;
+                            const secs = Math.floor(seconds);
+                            const tenths = Math.floor((seconds % 1) * 10);
+                            timerDisplay.textContent = `${minutes}:${secs.toString().padStart(2, '0')}.${tenths}`;
                             timerDisplay.style.display = 'block';
                             
                             startBtn.disabled = true;
@@ -1151,6 +1306,97 @@ Editor.ElementRenderer = (function() {
                     el.style.alignItems = 'flex-start'; // left or default
                 }
                 break;
+            case 'counter':
+                // Render counter element
+                const props = element.properties || {};
+                const shape = props.shape || 'rectangle';
+                const textColor = props.text_color || '#000000';
+                const textSize = props.text_size || 24;
+                const bgColor = props.background_color || '#ffffff';
+                const borderColor = props.border_color || '#000000';
+                const prefix = props.prefix || '';
+                const suffix = props.suffix || '';
+                const value = props.value || 10;
+                const increment = props.increment || 1;
+                const currentValue = 0; // In editor, always show 0
+                
+                // Helper function to calculate decimal places from increment
+                function getDecimalPlaces(inc) {
+                    if (inc % 1 === 0) {
+                        return 0; // Integer increment
+                    }
+                    const str = inc.toString();
+                    if (str.includes('e') || str.includes('E')) {
+                        const match = str.match(/e([+-]?\d+)/i);
+                        if (match) {
+                            const exponent = parseInt(match[1]);
+                            const baseStr = str.split(/e/i)[0];
+                            const baseDecimalPlaces = baseStr.includes('.') ? baseStr.split('.')[1].length : 0;
+                            return Math.max(0, baseDecimalPlaces - exponent);
+                        }
+                    }
+                    if (str.includes('.')) {
+                        return str.split('.')[1].length;
+                    }
+                    return 0;
+                }
+                
+                // Format value to match increment precision
+                function formatCounterValue(val, inc) {
+                    const decimalPlaces = getDecimalPlaces(inc);
+                    // Round to nearest increment
+                    const rounded = Math.round(val / inc) * inc;
+                    return parseFloat(rounded.toFixed(decimalPlaces)).toFixed(decimalPlaces);
+                }
+                
+                const formattedValue = formatCounterValue(currentValue, increment);
+                
+                // Set background and border based on shape
+                if (shape === 'circle') {
+                    el.style.borderRadius = '50%';
+                } else if (shape === 'triangle') {
+                    // Triangle requires SVG
+                    const triangleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    triangleSvg.setAttribute('width', '100%');
+                    triangleSvg.setAttribute('height', '100%');
+                    triangleSvg.setAttribute('viewBox', `0 0 ${element.width} ${element.height}`);
+                    const trianglePath = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    trianglePath.setAttribute('points', `${element.width/2},0 ${element.width},${element.height} 0,${element.height}`);
+                    trianglePath.setAttribute('fill', bgColor);
+                    trianglePath.setAttribute('stroke', borderColor);
+                    trianglePath.setAttribute('stroke-width', '2');
+                    triangleSvg.appendChild(trianglePath);
+                    el.appendChild(triangleSvg);
+                    el.style.border = 'none';
+                } else {
+                    // rectangle
+                    el.style.borderRadius = '0';
+                }
+                
+                if (shape !== 'triangle') {
+                    el.style.backgroundColor = bgColor;
+                    el.style.border = `2px solid ${borderColor}`;
+                }
+                
+                // Add text content
+                const textContent = document.createElement('div');
+                textContent.textContent = `${prefix}${formattedValue}${suffix}`;
+                textContent.style.cssText = `
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: ${textColor};
+                    font-size: ${textSize}px;
+                    font-weight: bold;
+                    text-align: center;
+                `;
+                el.appendChild(textContent);
+                el.style.display = 'flex';
+                el.style.alignItems = 'center';
+                el.style.justifyContent = 'center';
+                break;
         }
 
         // Apply rotation for all elements except line (which handles it internally)
@@ -1172,6 +1418,11 @@ Editor.ElementRenderer = (function() {
         
         // Add resize handles for richtext elements
         if (element.type === 'richtext') {
+            Editor.InteractionHandlers.addResizeHandles(el, element);
+        }
+        
+        // Add resize handles for counter elements
+        if (element.type === 'counter') {
             Editor.InteractionHandlers.addResizeHandles(el, element);
         }
         

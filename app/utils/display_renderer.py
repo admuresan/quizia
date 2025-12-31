@@ -25,8 +25,11 @@ import json
 
 # Cache for rendered images (room_code -> (image_data, timestamp, version))
 _render_cache = {}
-_cache_timeout = 0.2  # Cache for 0.2 seconds to balance freshness and performance (reduced for faster updates)
+_cache_timeout = 5.0  # Cache for 5 seconds to reduce unnecessary re-renders and improve performance
 _version_counter = {}  # Track version number for each room (increments when cache is cleared)
+# Persistent storage for last successful image (room_code -> image_data)
+# This prevents black screens when rendering fails
+_last_successful_image = {}
 
 async def render_display_page(room_code, base_url='http://127.0.0.1:6005'):
     """
@@ -253,6 +256,9 @@ async def render_display_page(room_code, base_url='http://127.0.0.1:6005'):
                 # Cache the result with version
                 _render_cache[cache_key] = (screenshot, datetime.now(), version)
                 
+                # Store as last successful image (persistent across cache clears)
+                _last_successful_image[cache_key] = screenshot
+                
                 return screenshot
                 
             finally:
@@ -262,240 +268,283 @@ async def render_display_page(room_code, base_url='http://127.0.0.1:6005'):
         print(f"Error rendering display page for room {room_code}: {e}")
         import traceback
         traceback.print_exc()
+        # Return last successful image if available (prevents black screen)
+        cache_key = room_code
+        if cache_key in _last_successful_image:
+            print(f"[Display Renderer] Rendering failed, returning last successful image")
+            return _last_successful_image[cache_key]
         return None
 
 def render_display_page_sync(room_code, base_url='http://127.0.0.1:6005'):
     """
-    Synchronous wrapper using Playwright's sync API to avoid eventlet conflicts.
-    Runs in a separate thread to avoid blocking Flask.
+    Synchronous wrapper that runs Playwright in a separate process to avoid eventlet conflicts.
+    Eventlet creates an async event loop that conflicts with Playwright's sync API,
+    so we use subprocess to run it in a completely separate Python process.
     """
-    import concurrent.futures
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+    import subprocess
+    import tempfile
+    import sys
+    import os
     
-    def run_sync():
-        """Run Playwright using sync API (more compatible with eventlet)."""
-        if not PLAYWRIGHT_AVAILABLE:
-            print(f"[Display Renderer] ERROR: Playwright is not available.")
-            return None
+    if not PLAYWRIGHT_AVAILABLE:
+        print(f"[Display Renderer] ERROR: Playwright is not available.")
+        # Return last successful image if available
+        if room_code in _last_successful_image:
+            print(f"[Display Renderer] Playwright not available, returning last successful image")
+            return _last_successful_image[room_code]
+        return None
+    
+    # Check cache first (synchronous check)
+    cache_key = room_code
+    if cache_key in _render_cache:
+        cache_entry = _render_cache[cache_key]
+        if len(cache_entry) >= 2:
+            image_data, timestamp = cache_entry[0], cache_entry[1]
+            if datetime.now() - timestamp < timedelta(seconds=_cache_timeout):
+                return image_data
+    
+    # If cache expired but we have a last successful image, return it immediately
+    # This prevents black screens while a new render is being generated
+    # Note: The new render will still happen in the subprocess, but result is returned on next request
+    if cache_key in _last_successful_image:
+        last_image = _last_successful_image[cache_key]
+        print(f"[Display Renderer] Cache expired, returning last successful image while rendering new one")
+        # Continue to render new image below, but return last one immediately
+    
+    # Get the app directory path
+    app_dir = Path(__file__).parent.parent.parent
+    
+    # Create a temporary script file to run Playwright in a separate process
+    script_content = f'''#!/usr/bin/env python3
+import sys
+import os
+from pathlib import Path
+
+# Add app directory to path
+app_dir = Path(r"{app_dir}")
+sys.path.insert(0, str(app_dir))
+
+from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+import base64
+import json
+
+room_code = "{room_code}"
+base_url = "{base_url}"
+
+try:
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.set_viewport_size({{"width": 1920, "height": 1080}})
+        
+        display_url = f"{{base_url}}/display/{{room_code}}"
+        print(f"[Subprocess] Navigating to {{display_url}}", flush=True)
         
         try:
-            with sync_playwright() as p:
-                # Launch browser (headless)
-                try:
-                    browser = p.chromium.launch(headless=True)
-                except Exception as browser_error:
-                    import os
-                    import traceback
-                    print(f"[Display Renderer] ERROR: Failed to launch Chromium browser: {browser_error}")
-                    print(f"[Display Renderer] Environment check:")
-                    print(f"  HOME: {os.environ.get('HOME', 'NOT SET')}")
-                    print(f"  PLAYWRIGHT_BROWSERS_PATH: {os.environ.get('PLAYWRIGHT_BROWSERS_PATH', 'NOT SET')}")
-                    print(f"  USER: {os.environ.get('USER', 'NOT SET')}")
-                    cache_path = os.path.expanduser('~/.cache/ms-playwright')
-                    print(f"  Cache path exists: {os.path.exists(cache_path)}")
-                    if os.path.exists(cache_path):
-                        print(f"  Cache path contents: {os.listdir(cache_path)}")
-                    print(f"[Display Renderer] Traceback: {traceback.format_exc()}")
-                    return None
-                
-                try:
-                    # Create a new page
-                    page = browser.new_page()
-                    
-                    # Set viewport size (1920x1080 for full HD)
-                    page.set_viewport_size({"width": 1920, "height": 1080})
-                    
-                    # Navigate to display page
-                    display_url = f"{base_url}/display/{room_code}"
-                    print(f"[Display Renderer] Navigating to {display_url}")
-                    
-                    try:
-                        page.goto(display_url, wait_until="domcontentloaded", timeout=20000)
-                    except PlaywrightTimeoutError:
-                        print(f"[Display Renderer] domcontentloaded timeout, trying load event...")
-                        try:
-                            page.goto(display_url, wait_until="load", timeout=20000)
-                        except PlaywrightTimeoutError:
-                            print(f"[Display Renderer] load timeout, trying commit...")
-                            page.goto(display_url, wait_until="commit", timeout=20000)
-                    
-                    # Wait for content
-                    try:
-                        page.wait_for_selector('#display-content', timeout=10000, state='attached')
-                        print(f"[Display Renderer] Found display-content element")
-                        # Check if initial loading message is present - wait for it to disappear
-                        try:
-                            loading_el = page.query_selector('#initial-loading')
-                            if loading_el:
-                                print(f"[Display Renderer] Initial loading message found, waiting for it to disappear...")
-                                page.wait_for_selector('#initial-loading', timeout=10000, state='detached')
-                                print(f"[Display Renderer] Initial loading message disappeared")
-                        except Exception:
-                            # Loading message not found or already gone - that's fine
-                            pass
-                    except Exception as e:
-                        print(f"[Display Renderer] Warning: display-content not found: {e}")
-                    
-                    # Wait for WebSocket connection - give it more time
-                    websocket_connected = False
-                    try:
-                        page.wait_for_function(
-                            "() => window.socket && window.socket.connected === true",
-                            timeout=5000  # Increased from 3000 to 5000
-                        )
-                        print(f"[Display Renderer] WebSocket connection established")
-                        websocket_connected = True
-                        # Give WebSocket time to receive and process display_state event
-                        page.wait_for_timeout(1000)  # Increased from 500 to 1000
-                    except Exception as e:
-                        print(f"[Display Renderer] WebSocket connection check timeout/error: {e}, continuing...")
-                        # If WebSocket didn't connect, wait a bit longer for any content that might render anyway
-                        page.wait_for_timeout(2000)
-                    
-                    # Wait for content ready signal - give it more time
-                    content_ready = False
-                    try:
-                        page.wait_for_selector('#display-content[data-rendered="true"]', timeout=5000, state='attached')  # Increased from 1500 to 5000
-                        print(f"[Display Renderer] Content ready signal detected")
-                        content_ready = True
-                    except Exception:
-                        print(f"[Display Renderer] Ready signal not found, checking for visible content...")
-                        try:
-                            # Wait longer and check more thoroughly
-                            page.wait_for_function(
-                                """
-                                () => {
-                                    const content = document.getElementById('display-content');
-                                    if (!content) return false;
-                                    // Check for visible elements
-                                    const elements = content.querySelectorAll('[id^="element-"]');
-                                    for (let el of elements) {
-                                        if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-                                            return true;
-                                        }
-                                    }
-                                    // Check for status/result page content
-                                    const statusContent = content.querySelector('.status-page, .result-page');
-                                    if (statusContent && statusContent.offsetHeight > 100) {
-                                        return true;
-                                    }
-                                    // Check if initial loading message is gone
-                                    const loadingEl = document.getElementById('initial-loading');
-                                    if (loadingEl && loadingEl.style.display !== 'none') {
-                                        return false; // Still loading
-                                    }
-                                    // Check if content has meaningful height (not just empty container)
-                                    return content.offsetHeight > 100 && content.innerHTML.trim().length > 50;
-                                }
-                                """,
-                                timeout=3000  # Increased from 1000 to 3000
-                            )
-                            print(f"[Display Renderer] Content rendered (fallback check)")
-                            content_ready = True
-                        except Exception as e2:
-                            print(f"[Display Renderer] Content check timeout: {e2}, waiting a bit more...")
-                            # Final wait before screenshot
-                            page.wait_for_timeout(1000)  # Increased from 300 to 1000
-                    
-                    # If still no content, check what's actually on the page and wait a bit more
-                    if not content_ready:
-                        page_content = page.evaluate("""
-                            () => {
-                                const content = document.getElementById('display-content');
-                                if (!content) return { exists: false };
-                                return {
-                                    exists: true,
-                                    innerHTML: content.innerHTML.substring(0, 200),
-                                    offsetHeight: content.offsetHeight,
-                                    offsetWidth: content.offsetWidth,
-                                    elementCount: content.querySelectorAll('[id^="element-"]').length,
-                                    hasRendered: content.hasAttribute('data-rendered'),
-                                    socketConnected: window.socket ? window.socket.connected : false,
-                                    socketExists: !!window.socket
-                                };
-                            }
-                        """)
-                        print(f"[Display Renderer] Page state before screenshot: {page_content}")
-                        
-                        # If WebSocket isn't connected, wait a bit more and try one more time
-                        if not page_content.get('socketConnected', False):
-                            print(f"[Display Renderer] WebSocket not connected, waiting additional 3 seconds...")
-                            page.wait_for_timeout(3000)
-                            # Check again
-                            page_content = page.evaluate("""
-                                () => {
-                                    const content = document.getElementById('display-content');
-                                    if (!content) return { exists: false };
-                                    const elements = content.querySelectorAll('[id^="element-"]');
-                                    return {
-                                        exists: true,
-                                        elementCount: elements.length,
-                                        hasRendered: content.hasAttribute('data-rendered'),
-                                        socketConnected: window.socket ? window.socket.connected : false,
-                                        hasVisibleElements: Array.from(elements).some(el => el.offsetWidth > 0 && el.offsetHeight > 0)
-                                    };
-                                }
-                            """)
-                            print(f"[Display Renderer] Page state after additional wait: {page_content}")
-                    
-                    # Check for answer overlay
-                    overlay_present = False
-                    try:
-                        overlay = page.query_selector('#answer-display-overlay')
-                        if overlay:
-                            page.wait_for_selector('#answer-display-overlay[data-overlay-ready="true"]', timeout=1000, state='attached')
-                            print(f"[Display Renderer] Answer overlay ready signal detected")
-                            overlay_present = True
-                            page.wait_for_timeout(300)
-                    except Exception as e:
-                        print(f"[Display Renderer] No answer overlay or overlay not ready: {e}")
-                    
-                    # Take screenshot
-                    print(f"[Display Renderer] Taking screenshot (overlay present: {overlay_present})...")
-                    screenshot = page.screenshot(
-                        type="png",
-                        full_page=False,
-                        timeout=10000
-                    )
-                    print(f"[Display Renderer] Screenshot taken successfully")
-                    
-                    # Get current version for this room
-                    version = _version_counter.get(room_code, 0)
-                    
-                    # Cache the result with version
-                    _render_cache[room_code] = (screenshot, datetime.now(), version)
-                    
-                    return screenshot
-                    
-                finally:
-                    browser.close()
-                    
-        except Exception as e:
-            import traceback
-            error_trace = traceback.format_exc()
-            print(f"[Display Renderer] Error rendering display page for room {room_code}: {e}")
-            print(f"[Display Renderer] Traceback: {error_trace}")
-            return None
-    
-    # Run in a thread to avoid blocking
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(run_sync)
+            # Use commit for faster navigation (doesn't wait for all resources)
+            page.goto(display_url, wait_until="commit", timeout=10000)
+        except PlaywrightTimeoutError:
+            print("[Subprocess] commit timeout, trying domcontentloaded...", flush=True)
+            try:
+                page.goto(display_url, wait_until="domcontentloaded", timeout=10000)
+            except PlaywrightTimeoutError:
+                print("[Subprocess] domcontentloaded timeout, trying load...", flush=True)
+                page.goto(display_url, wait_until="load", timeout=10000)
+        
+        # Wait for content (reduced timeout for faster rendering)
         try:
-            result = future.result(timeout=45)  # Increased timeout to 45 seconds
-            return result
-        except concurrent.futures.TimeoutError:
-            print(f"[Display Renderer] Timeout rendering display page for room {room_code} (exceeded 45 seconds)")
-            return None
+            page.wait_for_selector('#display-content', timeout=5000, state='attached')
+            print("[Subprocess] Found display-content", flush=True)
         except Exception as e:
-            import traceback
-            print(f"[Display Renderer] Exception in thread executor for room {room_code}: {e}")
-            print(f"[Display Renderer] Traceback: {traceback.format_exc()}")
+            print(f"[Subprocess] Warning: display-content not found: {{e}}", flush=True)
+        
+        # Wait for loading message to disappear (reduced timeout)
+        try:
+            loading_el = page.query_selector('#initial-loading')
+            if loading_el:
+                page.wait_for_selector('#initial-loading', timeout=5000, state='detached')
+                print("[Subprocess] Loading message disappeared", flush=True)
+        except:
+            pass
+        
+        # Wait for WebSocket connection (reduced timeout, but still important)
+        websocket_connected = False
+        try:
+            socket_exists = page.evaluate("() => !!window.socket")
+            print(f"[Subprocess] Socket exists: {{socket_exists}}", flush=True)
+            
+            if socket_exists:
+                page.wait_for_function(
+                    "() => window.socket && window.socket.connected === true",
+                    timeout=5000  # Reduced from 8000
+                )
+                print("[Subprocess] WebSocket connected", flush=True)
+                websocket_connected = True
+                page.wait_for_timeout(1000)  # Reduced from 2000
+        except Exception as e:
+            print(f"[Subprocess] WebSocket timeout: {{e}}, continuing...", flush=True)
+            # Give a shorter wait if WebSocket doesn't connect
+            page.wait_for_timeout(1500)  # Reduced from 3000
+        
+        # Wait for content ready (reduced timeout)
+        content_ready = False
+        try:
+            page.wait_for_selector('#display-content[data-rendered="true"]', timeout=3000, state='attached')
+            print("[Subprocess] Content ready signal detected", flush=True)
+            content_ready = True
+        except:
+            print("[Subprocess] Ready signal not found, checking content...", flush=True)
+            try:
+                page.wait_for_function(
+                    """
+                    () => {{
+                        const content = document.getElementById('display-content');
+                        if (!content) return false;
+                        const elements = content.querySelectorAll('[id^="element-"]');
+                        for (let el of elements) {{
+                            if (el.offsetWidth > 0 && el.offsetHeight > 0) {{
+                                return true;
+                            }}
+                        }}
+                        const loadingEl = document.getElementById('initial-loading');
+                        if (loadingEl && loadingEl.style.display !== 'none') {{
+                            return false;
+                        }}
+                        return content.offsetHeight > 100 && content.innerHTML.trim().length > 50;
+                    }}
+                    """,
+                    timeout=2000  # Reduced from 3000
+                )
+                print("[Subprocess] Content rendered", flush=True)
+                content_ready = True
+            except Exception as e2:
+                print(f"[Subprocess] Content check timeout: {{e2}}, continuing anyway...", flush=True)
+                page.wait_for_timeout(500)  # Reduced from 1000
+        
+        # Take screenshot
+        print("[Subprocess] Taking screenshot...", flush=True)
+        screenshot = page.screenshot(type="png", full_page=False, timeout=10000)
+        
+        browser.close()
+        
+        # Return base64 encoded image
+        image_b64 = base64.b64encode(screenshot).decode('utf-8')
+        result = {{"success": True, "image": image_b64}}
+        print(json.dumps(result), flush=True)
+        
+except Exception as e:
+    import traceback
+    error = {{"success": False, "error": str(e), "traceback": traceback.format_exc()}}
+    print(json.dumps(error), flush=True)
+    sys.exit(1)
+'''
+    
+    # Write script to temporary file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        script_path = f.name
+        f.write(script_content)
+        os.chmod(script_path, 0o755)  # Make executable
+    
+    try:
+        # Run script in separate Python process (completely isolated from eventlet)
+        print(f"[Display Renderer] Running Playwright in separate process for room {room_code}")
+        result = subprocess.run(
+            [sys.executable, script_path],
+            capture_output=True,
+            text=True,
+            timeout=30,  # Reduced from 60 to 30 seconds for faster failure recovery
+            cwd=str(app_dir)
+        )
+        
+        # Clean up script file
+        try:
+            os.unlink(script_path)
+        except:
+            pass
+        
+        if result.returncode != 0:
+            print(f"[Display Renderer] Subprocess failed with return code {result.returncode}")
+            print(f"[Display Renderer] stdout: {result.stdout}")
+            print(f"[Display Renderer] stderr: {result.stderr}")
             return None
+        
+        # Parse JSON result (should be the last line of stdout)
+        try:
+            output_lines = result.stdout.strip().split('\n')
+            # Find the JSON line (should be the last line)
+            json_line = None
+            for line in reversed(output_lines):
+                line = line.strip()
+                if line.startswith('{') and line.endswith('}'):
+                    json_line = line
+                    break
+            
+            if not json_line:
+                print(f"[Display Renderer] No JSON output found. stdout: {result.stdout[:500]}")
+                return None
+            
+            result_data = json.loads(json_line)
+            
+            if result_data.get('success'):
+                # Decode base64 image
+                image_data = base64.b64decode(result_data['image'])
+                print(f"[Display Renderer] Screenshot taken successfully, size: {len(image_data)} bytes")
+                
+                # Cache the result
+                version = _version_counter.get(room_code, 0)
+                _render_cache[room_code] = (image_data, datetime.now(), version)
+                
+                # Store as last successful image (persistent across cache clears)
+                _last_successful_image[room_code] = image_data
+                
+                return image_data
+            else:
+                print(f"[Display Renderer] Subprocess returned error: {result_data.get('error')}")
+                if 'traceback' in result_data:
+                    print(f"[Display Renderer] Traceback: {result_data['traceback']}")
+                # Return last successful image if available (prevents black screen)
+                if room_code in _last_successful_image:
+                    print(f"[Display Renderer] Rendering failed, returning last successful image")
+                    return _last_successful_image[room_code]
+                return None
+                
+        except json.JSONDecodeError as e:
+            print(f"[Display Renderer] Failed to parse JSON output: {e}")
+            print(f"[Display Renderer] stdout (last 500 chars): {result.stdout[-500:]}")
+            return None
+            
+    except subprocess.TimeoutExpired:
+        print(f"[Display Renderer] Subprocess timeout (exceeded 60 seconds)")
+        try:
+            os.unlink(script_path)
+        except:
+            pass
+        # Return last successful image if available (prevents black screen)
+        if room_code in _last_successful_image:
+            print(f"[Display Renderer] Rendering timeout, returning last successful image")
+            return _last_successful_image[room_code]
+        return None
+    except Exception as e:
+        print(f"[Display Renderer] Error running subprocess: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            os.unlink(script_path)
+        except:
+            pass
+        # Return last successful image if available (prevents black screen)
+        if room_code in _last_successful_image:
+            print(f"[Display Renderer] Subprocess error, returning last successful image")
+            return _last_successful_image[room_code]
+        return None
 
 def clear_cache(room_code=None):
     """
     Clear the render cache for a specific room or all rooms.
     Also increments the version counter to signal that a new render is needed.
+    
+    Note: This does NOT clear _last_successful_image, so the last image will still
+    be available if rendering fails (prevents black screens).
     
     Args:
         room_code: Room code to clear, or None to clear all

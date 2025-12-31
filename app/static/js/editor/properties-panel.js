@@ -88,8 +88,19 @@
                 this.render();
             };
             
+            const mediaTab = document.createElement('button');
+            mediaTab.textContent = 'Media';
+            mediaTab.className = 'properties-tab';
+            mediaTab.dataset.tab = 'media';
+            mediaTab.style.cssText = 'flex: 1; padding: 0.75rem; border: none; background: ' + (this.activeTab === 'media' ? '#2196F3' : '#f5f5f5') + '; color: ' + (this.activeTab === 'media' ? 'white' : '#333') + '; cursor: pointer; font-weight: ' + (this.activeTab === 'media' ? 'bold' : 'normal') + ';';
+            mediaTab.onclick = () => {
+                this.activeTab = 'media';
+                this.render();
+            };
+            
             tabsContainer.appendChild(generalTab);
             tabsContainer.appendChild(visibilityTab);
+            tabsContainer.appendChild(mediaTab);
             panel.appendChild(tabsContainer);
             
             // Create content container
@@ -114,6 +125,11 @@
                 // Always show visibility order, regardless of element selection
                 if (Editor.PropertiesPanel.renderPageVisibilityProperties) {
                     Editor.PropertiesPanel.renderPageVisibilityProperties.call(this, contentContainer);
+                }
+            } else if (this.activeTab === 'media') {
+                // Always show media controls, regardless of element selection
+                if (Editor.PropertiesPanel.renderPageMediaProperties) {
+                    Editor.PropertiesPanel.renderPageMediaProperties.call(this, contentContainer);
                 }
             }
             

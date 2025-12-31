@@ -11,6 +11,7 @@
         <div>
             <h2>New Participant</h2>
             <input type="text" id="room-code" placeholder="Enter Room Code" maxlength="4" style="text-transform: uppercase;">
+            <button id="browse-rooms-btn" class="btn btn-secondary" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">Browse Public Rooms</button>
             <input type="text" id="participant-name" placeholder="Your Name">
             <div id="avatar-selection"></div>
             <button id="join-new-btn" class="btn btn-primary">Join</button>
@@ -23,8 +24,18 @@
         </div>
     </div>
     <div id="message"></div>
+    <div id="browse-rooms-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 800px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="margin: 0;">Browse Public Rooms</h2>
+                <button id="close-browse-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
+            </div>
+            <div id="public-rooms-list"></div>
+        </div>
+    </div>
 </div>
 <script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/browse-rooms.js') }}"></script>
 <script src="{{ url_for('static', filename='js/join.js') }}"></script>
 {% endblock %}
 

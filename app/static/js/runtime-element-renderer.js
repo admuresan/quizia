@@ -56,9 +56,10 @@ RuntimeRenderer.ElementRenderer = (function() {
         const mode = options.mode || 'display'; // 'display', 'participant', 'control'
         
         // Create the element container
+        // Use element.id directly as the container ID (no prefix)
         const el = document.createElement('div');
         el.className = 'runtime-element';
-        el.id = `element-${element.id}`;
+        el.id = element.id;
         
         // APPLY POSITIONING - THE ONLY PLACE THIS HAPPENS
         applyElementPosition(el, element, insideContainer);
@@ -109,6 +110,9 @@ RuntimeRenderer.ElementRenderer = (function() {
                 break;
             case 'richtext':
                 renderRichText(el, element);
+                break;
+            case 'counter':
+                renderCounter(el, element);
                 break;
             case 'audio_control':
                 if (mode === 'control') {
@@ -196,6 +200,14 @@ RuntimeRenderer.ElementRenderer = (function() {
         video.style.height = '100%';
         video.style.objectFit = 'contain';
         video.id = `video-${element.id}`;
+        
+        // Set volume from properties if available
+        if (element.properties && element.properties.volume !== undefined) {
+            video.volume = parseFloat(element.properties.volume);
+        } else {
+            video.volume = 1.0; // Default to full volume
+        }
+        
         el.appendChild(video);
         el.style.border = 'none';
     }
@@ -207,9 +219,44 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.appendChild(audioIcon);
         
         const audioElement = document.createElement('audio');
-        audioElement.src = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+        // Construct src URL - match editor and tvdisplay logic
+        let src = element.media_url || element.src || element.url || element.file_name || element.filename || '';
+        // If src is a filename without path prefix, add the API path
+        if (src && !src.startsWith('http') && !src.startsWith('/')) {
+            src = '/api/media/serve/' + src;
+        }
+        audioElement.src = src;
         audioElement.style.display = 'none';
         audioElement.id = `audio-${element.id}`;
+        
+        // Preload audio to reduce delay when playing
+        // 'auto' preloads the entire file, 'metadata' only preloads metadata
+        // Using 'auto' for better responsiveness, but could use 'metadata' to save bandwidth
+        audioElement.preload = 'auto';
+        
+        // Set volume from properties if available
+        if (element.properties && element.properties.volume !== undefined) {
+            audioElement.volume = parseFloat(element.properties.volume);
+        } else {
+            audioElement.volume = 1.0; // Default to full volume
+        }
+        
+        // Check media_config.start_method to determine autoplay behavior
+        // If start_method is 'control', don't autoplay (user must click play)
+        const mediaConfig = element.media_config || {};
+        const startMethod = mediaConfig.start_method || 'control'; // Default to 'control' for safety
+        
+        // Set autoplay and loop if specified
+        // Only autoplay if start_method is 'on_load' or if autoplay is explicitly true
+        if (startMethod === 'on_load' || (element.autoplay === true && startMethod !== 'control')) {
+            audioElement.autoplay = true;
+        } else {
+            audioElement.autoplay = false;
+        }
+        if (element.loop === true) {
+            audioElement.loop = true;
+        }
+        
         el.appendChild(audioElement);
         el.style.border = 'none';
     }
@@ -393,61 +440,318 @@ RuntimeRenderer.ElementRenderer = (function() {
         }
     }
     
+    function renderCounter(el, element) {
+        const props = element.properties || {};
+        const shape = props.shape || 'rectangle';
+        const textColor = props.text_color || '#000000';
+        const textSize = props.text_size || 24;
+        const bgColor = props.background_color || '#ffffff';
+        const borderColor = props.border_color || '#000000';
+        const prefix = props.prefix || '';
+        const suffix = props.suffix || '';
+        const value = props.value || 10;
+        const increment = props.increment || 1;
+        
+        // Helper function to calculate decimal places from increment
+        function getDecimalPlaces(inc) {
+            if (inc % 1 === 0) {
+                return 0; // Integer increment
+            }
+            const str = inc.toString();
+            if (str.includes('e') || str.includes('E')) {
+                const match = str.match(/e([+-]?\d+)/i);
+                if (match) {
+                    const exponent = parseInt(match[1]);
+                    const baseStr = str.split(/e/i)[0];
+                    const baseDecimalPlaces = baseStr.includes('.') ? baseStr.split('.')[1].length : 0;
+                    return Math.max(0, baseDecimalPlaces - exponent);
+                }
+            }
+            if (str.includes('.')) {
+                return str.split('.')[1].length;
+            }
+            return 0;
+        }
+        
+        // Format initial value to match increment precision
+        function formatCounterValue(val, inc) {
+            const decimalPlaces = getDecimalPlaces(inc);
+            // Round to nearest increment
+            const rounded = Math.round(val / inc) * inc;
+            return parseFloat(rounded.toFixed(decimalPlaces)).toFixed(decimalPlaces);
+        }
+        
+        // Set background and border based on shape
+        if (shape === 'circle') {
+            el.style.borderRadius = '50%';
+        } else if (shape === 'triangle') {
+            // Triangle requires SVG
+            const triangleSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            triangleSvg.setAttribute('width', '100%');
+            triangleSvg.setAttribute('height', '100%');
+            triangleSvg.setAttribute('viewBox', `0 0 ${element.width} ${element.height}`);
+            const trianglePath = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            trianglePath.setAttribute('points', `${element.width/2},0 ${element.width},${element.height} 0,${element.height}`);
+            trianglePath.setAttribute('fill', bgColor);
+            trianglePath.setAttribute('stroke', borderColor);
+            trianglePath.setAttribute('stroke-width', '2');
+            triangleSvg.appendChild(trianglePath);
+            el.appendChild(triangleSvg);
+            el.style.border = 'none';
+        } else {
+            // rectangle
+            el.style.borderRadius = '0';
+        }
+        
+        if (shape !== 'triangle') {
+            el.style.backgroundColor = bgColor;
+            el.style.border = `2px solid ${borderColor}`;
+        }
+        
+        // Add text content container
+        const textContent = document.createElement('div');
+        textContent.id = `counter-text-${element.id}`;
+        const initialValue = 0; // Start at 0
+        const formattedInitialValue = formatCounterValue(initialValue, increment);
+        textContent.textContent = `${prefix}${formattedInitialValue}${suffix}`;
+        textContent.style.cssText = `
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: ${textColor};
+            font-size: ${textSize}px;
+            font-weight: bold;
+            text-align: center;
+            position: ${shape === 'triangle' ? 'absolute' : 'relative'};
+            top: ${shape === 'triangle' ? '0' : 'auto'};
+            left: ${shape === 'triangle' ? '0' : 'auto'};
+        `;
+        el.appendChild(textContent);
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        el.style.position = 'relative';
+        
+        // Store element reference for counter updates
+        el.dataset.counterId = element.id;
+        el.dataset.counterProps = JSON.stringify(props);
+    }
+    
     function renderAudioControl(el, element, options) {
-        el.style.backgroundColor = '#f5f5f5';
-        el.style.border = '1px solid #ddd';
-        el.style.borderRadius = '4px';
-        el.style.padding = '0.5rem';
+        // Modern styling matching control view elements
+        el.style.backgroundColor = 'white';
+        el.style.border = '2px solid #2196F3';
+        el.style.borderRadius = '8px';
+        el.style.padding = '1rem';
         el.style.display = 'flex';
         el.style.flexDirection = 'column';
-        el.style.gap = '0.5rem';
+        el.style.gap = '0.75rem';
+        el.style.boxSizing = 'border-box';
+        el.style.overflow = 'hidden';
         
-        const filenameLabel = document.createElement('div');
-        let filename = element.file_name || element.filename || (element.media_type === 'video' ? 'Video' : 'Audio');
-        if (filename && typeof filename === 'string') {
-            filename = filename.split('/').pop().split('\\').pop();
+        // Get parent audio element name - control element is a "shadow" element
+        // Use parent_id to look up the original audio element and get its element_name
+        let parentElementName = null;
+        if (element.parent_id && options && options.page) {
+            const page = options.page;
+            if (page.elements && typeof page.elements === 'object' && !Array.isArray(page.elements)) {
+                const parentElementData = page.elements[element.parent_id] || null;
+                if (parentElementData) {
+                    // element_name is stored directly on elementData (set in visibility panel)
+                    parentElementName = parentElementData.element_name || null;
+                }
+            }
         }
-        filenameLabel.textContent = filename || (element.media_type === 'video' ? 'Video' : 'Audio');
-        filenameLabel.style.fontWeight = '500';
-        filenameLabel.style.fontSize = '0.9rem';
-        filenameLabel.style.color = '#333';
-        el.appendChild(filenameLabel);
         
-        const controlsContainer = document.createElement('div');
-        controlsContainer.style.display = 'flex';
-        controlsContainer.style.gap = '0.5rem';
-        controlsContainer.style.alignItems = 'center';
+        // Title header matching control view style with loop button in top right
+        const titleHeader = document.createElement('div');
+        titleHeader.style.cssText = 'font-weight: bold; font-size: 1.1rem; color: #2196F3; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: flex; justify-content: space-between; align-items: center;';
+        const titleText = document.createElement('span');
+        // Use parent element's element_name (control element is a shadow of the parent)
+        const displayName = parentElementName || element.element_name || 'Audio Controls';
+        titleText.textContent = displayName;
+        titleHeader.appendChild(titleText);
         
-        const playBtn = document.createElement('button');
-        playBtn.textContent = '▶ Play';
-        playBtn.className = 'control-play-btn';
-        playBtn.dataset.elementId = element.parent_id || element.id;
-        playBtn.style.cssText = 'padding: 0.5rem 1rem; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
-        controlsContainer.appendChild(playBtn);
+        // Loop checkbox in top right
+        const loopContainer = document.createElement('div');
+        loopContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
         
-        const pauseBtn = document.createElement('button');
-        pauseBtn.textContent = '⏸ Pause';
-        pauseBtn.className = 'control-pause-btn';
-        pauseBtn.dataset.elementId = element.parent_id || element.id;
-        pauseBtn.style.cssText = 'padding: 0.5rem 1rem; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem;';
-        controlsContainer.appendChild(pauseBtn);
+        const loopCheckbox = document.createElement('input');
+        loopCheckbox.type = 'checkbox';
+        loopCheckbox.id = `loop-${element.id}`;
+        loopCheckbox.onchange = (e) => {
+            e.stopPropagation();
+            const media = element.media_type === 'video' 
+                ? document.getElementById(`video-control-${element.id}`)
+                : document.getElementById(`audio-control-${element.id}`);
+            if (media) {
+                media.loop = e.target.checked;
+            }
+        };
+        loopContainer.appendChild(loopCheckbox);
         
-        el.appendChild(controlsContainer);
+        const loopLabel = document.createElement('label');
+        loopLabel.htmlFor = `loop-${element.id}`;
+        loopLabel.textContent = 'Loop';
+        loopLabel.style.cssText = 'font-size: 0.9rem; color: #666; cursor: pointer; font-weight: normal;';
+        loopContainer.appendChild(loopLabel);
         
+        titleHeader.appendChild(loopContainer);
+        el.appendChild(titleHeader);
+        
+        // Create hidden audio element
         const mediaSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+        const audioControl = document.createElement('audio');
+        audioControl.style.display = 'none';
+        audioControl.src = mediaSrc;
+        audioControl.id = `audio-control-${element.id}`;
+        if (element.media_type === 'video') {
+            const videoControl = document.createElement('video');
+            videoControl.style.display = 'none';
+            videoControl.src = mediaSrc;
+            videoControl.id = `video-control-${element.id}`;
+            el.appendChild(videoControl);
+        } else {
+            el.appendChild(audioControl);
+        }
+        
+        // Audio player container
+        const playerContainer = document.createElement('div');
+        playerContainer.style.cssText = 'display: flex; flex-direction: column; gap: 0.75rem;';
+        
+        // Main controls row
+        const mainControlsRow = document.createElement('div');
+        mainControlsRow.style.cssText = 'display: flex; align-items: center; gap: 0.75rem;';
+        
+        // Play/Pause button
+        const playPauseBtn = document.createElement('button');
+        playPauseBtn.innerHTML = '▶';
+        playPauseBtn.className = 'control-play-btn';
+        playPauseBtn.dataset.elementId = element.parent_id || element.id;
+        playPauseBtn.style.cssText = 'width: 40px; height: 40px; border-radius: 50%; background: #2196F3; color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; transition: background 0.2s;';
+        playPauseBtn.onmouseover = () => playPauseBtn.style.background = '#1976D2';
+        playPauseBtn.onmouseout = () => playPauseBtn.style.background = '#2196F3';
+        playPauseBtn.onclick = (e) => {
+            e.stopPropagation();
+            const media = element.media_type === 'video' 
+                ? document.getElementById(`video-control-${element.id}`)
+                : document.getElementById(`audio-control-${element.id}`);
+            if (media) {
+                if (media.paused) {
+                    media.play();
+                    playPauseBtn.innerHTML = '⏸';
+                } else {
+                    media.pause();
+                    playPauseBtn.innerHTML = '▶';
+                }
+            }
+        };
+        mainControlsRow.appendChild(playPauseBtn);
+        
+        // Time display
+        const timeDisplay = document.createElement('div');
+        timeDisplay.textContent = '0:00 / 0:00';
+        timeDisplay.style.cssText = 'font-size: 0.9rem; color: #666; min-width: 80px; font-variant-numeric: tabular-nums;';
+        mainControlsRow.appendChild(timeDisplay);
+        
+        // Progress bar container
+        const progressContainer = document.createElement('div');
+        progressContainer.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 0.5rem;';
+        
+        const progressBar = document.createElement('div');
+        progressBar.style.cssText = 'flex: 1; height: 6px; background: #e0e0e0; border-radius: 3px; cursor: pointer; position: relative; overflow: hidden;';
+        
+        const progressFill = document.createElement('div');
+        progressFill.style.cssText = 'height: 100%; background: #2196F3; width: 0%; border-radius: 3px; transition: width 0.1s;';
+        progressBar.appendChild(progressFill);
+        
+        progressBar.onclick = (e) => {
+            e.stopPropagation();
+            const media = element.media_type === 'video' 
+                ? document.getElementById(`video-control-${element.id}`)
+                : document.getElementById(`audio-control-${element.id}`);
+            if (media && media.duration) {
+                const rect = progressBar.getBoundingClientRect();
+                const percent = (e.clientX - rect.left) / rect.width;
+                media.currentTime = percent * media.duration;
+            }
+        };
+        
+        progressContainer.appendChild(progressBar);
+        mainControlsRow.appendChild(progressContainer);
+        
+        // Volume control
+        const volumeContainer = document.createElement('div');
+        volumeContainer.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;';
+        
+        const volumeIcon = document.createElement('div');
+        volumeIcon.innerHTML = '🔊';
+        volumeIcon.style.cssText = 'font-size: 1.2rem; cursor: pointer;';
+        volumeContainer.appendChild(volumeIcon);
+        
+        const volumeSlider = document.createElement('input');
+        volumeSlider.type = 'range';
+        volumeSlider.min = '0';
+        volumeSlider.max = '100';
+        volumeSlider.value = '100';
+        volumeSlider.style.cssText = 'width: 80px; cursor: pointer;';
+        volumeSlider.oninput = (e) => {
+            e.stopPropagation();
+            const media = element.media_type === 'video' 
+                ? document.getElementById(`video-control-${element.id}`)
+                : document.getElementById(`audio-control-${element.id}`);
+            if (media) {
+                media.volume = e.target.value / 100;
+                volumeIcon.innerHTML = e.target.value > 50 ? '🔊' : e.target.value > 0 ? '🔉' : '🔇';
+            }
+        };
+        volumeContainer.appendChild(volumeSlider);
+        mainControlsRow.appendChild(volumeContainer);
+        
+        playerContainer.appendChild(mainControlsRow);
+        el.appendChild(playerContainer);
+        
+        // Update progress and time display
+        const updateProgress = () => {
+            const media = element.media_type === 'video' 
+                ? document.getElementById(`video-control-${element.id}`)
+                : document.getElementById(`audio-control-${element.id}`);
+            if (media) {
+                if (media.duration) {
+                    const percent = (media.currentTime / media.duration) * 100;
+                    progressFill.style.width = percent + '%';
+                    
+                    const formatTime = (seconds) => {
+                        const mins = Math.floor(seconds / 60);
+                        const secs = Math.floor(seconds % 60);
+                        return `${mins}:${secs.toString().padStart(2, '0')}`;
+                    };
+                    
+                    timeDisplay.textContent = `${formatTime(media.currentTime)} / ${formatTime(media.duration)}`;
+                }
+                
+                // Update play/pause button
+                playPauseBtn.innerHTML = media.paused ? '▶' : '⏸';
+            }
+        };
         
         if (element.media_type === 'video') {
-            const video = document.createElement('video');
-            video.style.display = 'none';
-            video.src = mediaSrc;
-            video.id = `video-control-${element.id}`;
-            el.appendChild(video);
+            const video = document.getElementById(`video-control-${element.id}`);
+            if (video) {
+                video.addEventListener('timeupdate', updateProgress);
+                video.addEventListener('loadedmetadata', updateProgress);
+                video.addEventListener('play', () => playPauseBtn.innerHTML = '⏸');
+                video.addEventListener('pause', () => playPauseBtn.innerHTML = '▶');
+            }
         } else {
-            const audio = document.createElement('audio');
-            audio.style.display = 'none';
-            audio.src = mediaSrc;
-            audio.id = `audio-control-${element.id}`;
-            el.appendChild(audio);
+            if (audioControl) {
+                audioControl.addEventListener('timeupdate', updateProgress);
+                audioControl.addEventListener('loadedmetadata', updateProgress);
+                audioControl.addEventListener('play', () => playPauseBtn.innerHTML = '⏸');
+                audioControl.addEventListener('pause', () => playPauseBtn.innerHTML = '▶');
+            }
         }
     }
     

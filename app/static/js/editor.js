@@ -208,6 +208,11 @@ function updateElementPropertiesInQuiz(element) {
         elementData.element_name = element.element_name;
     }
     
+    // Update media_config directly on elementData (not in properties)
+    if (element.hasOwnProperty('media_config')) {
+        elementData.media_config = element.media_config;
+    }
+    
     // Update properties that are stored in elementData.properties
     // These are properties that are not position/size/rotation (which go in view configs)
     // Note: For richtext, formatting (font size, font family, colors, etc.) is stored in the HTML content itself
@@ -222,6 +227,11 @@ function updateElementPropertiesInQuiz(element) {
             elementData.properties[key] = element[key];
         }
     });
+    
+    // For counter elements, copy all properties from element.properties to elementData.properties
+    if (element.type === 'counter' && element.properties) {
+        Object.assign(elementData.properties, element.properties);
+    }
 }
 
 // Update element position/size in quiz structure
@@ -708,27 +718,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 currentQuiz.pages[currentPageIndex] = updatedPage;
                             }
                             
-                            // Store media control position in parent element's control view config
-                            const controlElement = Editor.ElementCreator.createMediaControlElement(element, updatedPage);
-                            if (controlElement) {
-                                if (!updatedPage.views) {
-                                    updatedPage.views = {
-                                        display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                        participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                        control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
-                                    };
-                                }
-                                if (!updatedPage.views.control.local_element_configs[element.id]) {
-                                    updatedPage.views.control.local_element_configs[element.id] = { config: {} };
-                                }
-                                updatedPage.views.control.local_element_configs[element.id].control_config = {
-                                    x: controlElement.x || 0,
-                                    y: controlElement.y || 0,
-                                    width: controlElement.width || 400,
-                                    height: controlElement.height || 80,
-                                    rotation: controlElement.rotation || 0
-                                };
-                            }
+                            // Audio/video elements are controlled via play/pause button in visibility panel
+                            // No separate control element needed
                         }
                         
                         // Render the canvas and select the new element
@@ -762,27 +753,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 currentQuiz.pages[currentPageIndex] = updatedPage;
                             }
                             
-                            // Store media control position
-                            const controlElement = Editor.ElementCreator.createMediaControlElement(element, updatedPage);
-                            if (controlElement) {
-                                if (!updatedPage.views) {
-                                    updatedPage.views = {
-                                        display: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                        participant: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} },
-                                        control: { view_config: { background: { type: 'gradient', config: { colour1: '#667eea', colour2: '#764ba2', angle: 135 } }, size: { width: 1920, height: 1080 } }, local_element_configs: {} }
-                                    };
-                                }
-                                if (!updatedPage.views.control.local_element_configs[element.id]) {
-                                    updatedPage.views.control.local_element_configs[element.id] = { config: {} };
-                                }
-                                updatedPage.views.control.local_element_configs[element.id].control_config = {
-                                    x: controlElement.x || 0,
-                                    y: controlElement.y || 0,
-                                    width: controlElement.width || 400,
-                                    height: controlElement.height || 80,
-                                    rotation: controlElement.rotation || 0
-                                };
-                            }
+                            // Audio/video elements are controlled via play/pause button in visibility panel
+                            // No separate control element needed
                         }
                         
                         renderCanvas();
@@ -1079,6 +1051,25 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 shapesMenu.style.display = 'flex';
                 if (shapesCategory) shapesCategory.classList.add('expanded');
+            }
+        });
+    }
+    
+    // Special dropdown menu toggle
+    const specialHeader = document.getElementById('special-header');
+    const specialMenu = document.getElementById('special-menu');
+    const specialCategory = specialHeader ? specialHeader.closest('.shapes-category') : null;
+    
+    if (specialHeader && specialMenu) {
+        specialHeader.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isExpanded = specialMenu.style.display !== 'none';
+            if (isExpanded) {
+                specialMenu.style.display = 'none';
+                if (specialCategory) specialCategory.classList.remove('expanded');
+            } else {
+                specialMenu.style.display = 'flex';
+                if (specialCategory) specialCategory.classList.add('expanded');
             }
         });
     }
@@ -1881,7 +1872,7 @@ function addPropertyTextarea(container, label, value, onChange) {
 function updateElementDisplay() {
     if (!selectedElement) return;
     
-    const el = document.getElementById(`element-${selectedElement.id}`);
+    const el = document.getElementById(selectedElement.id);
     if (!el) return;
     
     // Simple: Just apply the position and size directly

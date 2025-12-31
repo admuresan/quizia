@@ -59,27 +59,52 @@
             var errorCount = 0;
             var maxErrors = 5;
             
-            function loadImage() {
+            function loadImage(keepCurrent) {
+                // If keepCurrent is true, don't clear the image - just load in background
+                // This prevents black screen while loading new image
+                if (!keepCurrent) {
+                    // Only hide on first load or explicit refresh
+                    img.style.opacity = '0.8'; // Slightly fade current image while loading
+                }
+                
                 // Add timestamp to prevent caching
                 var url = imageUrl + '?t=' + new Date().getTime();
                 
-                img.onload = function() {
-                    errorCount = 0; // Reset error count on success
+                // Create a new image element to preload
+                var newImg = new Image();
+                newImg.onload = function() {
+                    // New image loaded successfully - swap it in
+                    img.src = newImg.src;
+                    img.style.opacity = '1'; // Full opacity
                     img.style.display = 'block';
+                    errorCount = 0; // Reset error count on success
                 };
                 
-                img.onerror = function() {
+                newImg.onerror = function() {
+                    // If new image fails, keep showing current one
+                    img.style.opacity = '1'; // Restore full opacity
                     errorCount++;
                     if (errorCount >= maxErrors) {
-                        // Show error after multiple failures
-                        document.body.innerHTML = '<div class="error">Failed to load display. Please check the server.</div>';
+                        // Show error after multiple failures, but keep image visible
+                        var errorDiv = document.createElement('div');
+                        errorDiv.className = 'error';
+                        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 10000;';
+                        errorDiv.textContent = 'Failed to load new display. Showing last image.';
+                        document.body.appendChild(errorDiv);
+                        // Remove error message after 5 seconds
+                        setTimeout(function() {
+                            if (errorDiv.parentNode) {
+                                errorDiv.parentNode.removeChild(errorDiv);
+                            }
+                        }, 5000);
                         return;
                     }
                     // Retry after a short delay
-                    setTimeout(loadImage, 2000);
+                    setTimeout(function() { loadImage(true); }, 2000);
                 };
                 
-                img.src = url;
+                // Start loading the new image
+                newImg.src = url;
             }
             
             function checkVersion() {
@@ -90,22 +115,41 @@
                             try {
                                 var data = JSON.parse(xhr.responseText);
                                 if (data.version !== undefined && data.version !== currentVersion) {
-                                    // Version changed - load new image
+                                    // Version changed - load new image (keep current visible)
                                     currentVersion = data.version;
-                                    loadImage();
+                                    loadImage(true); // Keep current image visible while loading
                                 }
                                 errorCount = 0; // Reset error count on success
                             } catch (e) {
                                 console.error('Error parsing version response:', e);
                             }
                         } else if (xhr.status === 404) {
-                            // Room not found or ended
-                            document.body.innerHTML = '<div class="error">Quiz not running</div>';
+                            // Room not found or ended - but keep showing last image
+                            var errorDiv = document.createElement('div');
+                            errorDiv.className = 'error';
+                            errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 10000;';
+                            errorDiv.textContent = 'Quiz not running';
+                            // Remove existing error messages
+                            var existing = document.querySelector('.error');
+                            if (existing && existing !== img) {
+                                existing.remove();
+                            }
+                            document.body.appendChild(errorDiv);
                             return;
                         } else {
                             errorCount++;
                             if (errorCount >= maxErrors) {
-                                document.body.innerHTML = '<div class="error">Connection error</div>';
+                                // Show error but keep image visible
+                                var errorDiv = document.createElement('div');
+                                errorDiv.className = 'error';
+                                errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 10000;';
+                                errorDiv.textContent = 'Connection error - showing last image';
+                                // Remove existing error messages
+                                var existing = document.querySelector('.error');
+                                if (existing && existing !== img) {
+                                    existing.remove();
+                                }
+                                document.body.appendChild(errorDiv);
                                 return;
                             }
                         }
@@ -114,7 +158,17 @@
                 xhr.onerror = function() {
                     errorCount++;
                     if (errorCount >= maxErrors) {
-                        document.body.innerHTML = '<div class="error">Connection error</div>';
+                        // Show error but keep image visible
+                        var errorDiv = document.createElement('div');
+                        errorDiv.className = 'error';
+                        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 1rem 2rem; border-radius: 8px; z-index: 10000;';
+                        errorDiv.textContent = 'Connection error - showing last image';
+                        // Remove existing error messages
+                        var existing = document.querySelector('.error');
+                        if (existing && existing !== img) {
+                            existing.remove();
+                        }
+                        document.body.appendChild(errorDiv);
                         return;
                     }
                 };

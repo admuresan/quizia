@@ -406,8 +406,24 @@
                 mainRow.appendChild(dragHandle);
                 
                 // Element name - editable input
-                const nameInput = document.createElement('input');
                 const currentName = element.element_name || element.appearance_name || elementNames[element.id] || element.type || 'element';
+                
+                // If element doesn't have element_name stored, save the generated default name
+                if (!element.element_name && !element.appearance_name) {
+                    const page = currentQuiz.pages[currentPageIndex];
+                    if (page && page.elements && page.elements[element.id]) {
+                        // Save the generated default name to elementData.element_name
+                        page.elements[element.id].element_name = currentName;
+                        // Also update the element object
+                        element.element_name = currentName;
+                        // Update via updateElementPropertiesInQuiz to ensure it's properly saved
+                        if (updateElementPropertiesInQuiz) {
+                            updateElementPropertiesInQuiz(element);
+                        }
+                    }
+                }
+                
+                const nameInput = document.createElement('input');
                 nameInput.type = 'text';
                 nameInput.value = currentName;
                 nameInput.name = `element-name-${element.id}`;
@@ -697,6 +713,7 @@
                 // Custom drag implementation using mouse events
                 let isMouseDown = false;
                 let dragStartY = 0;
+                let hasDragged = false;
                 
                 visibilityItem.addEventListener('mousedown', (e) => {
                     const target = e.target;
@@ -715,6 +732,7 @@
                     
                     isMouseDown = true;
                     dragStartY = e.clientY;
+                    hasDragged = false;
                     
                     // Handler to check if we should start dragging
                     const handleMouseMoveCheck = (moveEvent) => {
@@ -727,6 +745,7 @@
                         const moveDistance = Math.abs(moveEvent.clientY - dragStartY);
                         // Start drag if mouse moved more than 5px
                         if (moveDistance > 5) {
+                            hasDragged = true;
                             isMouseDown = false;
                             
                             // Set dragging flags
@@ -771,6 +790,62 @@
                     
                     document.addEventListener('mousemove', handleMouseMoveCheck);
                     document.addEventListener('mouseup', handleMouseUpCheck);
+                });
+                
+                // Click handler to select element on canvas and show in properties pane
+                visibilityItem.addEventListener('click', (e) => {
+                    const target = e.target;
+                    // Don't select if clicking on input, select, or timer options container
+                    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || 
+                        target.closest('input') || target.closest('select') ||
+                        target.closest('.timer-options-container')) {
+                        return;
+                    }
+                    
+                    // Don't select if we just dragged
+                    if (hasDragged || isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) {
+                        return;
+                    }
+                    
+                    // Get element ID from dataset
+                    const elementId = visibilityItem.dataset.elementId;
+                    if (!elementId) return;
+                    
+                    // Get element for current view
+                    const currentQuiz = getCurrentQuiz();
+                    const currentPageIndex = getCurrentPageIndex();
+                    const currentView = getCurrentView();
+                    const page = currentQuiz.pages[currentPageIndex];
+                    
+                    if (!page || !Editor || !Editor.QuizStructure || !Editor.QuizStructure.getViewElements) {
+                        return;
+                    }
+                    
+                    // Get elements for current view
+                    const viewElements = Editor.QuizStructure.getViewElements(page, currentView);
+                    
+                    // For questions, we need to find the appropriate element based on the current view
+                    let elementToSelect = null;
+                    if (element.is_question) {
+                        if (currentView === 'participant') {
+                            // In participant view, find the answer_input element
+                            elementToSelect = viewElements.find(el => el.id === `${elementId}-answer-input`);
+                        } else if (currentView === 'control') {
+                            // In control view, find the answer_display element
+                            elementToSelect = viewElements.find(el => el.id === `${elementId}-answer-display`);
+                        } else {
+                            // In display view, find the question element itself
+                            elementToSelect = viewElements.find(el => el.id === elementId);
+                        }
+                    } else {
+                        // For non-question elements, find by element ID
+                        elementToSelect = viewElements.find(el => el.id === elementId);
+                    }
+                    
+                    if (elementToSelect && typeof selectElement === 'function') {
+                        // Select the element - this will update canvas and properties pane
+                        selectElement(elementToSelect);
+                    }
                 });
                 
                 visibilityList.appendChild(visibilityItem);

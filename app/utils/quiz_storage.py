@@ -309,7 +309,9 @@ def validate_quiz_json(quiz_data):
     return {'valid': True}
 
 def copy_quiz(quiz_id, new_creator_username):
-    """Create a copy of a quiz with a new ID and creator."""
+    """Create a copy of a quiz with a new ID and creator.
+    Also copies any non-public media files referenced by the quiz to the new creator's media storage.
+    """
     original_quiz = load_quiz(quiz_id)
     if not original_quiz:
         return {'success': False, 'error': 'Quiz not found'}
@@ -317,6 +319,46 @@ def copy_quiz(quiz_id, new_creator_username):
     # Create a deep copy
     import copy
     new_quiz = copy.deepcopy(original_quiz)
+    
+    # Extract all media references from the quiz
+    from app.utils.migration import extract_media_references
+    from app.utils.media_storage import _load_media_metadata, get_media_file_path, save_media_file
+    
+    media_files = extract_media_references(new_quiz)
+    metadata = _load_media_metadata()
+    
+    # Map old filenames to new filenames for non-public media
+    media_mapping = {}  # old_filename -> new_filename
+    
+    for media_filename in media_files:
+        # Check if this media file exists and is not public
+        file_meta = metadata.get(media_filename)
+        if file_meta:
+            is_public = file_meta.get('public', False)
+            if not is_public:
+                # Need to copy this file
+                media_path = get_media_file_path(media_filename)
+                if media_path.exists():
+                    try:
+                        # Read the file
+                        with open(media_path, 'rb') as f:
+                            file_content = f.read()
+                        
+                        # Get original name from metadata
+                        original_name = file_meta.get('original_name', media_filename)
+                        
+                        # Save to new creator's media storage
+                        save_result = save_media_file(original_name, file_content, new_creator_username, public=False)
+                        if save_result['success']:
+                            new_filename = save_result['filename']
+                            media_mapping[media_filename] = new_filename
+                    except Exception as e:
+                        # If copying fails, continue but log the error
+                        print(f"Warning: Failed to copy media file {media_filename}: {e}")
+    
+    # Update all media references in the quiz to use new filenames
+    if media_mapping:
+        new_quiz = _update_media_references(new_quiz, media_mapping)
     
     # Generate new ID and set new creator
     new_quiz_id = generate_quiz_id()
@@ -331,4 +373,72 @@ def copy_quiz(quiz_id, new_creator_username):
         result['name'] = new_quiz['name']
     
     return result
+
+def _update_media_references(quiz_data, media_mapping):
+    """
+    Update all media references in quiz data to use new filenames.
+    
+    Args:
+        quiz_data: The quiz data dictionary
+        media_mapping: Dictionary mapping old_filename -> new_filename
+    
+    Returns:
+        Updated quiz data with new media references
+    """
+    import re
+    import os
+    
+    def update_value(value, key=None):
+        """Recursively update media references in any value."""
+        if isinstance(value, dict):
+            for k, v in value.items():
+                # Update media-related keys
+                if k in ('media_url', 'file_name', 'filename', 'image_url', 'src', 'url') and isinstance(v, str):
+                    if v:
+                        updated_v = v
+                        # Check if this is a URL with a filename we need to replace
+                        if '/api/media/serve/' in v:
+                            # Extract filename from URL
+                            match = re.search(r'/api/media/serve/([^\s"\'<>?]+)', v)
+                            if match:
+                                old_filename = match.group(1).split('?')[0].split('#')[0]
+                                if old_filename in media_mapping:
+                                    # Replace the filename in the URL
+                                    new_filename = media_mapping[old_filename]
+                                    updated_v = v.replace(f'/api/media/serve/{old_filename}', f'/api/media/serve/{new_filename}')
+                        # Check if it's a direct filename reference
+                        elif v in media_mapping:
+                            updated_v = media_mapping[v]
+                        # Check if it's a path ending with a filename we need to replace
+                        elif os.path.basename(v) in media_mapping:
+                            old_basename = os.path.basename(v)
+                            new_basename = media_mapping[old_basename]
+                            updated_v = v.replace(old_basename, new_basename)
+                        
+                        # Update the value, then recursively process it in case it contains nested references
+                        value[k] = update_value(updated_v, k)
+                    else:
+                        value[k] = update_value(v, k)
+                else:
+                    value[k] = update_value(v, k)
+        elif isinstance(value, list):
+            return [update_value(item, key) for item in value]
+        elif isinstance(value, str):
+            # Check for /api/media/serve/ URLs in any string
+            if '/api/media/serve/' in value:
+                for old_filename, new_filename in media_mapping.items():
+                    # Replace filename in URL
+                    if f'/api/media/serve/{old_filename}' in value:
+                        value = value.replace(f'/api/media/serve/{old_filename}', f'/api/media/serve/{new_filename}')
+            # Also check for direct filename references
+            if value in media_mapping:
+                value = media_mapping[value]
+            # Check if it's a path ending with a filename we need to replace
+            elif os.path.basename(value) in media_mapping:
+                old_basename = os.path.basename(value)
+                new_basename = media_mapping[old_basename]
+                value = value.replace(old_basename, new_basename)
+        return value
+    
+    return update_value(quiz_data)
 
