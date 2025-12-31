@@ -94,6 +94,7 @@
             }
             
             // Generate display names for elements
+            // Use actual element_name if available, otherwise generate from type
             const typeCounts = {};
             const elementNames = {};
             allElements.forEach(el => {
@@ -102,9 +103,16 @@
             });
             const typeCurrentCounts = {};
             allElements.forEach(el => {
-                const type = (el.type || 'element').toLowerCase();
-                typeCurrentCounts[type] = (typeCurrentCounts[type] || 0) + 1;
-                elementNames[el.id] = type + typeCurrentCounts[type];
+                // Use actual element_name if available, otherwise generate from type
+                if (el.name && el.name !== el.id) {
+                    // Use the actual element_name (from elementData.element_name)
+                    elementNames[el.id] = el.name;
+                } else {
+                    // Generate name from type if no element_name is set
+                    const type = (el.type || 'element').toLowerCase();
+                    typeCurrentCounts[type] = (typeCurrentCounts[type] || 0) + 1;
+                    elementNames[el.id] = type + typeCurrentCounts[type];
+                }
             });
             
             // Create list of media elements
@@ -115,9 +123,10 @@
                 const mediaItem = document.createElement('div');
                 mediaItem.style.cssText = 'border: 1px solid #ddd; border-radius: 6px; padding: 1rem; background: #f9f9f9;';
                 
-                // Element name
+                // Element name - use element_name if available, otherwise use generated name
                 const elementName = document.createElement('div');
-                elementName.textContent = elementNames[mediaElement.id] || mediaElement.id;
+                const displayName = mediaElement.element_name || elementNames[mediaElement.id] || mediaElement.id;
+                elementName.textContent = displayName;
                 elementName.style.cssText = 'font-weight: 600; font-size: 1rem; margin-bottom: 0.75rem; color: #333;';
                 mediaItem.appendChild(elementName);
                 
@@ -175,7 +184,6 @@
                 const triggerSelect = document.createElement('select');
                 triggerSelect.id = `trigger-${mediaElement.id}`;
                 triggerSelect.style.cssText = 'width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;';
-                triggerSelect.value = mediaElement.timer_trigger;
                 
                 const pageLoadOption = document.createElement('option');
                 pageLoadOption.value = 'page_load';
@@ -196,6 +204,10 @@
                 elementFinishesPlayingOption.value = 'element_finishes_playing';
                 elementFinishesPlayingOption.textContent = 'Element Finishes Playing';
                 triggerSelect.appendChild(elementFinishesPlayingOption);
+                
+                // Set the value AFTER adding all options - ensure we use the actual saved value from media_config
+                const savedTimerTrigger = mediaElement.timer_trigger || 'page_load';
+                triggerSelect.value = savedTimerTrigger;
                 
                 triggerGroup.appendChild(triggerSelect);
                 timerConfigContainer.appendChild(triggerGroup);
@@ -222,7 +234,9 @@
                         if (el.id !== mediaElement.id) {
                             const option = document.createElement('option');
                             option.value = el.id;
-                            option.textContent = elementNames[el.id] || el.id;
+                            // Use element_name if available, otherwise use generated name
+                            const displayName = el.name || elementNames[el.id] || el.id;
+                            option.textContent = displayName;
                             if (el.id === mediaElement.timer_trigger_element) {
                                 option.selected = true;
                             }
@@ -231,17 +245,36 @@
                     });
                 } else if (mediaElement.timer_trigger === 'element_starts_playing' || mediaElement.timer_trigger === 'element_finishes_playing') {
                     // Only playable elements (media + counters) are eligible
+                    let hasSelectedOption = false;
                     mediaElements.forEach(el => {
                         if (el.id !== mediaElement.id) {
                             const option = document.createElement('option');
                             option.value = el.id;
-                            option.textContent = elementNames[el.id] || el.id;
+                            // Use element_name if available, otherwise use generated name
+                            const displayName = el.element_name || elementNames[el.id] || el.id;
+                            option.textContent = displayName;
                             if (el.id === mediaElement.timer_trigger_element) {
                                 option.selected = true;
+                                hasSelectedOption = true;
                             }
                             triggerElementSelect.appendChild(option);
                         }
                     });
+                    
+                    // If no trigger element is set but trigger requires one, set first option as default
+                    if (!hasSelectedOption && triggerElementSelect.options.length > 0 && !mediaElement.timer_trigger_element) {
+                        triggerElementSelect.selectedIndex = 0;
+                        const elementData = currentQuiz.pages[currentPageIndex].elements[mediaElement.id];
+                        if (!elementData.media_config) {
+                            elementData.media_config = {};
+                        }
+                        elementData.media_config.timer_trigger_element = triggerElementSelect.value;
+                        // Save the default value
+                        if (updateElementPropertiesInQuiz) {
+                            updateElementPropertiesInQuiz({ id: mediaElement.id, media_config: elementData.media_config });
+                        }
+                        autosaveQuiz();
+                    }
                 }
                 
                 triggerElementGroup.appendChild(triggerElementSelect);
@@ -293,6 +326,10 @@
                     if (!elementData.media_config) {
                         elementData.media_config = {};
                     }
+                    
+                    // Preserve existing trigger element if it exists
+                    const existingTriggerElement = elementData.media_config.timer_trigger_element;
+                    
                     elementData.media_config.timer_trigger = trigger;
                     
                     // Show/hide trigger element dropdown
@@ -301,13 +338,18 @@
                     
                     // Repopulate trigger element dropdown based on trigger type
                     triggerElementSelect.innerHTML = '';
+                    let validTriggerElementIds = [];
+                    
                     if (trigger === 'element_appears') {
                         allElements.forEach(el => {
                             if (el.id !== mediaElement.id) {
                                 const option = document.createElement('option');
                                 option.value = el.id;
-                                option.textContent = elementNames[el.id] || el.id;
+                                // Use element_name if available, otherwise use generated name
+                                const displayName = el.name || elementNames[el.id] || el.id;
+                                option.textContent = displayName;
                                 triggerElementSelect.appendChild(option);
+                                validTriggerElementIds.push(el.id);
                             }
                         });
                     } else if (trigger === 'element_starts_playing' || trigger === 'element_finishes_playing') {
@@ -316,14 +358,28 @@
                             if (el.id !== mediaElement.id) {
                                 const option = document.createElement('option');
                                 option.value = el.id;
-                                option.textContent = elementNames[el.id] || el.id;
+                                // Use element_name if available, otherwise use generated name
+                                const displayName = el.element_name || elementNames[el.id] || el.id;
+                                option.textContent = displayName;
                                 triggerElementSelect.appendChild(option);
+                                validTriggerElementIds.push(el.id);
                             }
                         });
                     }
                     
-                    // Clear trigger element if not needed
-                    if (!needsElement) {
+                    // Preserve existing trigger element if it's still valid for the new trigger type
+                    if (needsElement && existingTriggerElement && validTriggerElementIds.includes(existingTriggerElement)) {
+                        triggerElementSelect.value = existingTriggerElement;
+                        elementData.media_config.timer_trigger_element = existingTriggerElement;
+                    } else if (needsElement && triggerElementSelect.options.length > 0) {
+                        // If no valid existing value, select first option and set it
+                        triggerElementSelect.selectedIndex = 0;
+                        const selectedValue = triggerElementSelect.value;
+                        if (selectedValue) {
+                            elementData.media_config.timer_trigger_element = selectedValue;
+                        }
+                    } else {
+                        // Clear trigger element if not needed or no valid options
                         delete elementData.media_config.timer_trigger_element;
                     }
                     

@@ -357,17 +357,61 @@
      * This triggers any playable elements (audio, video, counter) waiting for element_starts_playing
      */
     function notifyMediaStarted(elementId) {
+        console.log('[MediaControlManager] notifyMediaStarted called for elementId:', elementId);
+        
         // Find all elements waiting for this element to start playing
         // We need to check all pages in the current quiz
         if (typeof window.quiz === 'undefined' || !window.quiz || !window.quiz.pages) {
             // Try to get quiz from global scope or current page
             const displayContent = document.getElementById('display-content');
-            if (!displayContent) return;
+            if (!displayContent) {
+                console.warn('[MediaControlManager] No quiz or display-content found');
+                return;
+            }
+        }
+        
+        // Get quiz from window.quiz (set in display.js)
+        // In display.js, quiz is stored in a local variable, but we need to access it
+        // Try multiple ways to get the quiz data
+        let quiz = null;
+        
+        // Method 1: Check if display.js has exposed quiz globally
+        if (typeof window.quiz !== 'undefined' && window.quiz) {
+            quiz = window.quiz;
+        }
+        
+        // Method 2: Try to get from the display page's quiz variable (if accessible)
+        // Since display.js stores quiz in a closure, we need another approach
+        
+        // Method 3: Get quiz from the current page data if available
+        // The quiz data should be available in the page rendering context
+        if (!quiz) {
+            // Try to find quiz data from the rendered page
+            const displayContent = document.getElementById('display-content');
+            if (displayContent && displayContent.dataset.quizId) {
+                // Quiz might be stored elsewhere
+            }
+        }
+        
+        // For now, let's try to access it from the global scope where display.js might have set it
+        // Actually, display.js doesn't expose quiz globally, so we need to pass it or find another way
+        
+        // Let's check if we can get it from the socket or room data
+        // Actually, the best approach is to make sure display.js exposes quiz globally
+        // But for now, let's try to get pages from the current rendered elements
+        
+        if (!quiz || !quiz.pages) {
+            console.warn('[MediaControlManager] Quiz not available, trying alternative method');
+            // Try to get pages from current page elements
+            // This is a fallback - ideally quiz should be available
+            return;
         }
         
         // Get current page from display.js or iterate through all pages
-        const pages = window.quiz?.pages || [];
-        pages.forEach(page => {
+        const pages = quiz.pages || [];
+        console.log('[MediaControlManager] Checking', pages.length, 'pages for waiting elements');
+        
+        pages.forEach((page, pageIndex) => {
             if (!page.elements) return;
             
             Object.keys(page.elements).forEach(otherElementId => {
@@ -378,8 +422,18 @@
                     // Check if this element is waiting for the started element
                     const triggerElementId = mediaConfig.timer_trigger_element;
                     
+                    console.log('[MediaControlManager] Found element waiting for trigger:', {
+                        waitingElementId: otherElementId,
+                        waitingElementType: otherElement.type,
+                        triggerElementId: triggerElementId,
+                        startedElementId: elementId,
+                        match: triggerElementId === elementId
+                    });
+                    
                     // If triggerElementId is set, check if it matches
                     if (triggerElementId && triggerElementId === elementId) {
+                        console.log('[MediaControlManager] Triggering element:', otherElementId, 'type:', otherElement.type);
+                        
                         // This element is waiting for the started element - trigger it
                         // Handle delay if specified
                         const delay = (mediaConfig.timer_delay || 0) * 1000;
@@ -395,17 +449,22 @@
                                             counterText.textContent = displayText;
                                         }
                                     };
+                                    console.log('[MediaControlManager] Starting counter:', otherElementId);
                                     window.CounterManager.startCounter(otherElementId, properties, updateCallback);
                                     mediaStates[otherElementId] = { playing: true, element: null };
                                     updatePlayPauseButtons(otherElementId, true);
+                                } else {
+                                    console.warn('[MediaControlManager] CounterManager not available');
                                 }
                             } else if (hasPlayControls(otherElement)) {
                                 // Start other playable media element (audio/video)
+                                console.log('[MediaControlManager] Starting media element:', otherElementId);
                                 playMedia(otherElementId, otherElement);
                             }
                         };
                         
                         if (delay > 0) {
+                            console.log('[MediaControlManager] Delaying trigger by', delay, 'ms');
                             setTimeout(triggerElement, delay);
                         } else {
                             triggerElement();

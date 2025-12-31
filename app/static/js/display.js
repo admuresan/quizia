@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function handlePageUpdate(data) {
         if (data.quiz) {
             quiz = data.quiz;
+            // Expose quiz globally for MediaControlManager
+            window.quiz = quiz;
         }
         // Always use server's page index to stay in sync
         if (data.current_page !== undefined) {
