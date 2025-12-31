@@ -784,7 +784,12 @@ RuntimeRenderer.ElementRenderer = (function() {
         // Layout styles will be set by participant view renderer
         
         const questionTitle = question && question.question_config ? (question.question_config.question_title || '') : '';
-        const renderOptions = Object.assign({}, options, { question: question, questionTitle: questionTitle });
+        const renderOptions = Object.assign({}, options, { 
+            question: question, 
+            questionTitle: questionTitle,
+            width: element.width,
+            height: element.height
+        });
         
         // Call participant view renderer directly on el (no extra wrapper)
         if (answerType === 'text' && QuestionTypes.Text && QuestionTypes.Text.ParticipantView) {

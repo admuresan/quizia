@@ -6,21 +6,21 @@ var QuestionTypes = QuestionTypes || {};
 QuestionTypes.Stopwatch = QuestionTypes.Stopwatch || {};
 
 QuestionTypes.Stopwatch.ParticipantView = (function() {
+    const Common = QuestionTypes.Common;
+    
     function render(container, element, options) {
         const questionId = element.parent_id;
         const questionTitle = options.questionTitle || '';
         const submittedAnswer = options.submittedAnswer || null;
         const submitAnswerCallback = options.submitAnswerCallback || null;
+        const insideContainer = options.insideContainer !== undefined ? options.insideContainer : true;
+        const width = options.width || element.width || 370;
+        const height = options.height || element.height || 120;
         
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '0.5rem';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.overflow = 'hidden';
-        container.style.boxSizing = 'border-box';
-        
-        // Note: Title is rendered by participant.js in the questionContainer, not here
+        // Create container and title using common function
+        const { outerContainer, innerContainer } = Common.createParticipantContainer(
+            questionId, questionTitle, width, height, insideContainer, submittedAnswer
+        );
         
         // Content area (scrollable if needed)
         const contentArea = document.createElement('div');
@@ -65,13 +65,9 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
         let intervalId = null;
         let isSubmitted = !!submittedAnswer;
         
-        // Find the question title element in the parent question container
+        // Find the question title element in our own container
         const findQuestionTitle = () => {
-            const questionContainer = document.getElementById(`question-${questionId}`);
-            if (questionContainer) {
-                return questionContainer.querySelector('.question-title');
-            }
-            return null;
+            return outerContainer.querySelector('.question-title');
         };
         
         // If already submitted, show the time
@@ -158,10 +154,13 @@ QuestionTypes.Stopwatch.ParticipantView = (function() {
             contentArea.appendChild(submittedMsg);
         }
         
-        container.appendChild(contentArea);
+        innerContainer.appendChild(contentArea);
+        
+        // Append the outer container to the provided container
+        container.appendChild(outerContainer);
         
         // Expose a function to programmatically start the stopwatch (for auto-start)
-        container.startStopwatch = () => {
+        outerContainer.startStopwatch = () => {
             if (!isSubmitted && startTime === null) {
                 // Temporarily enable button if it's disabled (for auto-start)
                 const wasDisabled = startBtn.disabled;

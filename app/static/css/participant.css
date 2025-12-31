@@ -51,24 +51,15 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
 }
 
+/* Note: .question-container and .question-title styles are now set inline by participant view renderers */
+/* These CSS rules are kept for backwards compatibility but should not override inline styles */
+/* The participant view renderers in question-types/common.js set all styles inline to ensure consistency */
 .question-container {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Styles are set inline - this is just for backwards compatibility */
 }
 
 .question-title {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #2196F3;
-    margin-bottom: 1rem;
-    margin-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #2196F3;
-    display: block;
-    width: 100%;
+    /* Styles are set inline - this is just for backwards compatibility */
 }
 
 .answer-input {
@@ -107,9 +98,9 @@
     border-color: #2196F3;
 }
 
+/* Note: .image-answer-container styles are now set inline by participant view renderers */
 .image-answer-container {
-    position: relative;
-    margin: 1rem 0;
+    /* Styles are set inline - margin removed to prevent spacing differences */
 }
 
 .image-answer-image {

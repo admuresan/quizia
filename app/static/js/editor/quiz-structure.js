@@ -347,16 +347,51 @@
                 // Read position/size from answer_input_config in local_element_configs (absolute pixel values)
                 const answerInputConfig = localConfig.answer_input_config || {};
                 
-                // Get default dimensions based on question type
+                // Get default dimensions based on question type (only used as last resort)
+                // MUST match defaults in editor.js, element-creator.js, and general-properties.js
                 const questionType = questionConfig.question_type || 'text';
                 function getDefaultAnswerInputDimensions(answerType) {
                     if (answerType === 'stopwatch') {
                         return { width: 370, height: 120 };
                     }
-                    // Default for other types
-                    return { width: 400, height: 100 };
+                    // Default for other types - MUST match other files for consistency
+                    return { width: 380, height: 175 };
                 }
                 const defaultDims = getDefaultAnswerInputDimensions(questionType);
+                
+                // Read dimensions in priority order:
+                // 1. Element properties (from elementData.properties)
+                // 2. Local element config (answerInputConfig)
+                // 3. Defaults (last resort)
+                const width = (properties.width !== undefined && properties.width !== null) 
+                    ? properties.width 
+                    : (answerInputConfig.width !== undefined && answerInputConfig.width !== null)
+                        ? answerInputConfig.width
+                        : defaultDims.width;
+                
+                const height = (properties.height !== undefined && properties.height !== null)
+                    ? properties.height
+                    : (answerInputConfig.height !== undefined && answerInputConfig.height !== null)
+                        ? answerInputConfig.height
+                        : defaultDims.height;
+                
+                const x = (properties.x !== undefined && properties.x !== null)
+                    ? properties.x
+                    : (answerInputConfig.x !== undefined && answerInputConfig.x !== null)
+                        ? answerInputConfig.x
+                        : 0;
+                
+                const y = (properties.y !== undefined && properties.y !== null)
+                    ? properties.y
+                    : (answerInputConfig.y !== undefined && answerInputConfig.y !== null)
+                        ? answerInputConfig.y
+                        : 0;
+                
+                const rotation = (properties.rotation !== undefined && properties.rotation !== null)
+                    ? properties.rotation
+                    : (answerInputConfig.rotation !== undefined && answerInputConfig.rotation !== null)
+                        ? answerInputConfig.rotation
+                        : 0;
                 
                     const answerInputElement = {
                         id: `${elementId}-answer-input`,
@@ -364,11 +399,11 @@
                         parent_id: elementId,
                         view: 'participant',
                         ...properties, // Inherit properties from parent
-                        x: answerInputConfig.x !== undefined ? answerInputConfig.x : 0,
-                        y: answerInputConfig.y !== undefined ? answerInputConfig.y : 0,
-                        width: answerInputConfig.width !== undefined ? answerInputConfig.width : defaultDims.width,
-                        height: answerInputConfig.height !== undefined ? answerInputConfig.height : defaultDims.height,
-                        rotation: answerInputConfig.rotation !== undefined ? answerInputConfig.rotation : 0,
+                        x: x,
+                        y: y,
+                        width: width,
+                        height: height,
+                        rotation: rotation,
                         layer_order: elementData.layer_order || 1, // Inherit layer_order from parent
                         question_type: questionType,
                         answer_type: questionType,

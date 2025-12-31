@@ -163,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('answer_submitted', (data) => {
+        console.log('[Control] Answer submitted event received:', data);
         // Store answer
         if (!answers[data.question_id]) {
             answers[data.question_id] = {};
@@ -176,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         // Update answer display if we're on the page with this question
+        console.log('[Control] Updating answer display for question:', data.question_id);
         updateAnswerDisplay(data.question_id);
     });
 
@@ -626,89 +628,98 @@ function loadPage() {
 
 function updateAnswerDisplay(questionId) {
     // Find the answer display element for this question and re-render it
-    if (!quiz || !quiz.pages || !quiz.pages[currentPageIndex]) return;
-    
-    const page = quiz.pages[currentPageIndex];
-    
-    // Get question from new structure
-    let question = null;
-    const elementsDict = page.elements || {};
-    
-    if (page.views && page.views.display && page.views.display.local_element_configs) {
-        const displayLocalConfigs = page.views.display.local_element_configs || {};
-        
-        Object.keys(displayLocalConfigs).forEach(elementId => {
-            if (elementId === questionId) {
-                const elementData = elementsDict[elementId];
-                if (elementData && elementData.is_question) {
-                    const localConfig = displayLocalConfigs[elementId];
-                    const config = localConfig.config || {};
-                    const properties = elementData.properties || {};
-                    const questionConfig = elementData.question_config || {};
-                    
-                    question = {
-                        id: elementId,
-                        type: elementData.type,
-                        is_question: true,
-                        ...properties,
-                        x: config.x || 0,
-                        y: config.y || 0,
-                        width: config.width || 100,
-                        height: config.height || 100,
-                        question_title: questionConfig.question_title || '',
-                        question_type: questionConfig.question_type || 'text',
-                        answer_type: questionConfig.question_type || 'text',
-                        options: questionConfig.options || []
-                    };
-                }
-            }
-        });
+    if (!quiz || !quiz.pages || !quiz.pages[currentPageIndex]) {
+        console.warn('[Control] Cannot update answer display: missing quiz or page');
+        return;
     }
     
-    if (!question || !question.is_question) return;
+    const page = quiz.pages[currentPageIndex];
+    console.log('[Control] updateAnswerDisplay called for question:', questionId, 'on page:', currentPageIndex);
     
-    // Get answer_display from new structure
+    // Get answer_display from new structure - use same approach as loadPage
     const canvas = document.getElementById('control-canvas');
+    if (!canvas) {
+        console.error('[Control] Canvas element not found');
+        return;
+    }
+    
     const questionAnswers = answers[questionId] || {};
-    let answerDisplay = null;
-        if (page.views && page.views.control && page.views.control.local_element_configs) {
-            const controlLocalConfigs = page.views.control.local_element_configs || {};
-            
-            Object.keys(controlLocalConfigs).forEach(elementId => {
-                const elementData = elementsDict[elementId];
-                if (elementData && elementData.type === 'answer_display') {
-                    const questionConfig = elementData.question_config || {};
-                    const parentId = questionConfig.parent_id || elementData.parent_id;
-                    if (parentId === questionId) {
-                        const localConfig = controlLocalConfigs[elementId];
-                        const answerConfig = localConfig.answer_config || {};
-                        const properties = elementData.properties || {};
-                        
-                        answerDisplay = {
-                            id: elementId,
-                            type: elementData.type,
-                            parent_id: parentId,
-                            ...properties,
-                            x: answerConfig.x || 0,
-                            y: answerConfig.y || 0,
-                            width: answerConfig.width || 100,
-                            height: answerConfig.height || 100,
-                            question_type: questionConfig.question_type || 'text',
-                            answer_type: questionConfig.question_type || 'text',
-                            options: questionConfig.options || []
-                        };
-                    }
+    const elementsDict = page.elements || {};
+    
+    // Use the same helper functions as loadPage
+    let controlElements = [];
+    let displayElements = [];
+    
+    if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+        controlElements = Editor.QuizStructure.getViewElements(page, 'control');
+        displayElements = Editor.QuizStructure.getViewElements(page, 'display');
+    } else {
+        console.error('[Control] Editor.QuizStructure.getViewElements not available');
+        return;
+    }
+    
+    // Find the question element in display elements (same as loadPage does)
+    const questionViewElement = displayElements.find(el => el.id === questionId && el.is_question);
+    
+    if (!questionViewElement) {
+        console.log('[Control] Question', questionId, 'not found on current page', currentPageIndex, '- checking all pages...');
+        // Check all pages to see which page has this question
+        for (let i = 0; i < quiz.pages.length; i++) {
+            const checkPage = quiz.pages[i];
+            if (Editor && Editor.QuizStructure && Editor.QuizStructure.getViewElements) {
+                const checkDisplayElements = Editor.QuizStructure.getViewElements(checkPage, 'display');
+                const found = checkDisplayElements.find(el => el.id === questionId && el.is_question);
+                if (found) {
+                    console.log('[Control] Question', questionId, 'is on page', i, 'but current page is', currentPageIndex);
+                    console.log('[Control] Answer will be stored but display will update when you navigate to that page');
+                    return; // Don't update if question is on a different page
                 }
-            });
+            }
         }
+        console.warn('[Control] Cannot update answer display: question view element not found for question', questionId);
+        return;
+    }
+    
+    // Find answer display element (same logic as loadPage)
+    answerDisplay = controlElements.find(el => 
+        el.type === 'answer_display' && el.parent_id === questionViewElement.id
+    );
+    
+    if (!answerDisplay) {
+        console.warn('[Control] Cannot update answer display: answer display element not found for question', questionId);
+        console.log('[Control] Available control elements:', controlElements.map(el => ({ id: el.id, type: el.type, parent_id: el.parent_id })));
+        return;
+    }
         
-        if (!answerDisplay) return;
-        
-        // Get question_type from question element's question_config
-        let answerType = (question.question_config && question.question_config.question_type) || 'text';
-        
-        // If not found, try to get it from the associated answer_input element
-        if (!answerType && page.views && page.views.participant && page.views.participant.local_element_configs) {
+    console.log('[Control] Found answer display element:', answerDisplay.id, 'for question:', questionId);
+    console.log('[Control] Current answers for this question:', questionAnswers);
+    
+    // Get the actual question element from page.elements (contains question_config) - same as loadPage
+    const questionElement = elementsDict[questionViewElement.id];
+    
+    // Remove existing answer display element if it exists (to avoid duplicates)
+    const existingElement = document.getElementById(answerDisplay.id);
+    if (existingElement) {
+        console.log('[Control] Removing existing answer display element:', answerDisplay.id);
+        existingElement.remove();
+    } else {
+        console.log('[Control] No existing element found to remove, will create new one');
+    }
+    
+    // Get question_type from the actual question element's question_config (same as loadPage)
+    let answerType = 'text';
+    if (questionElement && questionElement.question_config && questionElement.question_config.question_type) {
+        answerType = questionElement.question_config.question_type;
+    }
+    
+    // Normalize 'image' to 'image_click' for consistency
+    if (answerType === 'image') {
+        answerType = 'image_click';
+    }
+    
+    // If still not found, try to get it from the associated answer_input element (same as loadPage)
+    if (!answerType || answerType === 'text') {
+        if (page.views && page.views.participant && page.views.participant.local_element_configs) {
             const participantLocalConfigs = page.views.participant.local_element_configs || {};
             
             Object.keys(participantLocalConfigs).forEach(elementId => {
@@ -716,29 +727,60 @@ function updateAnswerDisplay(questionId) {
                 if (elementData && elementData.type === 'answer_input') {
                     const questionConfig = elementData.question_config || {};
                     const parentId = questionConfig.parent_id || elementData.parent_id;
-                    if (parentId === questionId) {
-                        answerType = questionConfig.question_type || 'text';
+                    if (parentId === questionViewElement.id) {
+                        const foundType = questionConfig.question_type || 'text';
+                        // Normalize 'image' to 'image_click'
+                        answerType = (foundType === 'image') ? 'image_click' : foundType;
                     }
                 }
             });
         }
-        
-        // Last fallback to answer_display element's question_type
-        if (!answerType && answerDisplay) {
-            answerType = (answerDisplay.question_config && answerDisplay.question_config.question_type) || 'text';
+    }
+    
+    // Last fallback to answer_display element's question_type (same as loadPage)
+    if (!answerType || answerType === 'text') {
+        if (answerDisplay) {
+            const foundType = (answerDisplay.question_config && answerDisplay.question_config.question_type) || 'text';
+            // Normalize 'image' to 'image_click'
+            answerType = (foundType === 'image') ? 'image_click' : foundType;
         }
-        
-        // Get image source if image_click question (image is stored in the question element)
-        let imageSrc = null;
-        if (answerType === 'image_click') {
-            imageSrc = question.src || (question.filename ? '/api/media/serve/' + question.filename : null);
-        }
-        
-        // Extract question title from question_config first, then fallback to question_title
-        const questionTitle = (question.question_config && question.question_config.question_title) 
-            || question.question_title 
-            || 'Question';
-        
+    }
+    
+    // Get image source if image_click question (same as loadPage)
+    let imageSrc = null;
+    if (answerType === 'image_click' && questionElement) {
+        const properties = questionElement.properties || {};
+        imageSrc = properties.media_url || 
+                  (properties.file_name ? '/api/media/serve/' + properties.file_name : null) ||
+                  (properties.filename ? '/api/media/serve/' + properties.filename : null) ||
+                  questionViewElement.src || 
+                  (questionViewElement.filename ? '/api/media/serve/' + questionViewElement.filename : null);
+    }
+    
+    // Initialize answer visibility state for this question if not exists (same as loadPage)
+    if (!window.answerVisibility[questionViewElement.id]) {
+        const allParticipantIds = Object.keys(participants || {});
+        window.answerVisibility[questionViewElement.id] = {
+            visibleParticipants: new Set(allParticipantIds),
+            controlAnswerVisible: false
+        };
+    }
+    
+    // Extract question title from question_config first, then fallback to question_title (same as loadPage)
+    const questionTitle = (questionElement && questionElement.question_config && questionElement.question_config.question_title) 
+        || (questionViewElement.question_config && questionViewElement.question_config.question_title)
+        || questionViewElement.question_title 
+        || 'Question';
+    
+    console.log('[Control] Rendering answer display with:', {
+        answerDisplayId: answerDisplay.id,
+        answerType: answerType,
+        questionTitle: questionTitle,
+        answerCount: Object.keys(questionAnswers).length,
+        participants: Object.keys(participants).length
+    });
+    
+    try {
         RuntimeRenderer.ElementRenderer.renderElement(canvas, answerDisplay, {
             mode: 'control',
             answers: questionAnswers,
@@ -747,8 +789,12 @@ function updateAnswerDisplay(questionId) {
             imageSrc: imageSrc,
             answerType: answerType, // Pass answerType to renderer
             onMarkAnswer: saveAnswerMark,
-            question: question // Pass question element to access correct_answer
+            question: questionElement || questionViewElement // Pass actual question element to access correct_answer (same as loadPage)
         });
+        console.log('[Control] Successfully rendered answer display');
+    } catch (error) {
+        console.error('[Control] Error rendering answer display:', error);
+    }
 }
 
 function updateNavigationButtons() {

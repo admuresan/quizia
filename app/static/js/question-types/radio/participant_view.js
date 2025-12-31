@@ -6,22 +6,22 @@ var QuestionTypes = QuestionTypes || {};
 QuestionTypes.Radio = QuestionTypes.Radio || {};
 
 QuestionTypes.Radio.ParticipantView = (function() {
+    const Common = QuestionTypes.Common;
+    
     function render(container, element, options) {
         const answerType = 'radio';
         const options_list = element.options || [];
         const questionId = element.parent_id;
         const questionTitle = options.questionTitle || '';
         const submittedAnswer = options.submittedAnswer || null;
+        const insideContainer = options.insideContainer !== undefined ? options.insideContainer : true;
+        const width = options.width || element.width || 370;
+        const height = options.height || element.height || 200;
         
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '0.5rem';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.overflow = 'hidden';
-        container.style.boxSizing = 'border-box';
-        
-        // Note: Title is rendered by participant.js in the questionContainer, not here
+        // Create container and title using common function
+        const { outerContainer, innerContainer } = Common.createParticipantContainer(
+            questionId, questionTitle, width, height, insideContainer, submittedAnswer
+        );
         
         // Content area (scrollable if needed)
         const contentArea = document.createElement('div');
@@ -67,7 +67,10 @@ QuestionTypes.Radio.ParticipantView = (function() {
             contentArea.appendChild(submittedMsg);
         }
         
-        container.appendChild(contentArea);
+        innerContainer.appendChild(contentArea);
+        
+        // Append the outer container to the provided container
+        container.appendChild(outerContainer);
     }
     
     return { render: render };

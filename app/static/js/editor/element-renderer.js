@@ -567,15 +567,9 @@ Editor.ElementRenderer = (function() {
                     }
                 }
                 
-                // Style el directly (matching runtime approach) - no extra wrapper
-                // Base visual styling that participant view renderer expects
-                el.style.backgroundColor = 'white';
-                el.style.border = '2px solid #2196F3';
-                el.style.borderRadius = '8px';
-                el.style.padding = '1rem';
-                el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                // No wrapper styling needed - matching runtime approach exactly
+                // Just set basic layout styles that participant view renderer expects
                 el.style.boxSizing = 'border-box';
-                el.style.overflow = 'hidden';
                 // Layout styles will be set by participant view renderer
                 
                 const questionTitle = parentQuestionForInput && parentQuestionForInput.question_config ? (parentQuestionForInput.question_config.question_title || '') : '';
@@ -595,7 +589,10 @@ Editor.ElementRenderer = (function() {
                     questionTitle: questionTitle,
                     submitAnswerCallback: editorSubmitCallback,
                     submittedAnswer: null,
-                    isEditor: true // Flag for editor mode
+                    isEditor: true, // Flag for editor mode
+                    insideContainer: insideContainer, // Pass through to participant view renderer
+                    width: element.width,
+                    height: element.height
                 };
                 
                 // Call participant view renderer directly on el (no extra wrapper) - matching runtime
@@ -615,17 +612,8 @@ Editor.ElementRenderer = (function() {
                     el.style.cssText = 'padding: 1rem; color: red; border: 2px solid red;';
                 }
                 
-                // CRITICAL: Re-apply explicit width and height after participant view renderer
-                // Participant view renderers may set width/height to 100%, which we need to override
-                // with the actual configured dimensions for the editor
-                if (!insideContainer) {
-                    el.style.width = `${element.width}px`;
-                    el.style.height = `${element.height}px`;
-                    el.style.minWidth = `${element.width}px`;
-                    el.style.maxWidth = `${element.width}px`;
-                    el.style.minHeight = `${element.height}px`;
-                    el.style.maxHeight = `${element.height}px`;
-                }
+                // Dimensions are now handled by the participant view renderer itself
+                // No need to re-apply here - the renderer uses the dimensions from options
                 
                 // After rendering, replace submit button handlers with editor mode alerts
                 // Use setTimeout to ensure DOM is ready

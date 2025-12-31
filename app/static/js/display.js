@@ -245,16 +245,14 @@ window.addEventListener('resize', () => {
             const container = document.getElementById('display-content');
             const pageType = currentPage.page_type;
             
-            // Only scale regular pages, not status/result pages
-            if (pageType !== 'status_page' && pageType !== 'result_page') {
-                let canvasWidth = 1920;
-                let canvasHeight = 1080;
-                if (currentPage && currentPage.views && currentPage.views.display && currentPage.views.display.view_config && currentPage.views.display.view_config.size) {
-                    canvasWidth = currentPage.views.display.view_config.size.width || 1920;
-                    canvasHeight = currentPage.views.display.view_config.size.height || 1080;
-                }
-                applyScalingToFit(container, canvasWidth, canvasHeight);
+            // Scale all page types (regular, status, and result pages)
+            let canvasWidth = 1920;
+            let canvasHeight = 1080;
+            if (currentPage && currentPage.views && currentPage.views.display && currentPage.views.display.view_config && currentPage.views.display.view_config.size) {
+                canvasWidth = currentPage.views.display.view_config.size.width || 1920;
+                canvasHeight = currentPage.views.display.view_config.size.height || 1080;
             }
+            applyScalingToFit(container, canvasWidth, canvasHeight);
         }
     }, 100);
 });
@@ -285,13 +283,27 @@ function renderPage(pageIndex, page) {
     const pageType = page.page_type;
     if (pageType === 'status_page') {
         renderStatusPage(container, page, quiz);
-        container.style.transform = 'none'; // Don't scale status pages
+        // Apply scaling to fit viewport (same as regular pages)
+        let canvasWidth = 1920;
+        let canvasHeight = 1080;
+        if (page && page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+            canvasWidth = page.views.display.view_config.size.width || 1920;
+            canvasHeight = page.views.display.view_config.size.height || 1080;
+        }
+        applyScalingToFit(container, canvasWidth, canvasHeight);
         return;
     }
 
     if (pageType === 'result_page') {
         renderFinalResultsPage(container, page, quiz);
-        container.style.transform = 'none'; // Don't scale result pages
+        // Apply scaling to fit viewport (same as regular pages)
+        let canvasWidth = 1920;
+        let canvasHeight = 1080;
+        if (page && page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+            canvasWidth = page.views.display.view_config.size.width || 1920;
+            canvasHeight = page.views.display.view_config.size.height || 1080;
+        }
+        applyScalingToFit(container, canvasWidth, canvasHeight);
         return;
     }
 
@@ -974,16 +986,30 @@ function handleElementControl(elementId, action) {
 function renderStatusPage(container, page, quiz) {
     container.innerHTML = '';
     
-    // Set container styles WITHOUT background (set background separately AFTER)
-    container.style.width = '100%';
-    container.style.height = '100%';
+    // Get canvas dimensions from page view_config.size (new format) - same as regular pages
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+    if (page && page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+        canvasWidth = page.views.display.view_config.size.width || 1920;
+        canvasHeight = page.views.display.view_config.size.height || 1080;
+    }
+    
+    // Set container size to match canvas FIRST (like regular pages)
+    container.style.position = 'relative';
+    container.style.width = `${canvasWidth}px`;
+    container.style.height = `${canvasHeight}px`;
+    container.style.minWidth = `${canvasWidth}px`;
+    container.style.minHeight = `${canvasHeight}px`;
+    container.style.maxWidth = 'none';
+    container.style.maxHeight = 'none';
+    container.style.overflow = 'hidden';
+    container.style.margin = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
     container.style.alignItems = 'center';
     container.style.justifyContent = 'flex-start';
     container.style.color = 'white';
     container.style.padding = '2rem';
-    container.style.position = 'relative';
     
     // Set background using shared utility function
     // NO hardcoded fallbacks - only use what's in the saved quiz
@@ -1093,16 +1119,30 @@ function updateStatusPage(currentScores) {
 function renderFinalResultsPage(container, page, quiz) {
     container.innerHTML = '';
     
-    // Set container styles WITHOUT background (we'll set that separately)
-    container.style.width = '100%';
-    container.style.height = '100%';
+    // Get canvas dimensions from page view_config.size (new format) - same as regular pages
+    let canvasWidth = 1920;
+    let canvasHeight = 1080;
+    if (page && page.views && page.views.display && page.views.display.view_config && page.views.display.view_config.size) {
+        canvasWidth = page.views.display.view_config.size.width || 1920;
+        canvasHeight = page.views.display.view_config.size.height || 1080;
+    }
+    
+    // Set container size to match canvas FIRST (like regular pages)
+    container.style.position = 'relative';
+    container.style.width = `${canvasWidth}px`;
+    container.style.height = `${canvasHeight}px`;
+    container.style.minWidth = `${canvasWidth}px`;
+    container.style.minHeight = `${canvasHeight}px`;
+    container.style.maxWidth = 'none';
+    container.style.maxHeight = 'none';
+    container.style.overflow = 'hidden';
+    container.style.margin = '0';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
     container.style.alignItems = 'center';
     container.style.justifyContent = 'flex-start';
     container.style.color = 'white';
     container.style.padding = '2rem';
-    container.style.position = 'relative';
     
     // Set background using shared utility function
     // NO hardcoded fallbacks - only use what's in the saved quiz

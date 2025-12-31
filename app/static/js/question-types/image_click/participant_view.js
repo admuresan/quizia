@@ -6,26 +6,27 @@ var QuestionTypes = QuestionTypes || {};
 QuestionTypes.ImageClick = QuestionTypes.ImageClick || {};
 
 QuestionTypes.ImageClick.ParticipantView = (function() {
+    const Common = QuestionTypes.Common;
+    
     function render(container, element, options) {
         const questionId = element.parent_id;
         const question = options.question || null;
         const questionTitle = options.questionTitle || '';
         const submittedAnswer = options.submittedAnswer || null;
         const submitAnswerCallback = options.submitAnswerCallback || null;
+        const insideContainer = options.insideContainer !== undefined ? options.insideContainer : true;
+        const width = options.width || element.width || 370;
+        const height = options.height || element.height || 200;
         
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '0.5rem';
-        container.style.width = '100%';
-        container.style.height = '100%';
-        container.style.overflow = 'hidden';
-        container.style.boxSizing = 'border-box';
+        // Create container and title using common function
+        const { outerContainer, innerContainer } = Common.createParticipantContainer(
+            questionId, questionTitle, width, height, insideContainer, submittedAnswer
+        );
         
-        // Note: Title is rendered by participant.js in the questionContainer, not here
-        
-        // Content area (scrollable if needed)
+        // Content area - scrollable if content exceeds container height
+        // This ensures content fits within fixed dimensions, matching editor behavior
         const contentArea = document.createElement('div');
-        contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden;';
+        contentArea.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 0.5rem; overflow-y: auto; overflow-x: hidden; min-height: 0;';
         
         // Get image source from question element (new format: in properties)
         let imageSrc = null;
@@ -44,7 +45,8 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
         if (imageSrc) {
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-answer-container';
-            imageContainer.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
+            // Set margin: 0 explicitly to override any CSS that might add spacing
+            imageContainer.style.cssText = 'position: relative !important; display: inline-block !important; max-width: 100% !important; margin: 0 !important;';
             
             let clickIndicator = null;
             let clickCoords = null;
@@ -140,14 +142,17 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
                 contentArea.appendChild(submittedMsg);
             }
             
-            container.appendChild(contentArea);
+            innerContainer.appendChild(contentArea);
         } else {
             const noImageMsg = document.createElement('div');
             noImageMsg.textContent = 'Image not available';
             noImageMsg.style.cssText = 'color: #666; font-style: italic; text-align: center; padding: 2rem;';
             contentArea.appendChild(noImageMsg);
-            container.appendChild(contentArea);
+            innerContainer.appendChild(contentArea);
         }
+        
+        // Append the outer container to the provided container
+        container.appendChild(outerContainer);
     }
     
     return { render: render };

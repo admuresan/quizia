@@ -1913,6 +1913,20 @@ function updateElementDisplay() {
         el.style.height = `${selectedElement.height}px`;
     }
     
+    // For answer_input elements in participant view, the participant view renderer creates
+    // a question-container inside the wrapper. We need to update that container's dimensions too.
+    if (selectedElement.type === 'answer_input' && selectedElement.view === 'participant' && selectedElement.parent_id) {
+        const questionContainer = document.getElementById(`question-${selectedElement.parent_id}`);
+        if (questionContainer) {
+            questionContainer.style.width = `${selectedElement.width}px`;
+            questionContainer.style.minWidth = `${selectedElement.width}px`;
+            questionContainer.style.maxWidth = `${selectedElement.width}px`;
+            questionContainer.style.height = `${selectedElement.height}px`;
+            questionContainer.style.minHeight = `${selectedElement.height}px`;
+            questionContainer.style.maxHeight = `${selectedElement.height}px`;
+        }
+    }
+    
     // For answer_display and other elements that use min/max width/height, update those too
     if (selectedElement.type === 'answer_display' || selectedElement.type === 'answer_input' || selectedElement.type === 'audio_control') {
         el.style.minWidth = `${selectedElement.width}px`;

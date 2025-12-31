@@ -344,20 +344,6 @@
         },
         
         createQuestionContainer: function(question, currentView) {
-            const questionContainer = document.createElement('div');
-            questionContainer.className = 'question-container';
-            questionContainer.id = `question-${question.id}`;
-            questionContainer.style.cssText = 'position: relative; background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 300px;';
-            
-            // Add question title if available
-            if (question.question_title && question.question_title.trim()) {
-                const title = document.createElement('div');
-                title.className = 'question-title';
-                title.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-bottom: 1rem; margin-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: block; width: 100%;';
-                title.textContent = question.question_title;
-                questionContainer.appendChild(title);
-            }
-            
             // Find and render the answer_input element
             let answerInput = null;
             const page = this.getCurrentQuiz().pages[this.getCurrentPageIndex()];
@@ -369,66 +355,76 @@
                 console.error('Editor.QuizStructure.getViewElements not available');
             }
             
+            // All participant view renderers now create their own container and title
+            // We just render directly to the displayable area
+            const displayableArea = document.getElementById('displayable-area');
+            
             if (answerInput) {
-                const answerEl = Editor.ElementRenderer.renderElementOnCanvas(questionContainer, answerInput, true);
-                if (answerEl) {
-                    questionContainer.appendChild(answerEl);
+                // Get question title to pass to renderer
+                const questionTitle = question.question_title || (question.question_config && question.question_config.question_title) || '';
+                
+                // Render the answer input - renderer creates its own container and title
+                const answerEl = Editor.ElementRenderer.renderElementOnCanvas(displayableArea, answerInput, false);
+                
+                // Get the question container created by the renderer
+                const containerToPosition = document.getElementById(`question-${question.id}`);
+                
+                if (containerToPosition) {
+                    containerToPosition.style.position = 'absolute';
+                    const headerOffset = currentView === 'participant' ? 80 : 0;
+                    containerToPosition.style.left = `${question.x || 50}px`;
+                    containerToPosition.style.top = `${(question.y || 50) + headerOffset}px`;
+                    
+                    // Make draggable
+                    this.makeQuestionContainerDraggable(containerToPosition, question, headerOffset);
+                    
+                    // Add click handler to select
+                    containerToPosition.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || 
+                            e.target.tagName === 'LABEL' || e.target.closest('button') || 
+                            e.target.closest('input') || e.target.closest('label')) {
+                            return;
+                        }
+                        this.selectElement(question);
+                    });
+                    
+                    // Add right-click context menu
+                    containerToPosition.addEventListener('contextmenu', (e) => {
+                        // Don't show context menu if clicking on answer_input element or interactive elements
+                        const target = e.target;
+                        // Check if clicking on an answer_input element (ID format: element-{parentId}-answer-input)
+                        const clickedElement = target.closest('[id^="element-"]');
+                        const isAnswerInput = clickedElement && clickedElement.id.includes('-answer-input');
+                        
+                        // If clicking on answer_input, prevent default (answer_input will handle it)
+                        if (isAnswerInput) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return; // Let answer element handle it
+                        }
+                        
+                        // For interactive elements, let browser handle it
+                        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
+                            target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
+                            target.tagName === 'TEXTAREA' || target.closest('button') || 
+                            target.closest('input') || target.closest('label')) {
+                            return; // Let browser handle interactive elements
+                        }
+                        
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                            // Use global function to show context menu (set up in editor.js)
+                            if (typeof window.showElementContextMenu === 'function') {
+                                window.showElementContextMenu(e, question);
+                            }
+                        }
+                    }, true); // Use capture phase
                 }
             }
             
-            // Position the question container
-            questionContainer.style.position = 'absolute';
-            const headerOffset = currentView === 'participant' ? 80 : 0;
-            questionContainer.style.left = `${question.x || 50}px`;
-            questionContainer.style.top = `${(question.y || 50) + headerOffset}px`;
-            
-            // Make draggable
-            this.makeQuestionContainerDraggable(questionContainer, question, headerOffset);
-            
-            // Add click handler to select
-            questionContainer.addEventListener('click', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || 
-                    e.target.tagName === 'LABEL' || e.target.closest('button') || 
-                    e.target.closest('input') || e.target.closest('label')) {
-                    return;
-                }
-                this.selectElement(question);
-            });
-            
-            // Add right-click context menu
-            questionContainer.addEventListener('contextmenu', (e) => {
-                // Don't show context menu if clicking on answer_input element or interactive elements
-                const target = e.target;
-                // Check if clicking on an answer_input element (ID format: element-{parentId}-answer-input)
-                const clickedElement = target.closest('[id^="element-"]');
-                const isAnswerInput = clickedElement && clickedElement.id.includes('-answer-input');
-                
-                // If clicking on answer_input, prevent default (answer_input will handle it)
-                if (isAnswerInput) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return; // Let answer element handle it
-                }
-                
-                // For interactive elements, let browser handle it
-                if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
-                    target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
-                    target.tagName === 'TEXTAREA' || target.closest('button') || 
-                    target.closest('input') || target.closest('label')) {
-                    return; // Let browser handle interactive elements
-                }
-                
-                e.preventDefault();
-                e.stopPropagation();
-                if (Editor.ContextMenu && Editor.ContextMenu.show) {
-                    // Use global function to show context menu (set up in editor.js)
-                    if (typeof window.showElementContextMenu === 'function') {
-                        window.showElementContextMenu(e, question);
-                    }
-                }
-            }, true); // Use capture phase
-            
-            return questionContainer;
+            // Return the container created by the renderer
+            return containerToPosition || null;
         },
         
         makeQuestionContainerDraggable: function(container, question, headerOffset) {
@@ -1108,20 +1104,6 @@
         },
         
         createQuestionContainer: function(question, currentView) {
-            const questionContainer = document.createElement('div');
-            questionContainer.className = 'question-container';
-            questionContainer.id = `question-${question.id}`;
-            questionContainer.style.cssText = 'position: relative; background: white; padding: 2rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); min-width: 300px;';
-            
-            // Add question title if available
-            if (question.question_title && question.question_title.trim()) {
-                const title = document.createElement('div');
-                title.className = 'question-title';
-                title.style.cssText = 'font-size: 1.5rem; font-weight: bold; color: #2196F3; margin-bottom: 1rem; margin-top: 0.5rem; padding-bottom: 0.5rem; border-bottom: 2px solid #2196F3; display: block; width: 100%;';
-                title.textContent = question.question_title;
-                questionContainer.appendChild(title);
-            }
-            
             // Find and render the answer_input element
             let answerInput = null;
             const page = this.getCurrentQuiz().pages[this.getCurrentPageIndex()];
@@ -1133,66 +1115,76 @@
                 console.error('Editor.QuizStructure.getViewElements not available');
             }
             
+            // All participant view renderers now create their own container and title
+            // We just render directly to the displayable area
+            const displayableArea = document.getElementById('displayable-area');
+            
             if (answerInput) {
-                const answerEl = Editor.ElementRenderer.renderElementOnCanvas(questionContainer, answerInput, true);
-                if (answerEl) {
-                    questionContainer.appendChild(answerEl);
+                // Get question title to pass to renderer
+                const questionTitle = question.question_title || (question.question_config && question.question_config.question_title) || '';
+                
+                // Render the answer input - renderer creates its own container and title
+                const answerEl = Editor.ElementRenderer.renderElementOnCanvas(displayableArea, answerInput, false);
+                
+                // Get the question container created by the renderer
+                const containerToPosition = document.getElementById(`question-${question.id}`);
+                
+                if (containerToPosition) {
+                    containerToPosition.style.position = 'absolute';
+                    const headerOffset = currentView === 'participant' ? 80 : 0;
+                    containerToPosition.style.left = `${question.x || 50}px`;
+                    containerToPosition.style.top = `${(question.y || 50) + headerOffset}px`;
+                    
+                    // Make draggable
+                    this.makeQuestionContainerDraggable(containerToPosition, question, headerOffset);
+                    
+                    // Add click handler to select
+                    containerToPosition.addEventListener('click', (e) => {
+                        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || 
+                            e.target.tagName === 'LABEL' || e.target.closest('button') || 
+                            e.target.closest('input') || e.target.closest('label')) {
+                            return;
+                        }
+                        this.selectElement(question);
+                    });
+                    
+                    // Add right-click context menu
+                    containerToPosition.addEventListener('contextmenu', (e) => {
+                        // Don't show context menu if clicking on answer_input element or interactive elements
+                        const target = e.target;
+                        // Check if clicking on an answer_input element (ID format: element-{parentId}-answer-input)
+                        const clickedElement = target.closest('[id^="element-"]');
+                        const isAnswerInput = clickedElement && clickedElement.id.includes('-answer-input');
+                        
+                        // If clicking on answer_input, prevent default (answer_input will handle it)
+                        if (isAnswerInput) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return; // Let answer element handle it
+                        }
+                        
+                        // For interactive elements, let browser handle it
+                        if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
+                            target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
+                            target.tagName === 'TEXTAREA' || target.closest('button') || 
+                            target.closest('input') || target.closest('label')) {
+                            return; // Let browser handle interactive elements
+                        }
+                        
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (Editor.ContextMenu && Editor.ContextMenu.show) {
+                            // Use global function to show context menu (set up in editor.js)
+                            if (typeof window.showElementContextMenu === 'function') {
+                                window.showElementContextMenu(e, question);
+                            }
+                        }
+                    }, true); // Use capture phase
                 }
             }
             
-            // Position the question container
-            questionContainer.style.position = 'absolute';
-            const headerOffset = currentView === 'participant' ? 80 : 0;
-            questionContainer.style.left = `${question.x || 50}px`;
-            questionContainer.style.top = `${(question.y || 50) + headerOffset}px`;
-            
-            // Make draggable
-            this.makeQuestionContainerDraggable(questionContainer, question, headerOffset);
-            
-            // Add click handler to select
-            questionContainer.addEventListener('click', (e) => {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || 
-                    e.target.tagName === 'LABEL' || e.target.closest('button') || 
-                    e.target.closest('input') || e.target.closest('label')) {
-                    return;
-                }
-                this.selectElement(question);
-            });
-            
-            // Add right-click context menu
-            questionContainer.addEventListener('contextmenu', (e) => {
-                // Don't show context menu if clicking on answer_input element or interactive elements
-                const target = e.target;
-                // Check if clicking on an answer_input element (ID format: element-{parentId}-answer-input)
-                const clickedElement = target.closest('[id^="element-"]');
-                const isAnswerInput = clickedElement && clickedElement.id.includes('-answer-input');
-                
-                // If clicking on answer_input, prevent default (answer_input will handle it)
-                if (isAnswerInput) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return; // Let answer element handle it
-                }
-                
-                // For interactive elements, let browser handle it
-                if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || 
-                    target.tagName === 'LABEL' || target.tagName === 'SELECT' || 
-                    target.tagName === 'TEXTAREA' || target.closest('button') || 
-                    target.closest('input') || target.closest('label')) {
-                    return; // Let browser handle interactive elements
-                }
-                
-                e.preventDefault();
-                e.stopPropagation();
-                if (Editor.ContextMenu && Editor.ContextMenu.show) {
-                    // Use global function to show context menu (set up in editor.js)
-                    if (typeof window.showElementContextMenu === 'function') {
-                        window.showElementContextMenu(e, question);
-                    }
-                }
-            }, true); // Use capture phase
-            
-            return questionContainer;
+            // Return the container created by the renderer
+            return containerToPosition || null;
         },
         
         makeQuestionContainerDraggable: function(container, question, headerOffset) {
