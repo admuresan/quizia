@@ -77,8 +77,12 @@ def handle_start_quiz(data):
     IMPORTANT: Must receive quiz_id (not quiz_name). Multiple quizzes can have the same name,
     so we always identify quizzes by their unique ID.
     """
+    print(f"[DEBUG] quizmaster_start_quiz received: {data}")
+    print(f"[DEBUG] Session data: username={session.get('username')}, is_quizmaster={session.get('is_quizmaster')}")
+    
     quiz_id = data.get('quiz_id')
     if not quiz_id:
+        print("[ERROR] No quiz_id provided in request")
         emit('error', {'message': 'Quiz ID required. Quiz name cannot be used - multiple quizzes can share the same name.'})
         return
     
@@ -86,11 +90,13 @@ def handle_start_quiz(data):
     from app.utils.quiz_storage import load_quiz
     quiz = load_quiz(quiz_id)
     if not quiz:
+        print(f"[ERROR] Quiz not found with ID: {quiz_id}")
         emit('error', {'message': f'Quiz not found with ID: {quiz_id}'})
         return
     
     quizmaster_username = session.get('username', 'unknown')
     quiz_name = quiz.get('name', 'Unknown Quiz')  # Name is only for display
+    print(f"[DEBUG] Starting quiz '{quiz_name}' (ID: {quiz_id}) for quizmaster: {quizmaster_username}")
     
     # Initialize visibility states for all elements in all pages
     # This ensures display page respects control visibility settings from the start
@@ -110,12 +116,14 @@ def handle_start_quiz(data):
     
     # Create room (stores both quiz_id and quiz_name - quiz_id is the authoritative identifier)
     room_code = create_room(quiz_id, quiz_name, quiz, quizmaster_username)
+    print(f"[DEBUG] Room created with code: {room_code}")
     
     # Record quiz run start (use quiz_id, not quiz_name)
     from app.utils.stats import record_quiz_run
     import time
     record_quiz_run(quiz_id, quizmaster_username, room_code, completed=False)
     
+    print(f"[DEBUG] Emitting quiz_started with room_code: {room_code}")
     emit('quiz_started', {'room_code': room_code})
     
     # Join quizmaster to control room

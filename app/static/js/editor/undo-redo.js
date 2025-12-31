@@ -310,7 +310,10 @@
         // Restore a deleted element
         restoreDeletedElement: function(page, elementId, state) {
             // Restore the element in the elements dictionary
-            page.elements[elementId] = this.deepClone(state.elementData);
+            // CRITICAL: Remove x, y, width, height, rotation from elementData before restoring
+            // These should ONLY be in view-specific configs, not in the main element definition
+            const { x, y, width, height, rotation, ...elementDataWithoutCoords } = this.deepClone(state.elementData);
+            page.elements[elementId] = elementDataWithoutCoords;
             
             // Restore view configs if they exist
             if (state.viewConfigs && page.views) {

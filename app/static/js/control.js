@@ -22,8 +22,25 @@ document.addEventListener('DOMContentLoaded', () => {
         rerenderBtn.style.cssText = 'position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; padding: 1rem 2rem; font-size: 1.1rem; font-weight: bold; color: white; background: #2196F3; border: 2px solid #1976D2; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.3); display: block; visibility: visible;';
     }
     
+    // Handle WebSocket errors and fallback to polling
+    socket.on('connect_error', (error) => {
+        console.warn('[Control] Connection error:', error);
+        // If WebSocket fails, force polling only
+        if (socket.io.opts.transports.includes('websocket')) {
+            console.log('[Control] Falling back to polling transport');
+            socket.io.opts.transports = ['polling'];
+            socket.disconnect();
+            socket.connect();
+        }
+    });
+
     socket.on('connect', () => {
+        console.log('[Control] Socket connected via', socket.io.engine.transport.name);
         socket.emit('quizmaster_join_control', { room_code: window.roomCode });
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.warn('[Control] Socket disconnected:', reason);
     });
 
     socket.on('joined_control', (data) => {

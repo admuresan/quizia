@@ -1,0 +1,5700 @@
+{
+  "background_color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  "background_image": null,
+  "creator": "quizmaster",
+  "id": "a1dc98c8-aada-4efc-a557-ac119a8d1a57",
+  "name": "NewYears2025",
+  "pages": [
+    {
+      "elements": {},
+      "name": "Intro",
+      "page_order": 1,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 300,
+            "rotation": 0,
+            "width": 400,
+            "x": 428,
+            "y": 83
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/new-years-day-traditions-1200x800_1.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767065496578": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><span style=\"font-size: 72px;\"><b><font color=\"#ffffff\">&nbsp;How to?</font></b></span></p>",
+            "font_size": 16,
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767065714472": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "steps",
+          "is_question": false,
+          "layer_order": 2,
+          "properties": {
+            "background_color": "#c7c7c7",
+            "content": "<p><span style=\"font-size: 32px;\"></span></p><span style=\"font-size: 32px;\"><p><span style=\"font-size: 32px;\"><b><font color=\"#000000\">Instructions:</font></b></span></p><p><font color=\"#000000\"><span style=\"font-size: 32px;\"></span></font></p><span style=\"font-size: 32px;\"><font color=\"#000000\"><p><span style=\"font-size: 32px;\">1. Go to:&nbsp; 40.233.70.245</span></p><p><span style=\"font-size: 32px;\">2. Select \"Join as Participant\"</span></p><p><span style=\"font-size: 32px;\">3. Enter the Room Code, a name, and pick an avatar</span></p><p><span style=\"font-size: 32px;\">4. Click Join!<br>5. Questions will appear on your phone as the quiz goes on!</span></p></font></span><p><span style=\"font-size: 32px;\"></span></p></span><p><span style=\"font-size: 32px;\"></span></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#000000"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767073081299": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "image1",
+          "is_question": false,
+          "layer_order": 5,
+          "properties": {
+            "file_name": "man-getting-confused-illustration-download-in-svg-png-gif-file-formats--person-business-concepts-pack-illustrations-7342783.webp",
+            "filename": "man-getting-confused-illustration-download-in-svg-png-gif-file-formats--person-business-concepts-pack-illustrations-7342783.webp",
+            "media_type": "image",
+            "media_url": "/api/media/serve/man-getting-confused-illustration-download-in-svg-png-gif-file-formats--person-business-concepts-pack-illustrations-7342783.webp",
+            "src": "/api/media/serve/man-getting-confused-illustration-download-in-svg-png-gif-file-formats--person-business-concepts-pack-illustrations-7342783.webp"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767076674527": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "on_load",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "steps",
+          "is_question": true,
+          "layer_order": 3,
+          "properties": {
+            "background_color": "#c7c7c7",
+            "content": "<p><span style=\"font-size: 32px;\"></span></p><span style=\"font-size: 32px;\"><p><span style=\"font-size: 32px;\"><b><font color=\"#000000\">Scoring:</font></b></span></p><p><font color=\"#000000\"><span style=\"font-size: 32px;\"></span></font></p><span style=\"font-size: 32px;\"><font color=\"#000000\"><p>Once a question is complete the first person to have submitted the correct answers gets 100 points, all other correct answers get points based on how much slower they were, (i.e. 10% slower is 90 points)<br><br>Bonus points can be assigned at my discretion!</p><p><br></p><p><b>ALWAYS REMEMBER TO CLICK SUBMIT!!!</b></p></font></span><p><span style=\"font-size: 32px;\"></span></p></span><p><span style=\"font-size: 32px;\"></span></p>",
+            "font_size": 16,
+            "layer_order": 3,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#000000"
+          },
+          "question_config": {
+            "options": [
+              "Yes",
+              "Maybe?",
+              "No"
+            ],
+            "question_correct_answer": "Yes",
+            "question_title": "Did you figure it out?",
+            "question_type": "radio"
+          },
+          "type": "richtext"
+        },
+        "element-1767150582608": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "circle1",
+          "is_question": false,
+          "layer_order": 4,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "#c7c7c7"
+          },
+          "question_config": {},
+          "type": "circle"
+        }
+      },
+      "name": "Instructions",
+      "page_order": 2,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 300,
+            "rotation": 0,
+            "width": 250,
+            "x": 568,
+            "y": 80
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767076674527": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 522.9999389648438,
+                "x": 15,
+                "y": 85
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767065496578": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767065714472": {
+              "config": {
+                "height": 333,
+                "rotation": 0,
+                "width": 968,
+                "x": 153,
+                "y": 209
+              }
+            },
+            "element-1767073081299": {
+              "config": {
+                "height": 700,
+                "rotation": 0,
+                "width": 700,
+                "x": 1058,
+                "y": 287
+              }
+            },
+            "element-1767076674527": {
+              "config": {
+                "height": 420,
+                "rotation": 0,
+                "width": 968,
+                "x": 156,
+                "y": 606
+              }
+            },
+            "element-1767150582608": {
+              "config": {
+                "height": 350,
+                "rotation": 0,
+                "width": 350,
+                "x": 1135,
+                "y": 626
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/architectural-blueprint2x.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767076674527": {
+              "answer_input_config": {
+                "height": 250,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767071514740": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 2,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><span style=\"font-size: 72px;\"><span style=\"font-size: 72px;\"><span style=\"font-size: 48px;\"><span style=\"font-size: 72px;\"><b><font color=\"#ffffff\">&nbsp;News/Events</font></b></span></span></span></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767072879867": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q2",
+          "is_question": true,
+          "layer_order": 3,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><p><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 20px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Steve Carrel made news in March by doing what this year?</span></font></span></span></span></span></span></span></span></span></span></span></span></span></p></span></span></span>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 3,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Helped students attend prom during LA wildfires",
+            "question_title": "Carrel newsworthy?",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767073605153": {
+          "appearance_config": {
+            "appearance_order": 10,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q5",
+          "is_question": true,
+          "layer_order": 9,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<span style=\"font-size: 32px;\"><p><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 14px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">At just 10 years old, Bodhana Sivanandan became the youngest person to achieve what this year?</span></font></span></span></span></span></span></p></span>",
+            "font_family": "Arial",
+            "font_size": 24,
+            "layer_order": 9,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Youngest Chess Grand Master (500K)",
+            "question_title": "Young achiever",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767076445424": {
+          "appearance_config": {
+            "appearance_order": 8,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q4",
+          "is_question": true,
+          "layer_order": 11,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<span style=\"font-size: 32px;\"><p><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 14px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">After the Louvre heist, the german company that made the cherry picker used in the heist launched a series of ads with what slogan?</span></font></span></span></span></span></span></p></span>",
+            "font_family": "Arial",
+            "font_size": 24,
+            "layer_order": 11,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "\"Quiet as a whisper\"/\"When you need to move quickly\"",
+            "question_title": "Ad campaign",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767076582327": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q3",
+          "is_question": true,
+          "layer_order": 13,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><p><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 20px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">One of Elon Musk's DOGE hires made headlines because of his unusual nickname, what was it?</span></font></span></span></span></span></span></span></span></span></span></span></span></span></p></span></span></span>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 13,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Big Balls",
+            "question_title": "DOGE nickname",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767077066790": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><p><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 20px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><span style=\"font-size: 24px;\"><span style=\"font-size: 32px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Thankfully the two astronauts who had been stuck at the ISS are back on Earth, but how long had they been in space, and how long was their original mission?</span></font></span></span></span></span></span></span></span></span></span></span></span></span></p></span></span></span>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Stuck: 286 days (9.4 months)  Mission: 8 days",
+            "question_title": "Stuck in space",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767111405004": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "astronaut",
+          "is_question": false,
+          "layer_order": 19,
+          "properties": {
+            "crop_top": 50,
+            "file_name": "astronaut-aboard-spacecraft-looking-at-earth.webp",
+            "filename": "astronaut-aboard-spacecraft-looking-at-earth.webp",
+            "media_type": "image",
+            "media_url": "/api/media/serve/astronaut-aboard-spacecraft-looking-at-earth.webp",
+            "src": "/api/media/serve/astronaut-aboard-spacecraft-looking-at-earth.webp"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767112372617": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "carrel",
+          "is_question": false,
+          "layer_order": 20,
+          "properties": {
+            "file_name": "the-office-dwights-speech-episode-17-aired-pictured-steve-carell-as-michael-scott-photo-by.webp",
+            "filename": "the-office-dwights-speech-episode-17-aired-pictured-steve-carell-as-michael-scott-photo-by.webp",
+            "media_type": "image",
+            "media_url": "/api/media/serve/the-office-dwights-speech-episode-17-aired-pictured-steve-carell-as-michael-scott-photo-by.webp",
+            "src": "/api/media/serve/the-office-dwights-speech-episode-17-aired-pictured-steve-carell-as-michael-scott-photo-by.webp"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767112629776": {
+          "appearance_config": {
+            "appearance_order": 7,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "doge",
+          "is_question": false,
+          "layer_order": 21,
+          "properties": {
+            "file_name": "Fortune-DOGE-Chayka-online.webp",
+            "filename": "Fortune-DOGE-Chayka-online.webp",
+            "media_type": "image",
+            "media_url": "/api/media/serve/Fortune-DOGE-Chayka-online.webp",
+            "src": "/api/media/serve/Fortune-DOGE-Chayka-online.webp"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767112700460": {
+          "appearance_config": {
+            "appearance_order": 9,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "heist",
+          "is_question": false,
+          "layer_order": 22,
+          "properties": {
+            "file_name": "lourve-heist.webp",
+            "filename": "lourve-heist.webp",
+            "media_type": "image",
+            "media_url": "/api/media/serve/lourve-heist.webp",
+            "src": "/api/media/serve/lourve-heist.webp"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767112821899": {
+          "appearance_config": {
+            "appearance_order": 11,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "boy",
+          "is_question": false,
+          "layer_order": 23,
+          "properties": {
+            "file_name": "young-boy-dressed-as-superhero.jpg",
+            "filename": "young-boy-dressed-as-superhero.jpg",
+            "media_type": "image",
+            "media_url": "/api/media/serve/young-boy-dressed-as-superhero.jpg",
+            "src": "/api/media/serve/young-boy-dressed-as-superhero.jpg"
+          },
+          "question_config": {},
+          "type": "image"
+        }
+      },
+      "name": "News/Events",
+      "page_order": 3,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 1000,
+            "rotation": 0,
+            "width": 250,
+            "x": 587,
+            "y": 87
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767072879867": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 410
+              },
+              "config": {}
+            },
+            "element-1767073605153": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1385
+              },
+              "config": {}
+            },
+            "element-1767076445424": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1060
+              },
+              "config": {}
+            },
+            "element-1767076582327": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 735
+              },
+              "config": {}
+            },
+            "element-1767077066790": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 85
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 1700,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767071514740": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767072879867": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 1600,
+                "x": 270,
+                "y": 340
+              }
+            },
+            "element-1767073605153": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 1600,
+                "x": 270,
+                "y": 880
+              }
+            },
+            "element-1767076445424": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 1600,
+                "x": 270,
+                "y": 700
+              }
+            },
+            "element-1767076582327": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 1600,
+                "x": 270,
+                "y": 520
+              }
+            },
+            "element-1767077066790": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 1600,
+                "x": 270,
+                "y": 160
+              }
+            },
+            "element-1767111405004": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 250,
+                "x": 20,
+                "y": 160
+              }
+            },
+            "element-1767112372617": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 250,
+                "x": 20,
+                "y": 340
+              }
+            },
+            "element-1767112629776": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 250,
+                "x": 20,
+                "y": 520
+              }
+            },
+            "element-1767112700460": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 250,
+                "x": 20,
+                "y": 700
+              }
+            },
+            "element-1767112821899": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 250,
+                "x": 20,
+                "y": 880
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/newspaper.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767072879867": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 291
+              },
+              "config": {}
+            },
+            "element-1767073605153": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 869
+              },
+              "config": {}
+            },
+            "element-1767076445424": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 675
+              },
+              "config": {}
+            },
+            "element-1767076582327": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 482
+              },
+              "config": {}
+            },
+            "element-1767077066790": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 105
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 1100,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767064870093": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767064870093",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767064870093": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767064870093",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 1",
+      "page_order": 4,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 360,
+            "x": 441,
+            "y": 84
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767064870093": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767064870093": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767113315351": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><b><span style=\"font-size: 72px;\"></span><span style=\"font-size: 56px;\"><span style=\"font-size: 72px;\">&nbsp;</span><span style=\"font-family: inherit;\"><strike>Un</strike>Prompted Behavior</span></span></b></font><span style=\"font-family: inherit;\"></span></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767114866887": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><span style=\"color: rgb(248, 246, 246); font-size: 36px;\">“Behold the whiskered guardian, sovereign of naps and destroyer of fragile objects.”</span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Describe a cat as a mythical creature",
+            "question_title": "Whiskered guardian",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767114888751": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q2",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><span style=\"color: rgb(248, 246, 246); font-size: 36px;\">\"Mix about 1/8 cup of non-toxic glue, like Elmer's school glue, into the sauce to add tackiness.\"</span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "How to get cheese to stick to my pizza when I make it",
+            "question_title": "GlueAid",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767114889999": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q5",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><span style=\"color: rgb(248, 246, 246); font-size: 36px;\">\"Probably right after you finish watching the Netflix series you've been putting off.\"</span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "When will the world end?",
+            "question_title": "Netflix",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767115047014": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q3",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#f8f6f6\"><span style=\"font-size: 36px;\">\"Increased human diversity\"</span></font></p><p style=\"text-align: center; \"><font color=\"#f8f6f6\"><span style=\"font-size: 36px;\">\"No more immigration problems\"</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Benefits of nuclear war",
+            "question_title": "Diversity/Immigration",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767116636505": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q4",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><span style=\"font-size: 36px; color: rgb(248, 246, 246); font-family: inherit;\">\"Honey, Sugar, Flour, The butter, Mix in Bowl, Place in pan, Preheat to 375 F\"</span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Nicknames for a girlfriend",
+            "question_title": "Honey, ...",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767117213029": {
+          "appearance_config": {
+            "appearance_order": 7,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q6",
+          "is_question": true,
+          "layer_order": 19,
+          "properties": {
+            "file_name": "chat_error.png",
+            "filename": "chat_error.png",
+            "layer_order": 19,
+            "media_type": "image",
+            "media_url": "/api/media/serve/chat_error.png",
+            "src": "/api/media/serve/chat_error.png"
+          },
+          "question_config": {
+            "question_correct_answer": "How do i fix my life?",
+            "question_title": "Error",
+            "question_type": "text"
+          },
+          "type": "image"
+        }
+      },
+      "name": "Prompts",
+      "page_order": 5,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 1800,
+            "rotation": 0,
+            "width": 200,
+            "x": 637,
+            "y": 93
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767114866887": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 100
+              },
+              "config": {}
+            },
+            "element-1767114888751": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 420
+              },
+              "config": {}
+            },
+            "element-1767114889999": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 1700
+              },
+              "config": {}
+            },
+            "element-1767115047014": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 740
+              },
+              "config": {}
+            },
+            "element-1767116636505": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 1060
+              },
+              "config": {}
+            },
+            "element-1767117213029": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 20,
+                "y": 1380
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 2050,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767113315351": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767114866887": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 150,
+                "y": 200
+              }
+            },
+            "element-1767114888751": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 150,
+                "y": 450
+              }
+            },
+            "element-1767114889999": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 1150,
+                "y": 450
+              }
+            },
+            "element-1767115047014": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 150,
+                "y": 700
+              }
+            },
+            "element-1767116636505": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 1150,
+                "y": 200
+              }
+            },
+            "element-1767117213029": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 650,
+                "x": 1150,
+                "y": 700
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/Deep_Thought_film.webp"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767114866887": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 130
+              }
+            },
+            "element-1767114888751": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 320
+              }
+            },
+            "element-1767114889999": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1090
+              },
+              "config": {}
+            },
+            "element-1767115047014": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 510
+              }
+            },
+            "element-1767116636505": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 700
+              },
+              "config": {}
+            },
+            "element-1767117213029": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 895
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 1300,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767117713717": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767117713717",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767117713717": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767117713717",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 2",
+      "page_order": 6,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 400,
+            "x": 419,
+            "y": 83
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767117713717": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767117713717": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767124974705": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;But Where's That?</b></span></font></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767125328431": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "control",
+            "config": {}
+          },
+          "element_name": "a1",
+          "is_question": false,
+          "layer_order": 3,
+          "properties": {
+            "file_name": "crater.png",
+            "filename": "crater.png",
+            "media_type": "image",
+            "media_url": "/api/media/serve/crater.png",
+            "src": "/api/media/serve/crater.png"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767125356095": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1",
+          "is_question": true,
+          "layer_order": 2,
+          "properties": {
+            "file_name": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "filename": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "layer_order": 2,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp",
+            "src": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 53.69813041495668,
+              "y": 79.79761474521142
+            },
+            "question_title": "World's largest crater",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767125544636": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q2",
+          "is_question": true,
+          "layer_order": 4,
+          "properties": {
+            "file_name": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "filename": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "layer_order": 4,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp",
+            "src": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 26.521689541116984,
+              "y": 38.53100541842264
+            },
+            "question_title": "Where was the \"Miracle on Ice\"?",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767125553644": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q3",
+          "is_question": true,
+          "layer_order": 5,
+          "properties": {
+            "file_name": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "filename": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "layer_order": 5,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp",
+            "src": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 30.65809983652055,
+              "y": 94.40096327513547
+            },
+            "question_title": "Where did England and Argentina go to War?",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767125556020": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q4",
+          "is_question": true,
+          "layer_order": 6,
+          "properties": {
+            "file_name": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "filename": "Blank-World-Map-with-Countries-02-EN-2.webp",
+            "layer_order": 6,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp",
+            "src": "/api/media/serve/Blank-World-Map-with-Countries-02-EN-2.webp"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 80.35043755570572,
+              "y": 45.9752912352071
+            },
+            "question_title": "Longest bridge in the world",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        }
+      },
+      "name": "Geography",
+      "page_order": 7,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 400,
+            "rotation": 0,
+            "width": 200,
+            "x": 640,
+            "y": 90
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767125356095": {
+              "answer_display_config": {
+                "height": 420,
+                "rotation": 0,
+                "width": 600,
+                "x": 25,
+                "y": 90
+              },
+              "config": {}
+            },
+            "element-1767125544636": {
+              "answer_display_config": {
+                "height": 420,
+                "rotation": 0,
+                "width": 600,
+                "x": 25,
+                "y": 525
+              },
+              "config": {}
+            },
+            "element-1767125553644": {
+              "answer_display_config": {
+                "height": 420,
+                "rotation": 0,
+                "width": 600,
+                "x": 25,
+                "y": 965
+              },
+              "config": {}
+            },
+            "element-1767125556020": {
+              "answer_display_config": {
+                "height": 420,
+                "rotation": 0,
+                "width": 600,
+                "x": 25,
+                "y": 1405
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 2000,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767124974705": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767125328431": {
+              "config": {
+                "height": 500,
+                "rotation": 0,
+                "width": 1000,
+                "x": 365,
+                "y": 312
+              }
+            },
+            "element-1767125356095": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            },
+            "element-1767125544636": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            },
+            "element-1767125553644": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            },
+            "element-1767125556020": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/lost-traveler-undecided-which-way-to-go-51814438.webp"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767125356095": {
+              "answer_input_config": {
+                "height": 350,
+                "rotation": 0,
+                "width": 370,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            },
+            "element-1767125544636": {
+              "answer_input_config": {
+                "height": 380,
+                "rotation": 0,
+                "width": 370,
+                "x": 5,
+                "y": 480
+              },
+              "config": {}
+            },
+            "element-1767125553644": {
+              "answer_input_config": {
+                "height": 380,
+                "rotation": 0,
+                "width": 370,
+                "x": 5,
+                "y": 870
+              },
+              "config": {}
+            },
+            "element-1767125556020": {
+              "answer_input_config": {
+                "height": 350,
+                "rotation": 0,
+                "width": 370,
+                "x": 5,
+                "y": 1260
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 1650,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767126582920": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767126582920",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767126582920": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767126582920",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 3",
+      "page_order": 8,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 400,
+            "x": 415,
+            "y": 88
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767126582920": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767126582920": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767150319232": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;Stop when they're talking!</b></span></font></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767163527725": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "stacy_i",
+          "is_question": true,
+          "layer_order": 8,
+          "properties": {
+            "file_name": "03_Stacys_Mom.wav",
+            "filename": "03_Stacys_Mom.wav",
+            "layer_order": 3,
+            "media_type": "audio",
+            "media_url": "/api/media/serve/03_Stacys_Mom.wav",
+            "src": "/api/media/serve/03_Stacys_Mom.wav"
+          },
+          "question_config": {
+            "question_correct_answer": "30.5",
+            "question_title": "Song 1 - Yellow",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "type": "audio"
+        },
+        "element-1767164387702": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "stacy_b",
+          "is_question": true,
+          "layer_order": 2,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(232, 172, 8, 1)",
+            "layer_order": 2
+          },
+          "question_config": {
+            "question_correct_answer": "Stacy's Mom - Fountains of Wayne",
+            "question_title": "Song 1 - Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767165995663": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "stacy_c",
+          "is_question": false,
+          "layer_order": 10,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767202169147"
+          },
+          "properties": {
+            "background_color": "rgba(232, 172, 8, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(232, 172, 8, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 8.3
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 8.3
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "type": "counter"
+        },
+        "element-1767202169147": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "satcy_l",
+          "height": 150,
+          "is_question": false,
+          "layer_order": 9,
+          "properties": {
+            "file_name": "03_Stacys_Mom_-__lyrics.wav",
+            "filename": "03_Stacys_Mom_-__lyrics.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/03_Stacys_Mom_-__lyrics.wav",
+            "src": "/api/media/serve/03_Stacys_Mom_-__lyrics.wav"
+          },
+          "question_config": {},
+          "rotation": 0,
+          "type": "audio",
+          "width": 200,
+          "x": 227.849609375,
+          "y": 270.9779052734375
+        },
+        "element-1767202416479": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "heart_b",
+          "is_question": true,
+          "layer_order": 3,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(238, 32, 173, 1)",
+            "layer_order": 3
+          },
+          "question_config": {
+            "question_correct_answer": "Barracuda - Heart",
+            "question_title": "Song 2- Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767202572094": {
+          "appearance_config": {
+            "appearance_order": 10,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "levitate_b",
+          "is_question": true,
+          "layer_order": 4,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(33, 76, 176, 1)",
+            "layer_order": 4
+          },
+          "question_config": {
+            "question_correct_answer": "Levitating, Dua Lipa",
+            "question_title": "Song 3 - Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767202574134": {
+          "appearance_config": {
+            "appearance_order": 22,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "brown_b",
+          "is_question": true,
+          "layer_order": 5,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(230, 87, 10, 1)",
+            "layer_order": 5
+          },
+          "question_config": {
+            "question_correct_answer": "Brown Eyed Girl, Van Morrison",
+            "question_title": "Song 6 - Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767202577166": {
+          "appearance_config": {
+            "appearance_order": 18,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "shut_b",
+          "is_question": true,
+          "layer_order": 6,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(218, 22, 31, 1)",
+            "layer_order": 6
+          },
+          "question_config": {
+            "question_correct_answer": "Shut Up and Dance, Walk the Moon",
+            "question_title": "Song 5 - Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767202579231": {
+          "appearance_config": {
+            "appearance_order": 14,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "give_b",
+          "is_question": true,
+          "layer_order": 7,
+          "properties": {
+            "border_color": "#999",
+            "border_width": 2,
+            "fill_color": "rgba(139, 9, 115, 1)",
+            "layer_order": 7
+          },
+          "question_config": {
+            "question_correct_answer": "Give it Up, KC and the Sunshine Band",
+            "question_title": "Song 4 - Title and Artist",
+            "question_type": "text"
+          },
+          "type": "circle"
+        },
+        "element-1767214725250": {
+          "appearance_config": {
+            "appearance_order": 7,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "heart_i",
+          "height": 200,
+          "is_question": true,
+          "layer_order": 11,
+          "properties": {
+            "file_name": "Heart-Barracuda.wav",
+            "filename": "Heart-Barracuda.wav",
+            "layer_order": 11,
+            "media_type": "audio",
+            "media_url": "/api/media/serve/Heart-Barracuda.wav",
+            "src": "/api/media/serve/Heart-Barracuda.wav"
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "28.6",
+            "question_title": "Song 2 - Pink",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "rotation": 0,
+          "type": "audio",
+          "width": 200,
+          "x": 860,
+          "y": 135
+        },
+        "element-1767214967600": {
+          "appearance_config": {
+            "appearance_order": 9,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "heart_l",
+          "is_question": false,
+          "layer_order": 12,
+          "properties": {
+            "file_name": "Heart-Barracuda_-_lyrics.wav",
+            "filename": "Heart-Barracuda_-_lyrics.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/Heart-Barracuda_-_lyrics.wav",
+            "src": "/api/media/serve/Heart-Barracuda_-_lyrics.wav"
+          },
+          "question_config": {},
+          "type": "audio"
+        },
+        "element-1767215032705": {
+          "appearance_config": {
+            "appearance_order": 20,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "shut_c",
+          "is_question": false,
+          "layer_order": 25,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767216754015"
+          },
+          "properties": {
+            "background_color": "rgba(218, 22, 31, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(218, 22, 31, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 3.1
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 3.1
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "type": "counter"
+        },
+        "element-1767215036793": {
+          "appearance_config": {
+            "appearance_order": 12,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "lvitate_c",
+          "is_question": false,
+          "layer_order": 16,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767216199609"
+          },
+          "properties": {
+            "background_color": "rgba(33, 76, 176, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(33, 76, 176, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 4.7
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 4.7
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "type": "counter"
+        },
+        "element-1767215038785": {
+          "appearance_config": {
+            "appearance_order": 16,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "give_c",
+          "height": 200,
+          "is_question": false,
+          "layer_order": 19,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767216587185"
+          },
+          "properties": {
+            "background_color": "rgba(139, 9, 115, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(139, 9, 115, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 46.9
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 46.9
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "rotation": 0,
+          "type": "counter",
+          "width": 200,
+          "x": 1429.49951171875,
+          "y": 502.656005859375
+        },
+        "element-1767215050393": {
+          "appearance_config": {
+            "appearance_order": 8,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "heart_c",
+          "is_question": false,
+          "layer_order": 13,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767214967600"
+          },
+          "properties": {
+            "background_color": "rgba(238, 32, 173, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(238, 32, 173, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 28.6
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 28.6
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "type": "counter"
+        },
+        "element-1767215053480": {
+          "appearance_config": {
+            "appearance_order": 24,
+            "appearance_type": "control",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "brown_c",
+          "is_question": false,
+          "layer_order": 24,
+          "media_config": {
+            "start_method": "timer",
+            "timer_trigger": "element_starts_playing",
+            "timer_trigger_element": "element-1767216776012"
+          },
+          "properties": {
+            "background_color": "rgba(230, 87, 10, 1)",
+            "border_color": "#000000",
+            "count_up": true,
+            "increment": 0.1,
+            "prefix": "",
+            "properties": {
+              "background_color": "rgba(230, 87, 10, 1)",
+              "border_color": "#000000",
+              "count_up": true,
+              "increment": 0.1,
+              "prefix": "",
+              "shape": "circle",
+              "suffix": "",
+              "text_color": "rgba(0, 0, 0, 1)",
+              "text_size": 72,
+              "value": 14.6
+            },
+            "shape": "circle",
+            "suffix": "",
+            "text_color": "rgba(0, 0, 0, 1)",
+            "text_size": 72,
+            "value": 14.6
+          },
+          "question_config": {
+            "options": [],
+            "question_correct_answer": "",
+            "question_title": "",
+            "question_type": "text",
+            "timer_start_method": "user"
+          },
+          "type": "counter"
+        },
+        "element-1767215804680": {
+          "appearance_config": {
+            "appearance_order": 11,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "levitate_i",
+          "is_question": true,
+          "layer_order": 15,
+          "properties": {
+            "file_name": "Levitating.wav",
+            "filename": "Levitating.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/Levitating.wav",
+            "src": "/api/media/serve/Levitating.wav"
+          },
+          "question_config": {
+            "question_correct_answer": "4.7",
+            "question_title": "Song 3 - Blue",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "type": "audio"
+        },
+        "element-1767216199609": {
+          "appearance_config": {
+            "appearance_order": 13,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "levitate_l",
+          "height": 200,
+          "is_question": false,
+          "layer_order": 14,
+          "properties": {
+            "file_name": "Levitating_-_lyrics.wav",
+            "filename": "Levitating_-_lyrics.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/Levitating_-_lyrics.wav",
+            "src": "/api/media/serve/Levitating_-_lyrics.wav"
+          },
+          "question_config": {},
+          "rotation": 0,
+          "type": "audio",
+          "width": 200,
+          "x": 1420,
+          "y": 195
+        },
+        "element-1767216487367": {
+          "appearance_config": {
+            "appearance_order": 15,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "give_i",
+          "is_question": true,
+          "layer_order": 17,
+          "properties": {
+            "file_name": "06_Give_It_Up.wav",
+            "filename": "06_Give_It_Up.wav",
+            "layer_order": 20,
+            "media_type": "audio",
+            "media_url": "/api/media/serve/06_Give_It_Up.wav",
+            "src": "/api/media/serve/06_Give_It_Up.wav"
+          },
+          "question_config": {
+            "question_correct_answer": "46.9",
+            "question_title": "",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "type": "audio"
+        },
+        "element-1767216587185": {
+          "appearance_config": {
+            "appearance_order": 17,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "give_l",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "file_name": "06_Give_It_Up_-_lyrics.wav",
+            "filename": "06_Give_It_Up_-_lyrics.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/06_Give_It_Up_-_lyrics.wav",
+            "src": "/api/media/serve/06_Give_It_Up_-_lyrics.wav"
+          },
+          "question_config": {},
+          "type": "audio"
+        },
+        "element-1767216743780": {
+          "appearance_config": {
+            "appearance_order": 19,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "shut_i",
+          "is_question": true,
+          "layer_order": 20,
+          "properties": {
+            "file_name": "U-Turn-Shut-Up-and-Dance.wav",
+            "filename": "U-Turn-Shut-Up-and-Dance.wav",
+            "layer_order": 20,
+            "media_type": "audio",
+            "media_url": "/api/media/serve/U-Turn-Shut-Up-and-Dance.wav",
+            "src": "/api/media/serve/U-Turn-Shut-Up-and-Dance.wav"
+          },
+          "question_config": {
+            "question_correct_answer": "3.1",
+            "question_title": "",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "type": "audio"
+        },
+        "element-1767216754015": {
+          "appearance_config": {
+            "appearance_order": 21,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "shut_l",
+          "is_question": false,
+          "layer_order": 21,
+          "properties": {
+            "file_name": "U-Turn-Shut-Up-and-Dance_-_lyrics.wav",
+            "filename": "U-Turn-Shut-Up-and-Dance_-_lyrics.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/U-Turn-Shut-Up-and-Dance_-_lyrics.wav",
+            "src": "/api/media/serve/U-Turn-Shut-Up-and-Dance_-_lyrics.wav"
+          },
+          "question_config": {},
+          "type": "audio"
+        },
+        "element-1767216767206": {
+          "appearance_config": {
+            "appearance_order": 23,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "brown_i",
+          "is_question": false,
+          "layer_order": 22,
+          "properties": {
+            "file_name": "06_brown_eyed_girl.wav",
+            "filename": "06_brown_eyed_girl.wav",
+            "media_type": "audio",
+            "media_url": "/api/media/serve/06_brown_eyed_girl.wav",
+            "src": "/api/media/serve/06_brown_eyed_girl.wav"
+          },
+          "question_config": {},
+          "type": "audio"
+        },
+        "element-1767216776012": {
+          "appearance_config": {
+            "appearance_order": 25,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "brown_l",
+          "is_question": true,
+          "layer_order": 23,
+          "properties": {
+            "file_name": "06_brown_eyed_girl_-_lyrics.wav",
+            "filename": "06_brown_eyed_girl_-_lyrics.wav",
+            "layer_order": 23,
+            "media_type": "audio",
+            "media_url": "/api/media/serve/06_brown_eyed_girl_-_lyrics.wav",
+            "src": "/api/media/serve/06_brown_eyed_girl_-_lyrics.wav"
+          },
+          "question_config": {
+            "question_correct_answer": "14.6",
+            "question_title": "",
+            "question_type": "stopwatch",
+            "timer_start_method": "on_play"
+          },
+          "type": "audio"
+        }
+      },
+      "name": "Music",
+      "page_order": 9,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 1500,
+            "rotation": 0,
+            "width": 350,
+            "x": 486,
+            "y": 87
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767163527725": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 450,
+                "x": 20,
+                "y": 90
+              },
+              "config": {},
+              "control_config": {
+                "height": 121,
+                "rotation": 0,
+                "width": 351,
+                "x": 259,
+                "y": 86
+              }
+            },
+            "element-1767164387702": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 450,
+                "x": 20,
+                "y": 400
+              },
+              "config": {}
+            },
+            "element-1767202169147": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 728
+              }
+            },
+            "element-1767202416479": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 450,
+                "x": 25,
+                "y": 1020
+              },
+              "config": {}
+            },
+            "element-1767202572094": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 1688
+              },
+              "config": {}
+            },
+            "element-1767202574134": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 3608
+              },
+              "config": {}
+            },
+            "element-1767202577166": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 2968
+              },
+              "config": {}
+            },
+            "element-1767202579231": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 2328
+              },
+              "config": {}
+            },
+            "element-1767214725250": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 450,
+                "x": 20,
+                "y": 710
+              },
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 728
+              }
+            },
+            "element-1767214967600": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 1368
+              }
+            },
+            "element-1767215804680": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 450,
+                "x": 25,
+                "y": 1330
+              },
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 1368
+              }
+            },
+            "element-1767216199609": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2008
+              }
+            },
+            "element-1767216487367": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 2008
+              },
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2008
+              }
+            },
+            "element-1767216587185": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2648
+              }
+            },
+            "element-1767216743780": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 2648
+              },
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2648
+              }
+            },
+            "element-1767216754015": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2648
+              }
+            },
+            "element-1767216767206": {
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2648
+              }
+            },
+            "element-1767216776012": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 600,
+                "x": 50,
+                "y": 3288
+              },
+              "config": {},
+              "control_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 350,
+                "x": 50,
+                "y": 2648
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 4000,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767150319232": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767163527725": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 195
+              }
+            },
+            "element-1767164387702": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 195
+              }
+            },
+            "element-1767165995663": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 195
+              }
+            },
+            "element-1767202169147": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 195
+              }
+            },
+            "element-1767202416479": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 135
+              }
+            },
+            "element-1767202572094": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 195
+              }
+            },
+            "element-1767202574134": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 725
+              }
+            },
+            "element-1767202577166": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 835
+              }
+            },
+            "element-1767202579231": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 725
+              }
+            },
+            "element-1767214725250": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 135
+              }
+            },
+            "element-1767214967600": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 135
+              }
+            },
+            "element-1767215032705": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 835
+              }
+            },
+            "element-1767215036793": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 195
+              }
+            },
+            "element-1767215038785": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 725
+              }
+            },
+            "element-1767215050393": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 135
+              }
+            },
+            "element-1767215053480": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 725
+              }
+            },
+            "element-1767215804680": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 195
+              }
+            },
+            "element-1767216199609": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 195
+              }
+            },
+            "element-1767216487367": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 725
+              }
+            },
+            "element-1767216587185": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 1420,
+                "y": 725
+              }
+            },
+            "element-1767216743780": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 835
+              }
+            },
+            "element-1767216754015": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 860,
+                "y": 835
+              }
+            },
+            "element-1767216767206": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 725
+              }
+            },
+            "element-1767216776012": {
+              "config": {
+                "height": 200,
+                "rotation": 0,
+                "width": 200,
+                "x": 300,
+                "y": 725
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/caption-abstract-melody-a-cool-music-background-j65ro931fwclro6f.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767163527725": {
+              "answer_input_config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 370,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            },
+            "element-1767164387702": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 260
+              },
+              "config": {}
+            },
+            "element-1767202416479": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 650
+              },
+              "config": {}
+            },
+            "element-1767202572094": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1040
+              },
+              "config": {}
+            },
+            "element-1767202574134": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 2210
+              },
+              "config": {}
+            },
+            "element-1767202577166": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1820
+              },
+              "config": {}
+            },
+            "element-1767202579231": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1430
+              },
+              "config": {}
+            },
+            "element-1767214725250": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 455
+              },
+              "config": {}
+            },
+            "element-1767215804680": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 845
+              },
+              "config": {}
+            },
+            "element-1767216487367": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1235
+              },
+              "config": {}
+            },
+            "element-1767216743780": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1625
+              },
+              "config": {}
+            },
+            "element-1767216776012": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 2015
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 2400,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767126811946": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767126811946",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767126811946": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767126811946",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 4",
+      "page_order": 10,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 400,
+            "x": 408,
+            "y": 101
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767126811946": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767126811946": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767142432360": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;Which is which?</b></span></font></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767144734486": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "ships",
+          "is_question": true,
+          "layer_order": 5,
+          "properties": {
+            "file_name": "Gemini_Generated_Image_w9ygy7w9ygy7w9yg.png",
+            "filename": "Gemini_Generated_Image_w9ygy7w9ygy7w9yg.png",
+            "layer_order": 2,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Gemini_Generated_Image_w9ygy7w9ygy7w9yg.png",
+            "src": "/api/media/serve/Gemini_Generated_Image_w9ygy7w9ygy7w9yg.png"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 70.97796341639061,
+              "y": 12.816020025031289
+            },
+            "question_title": "Which ship was created under direction from Steven Spielberg?",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767145424121": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "witch",
+          "is_question": true,
+          "layer_order": 2,
+          "properties": {
+            "file_name": "Gemini_Generated_Image_jqke33jqke33jqke.png",
+            "filename": "Gemini_Generated_Image_jqke33jqke33jqke.png",
+            "layer_order": 3,
+            "media_type": "image",
+            "media_url": "/api/media/serve/Gemini_Generated_Image_jqke33jqke33jqke.png",
+            "src": "/api/media/serve/Gemini_Generated_Image_jqke33jqke33jqke.png"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 43.77880184331797,
+              "y": 21.19815668202765
+            },
+            "question_title": "Which witch would react the worst to you forgetting to invite her to your birthday party?",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767146273267": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "garden",
+          "is_question": true,
+          "layer_order": 3,
+          "properties": {
+            "file_name": "gardening.png",
+            "filename": "gardening.png",
+            "layer_order": 3,
+            "media_type": "image",
+            "media_url": "/api/media/serve/gardening.png",
+            "src": "/api/media/serve/gardening.png"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 25.810168515051128,
+              "y": 73.79667830318417
+            },
+            "question_title": "Which are the hand cultivator?",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        },
+        "element-1767146867550": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "flowers",
+          "is_question": true,
+          "layer_order": 4,
+          "properties": {
+            "file_name": "flowers.png",
+            "filename": "flowers.png",
+            "layer_order": 5,
+            "media_type": "image",
+            "media_url": "/api/media/serve/flowers.png",
+            "src": "/api/media/serve/flowers.png"
+          },
+          "question_config": {
+            "question_correct_answer": {
+              "x": 44.242817023115144,
+              "y": 51.4441416893733
+            },
+            "question_title": "Which is the Geranium",
+            "question_type": "image_click"
+          },
+          "type": "image"
+        }
+      },
+      "name": "Which One?",
+      "page_order": 11,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 400,
+            "rotation": 0,
+            "width": 250,
+            "x": 591,
+            "y": 90
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767144734486": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 90
+              },
+              "config": {}
+            },
+            "element-1767145424121": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 510
+              },
+              "config": {}
+            },
+            "element-1767146273267": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 930
+              },
+              "config": {}
+            },
+            "element-1767146867550": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1350
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 1800,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767142432360": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767144734486": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            },
+            "element-1767145424121": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1030,
+                "x": 500,
+                "y": 120
+              }
+            },
+            "element-1767146273267": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            },
+            "element-1767146867550": {
+              "config": {
+                "height": 960,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 120
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/image_1_2_3_4_5_6_7_8_9_10_11.png"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767144734486": {
+              "answer_input_config": {
+                "height": 470,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            },
+            "element-1767145424121": {
+              "answer_input_config": {
+                "height": 650,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 610
+              },
+              "config": {}
+            },
+            "element-1767146273267": {
+              "answer_input_config": {
+                "height": 450,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1275
+              },
+              "config": {}
+            },
+            "element-1767146867550": {
+              "answer_input_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 380,
+                "x": 7,
+                "y": 1750
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 2200,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767126884796": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767126884796",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767126884796": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767126884796",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 5",
+      "page_order": 12,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 360,
+            "x": 449,
+            "y": 136
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767126884796": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767126884796": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767128111284": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;Sliding Scale</b></span></font></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128180447": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Who is the psychopomp responsible for conducting the souls of the deceased to the shores of the River Styx?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Mercury",
+            "question_title": "Psychopomp",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767128332003": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q1-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Which planet in our solar system has the shortest orbital period, completing a revolution in just 88 Earth days?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128334107": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q1-3",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What heavy, silvery-white metal is the only element that is liquid at standard room temperature, often called \"quicksilver\"?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128812250": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q2-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Which mythical creature known as the Bennu in Heliopolis, was associated with the flooding of the Nile and the creation of the world?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Phoenix",
+            "question_title": "Bennu",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767128815290": {
+          "appearance_config": {
+            "appearance_order": 8,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q3-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What was the top secret code name for the CIA's first generation of spy satellites used from 1959-1972?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Corona",
+            "question_title": "CIA Satellites",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767128817682": {
+          "appearance_config": {
+            "appearance_order": 11,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q4-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">How many lines does the first majour book printed with movable type in Europe have per page (the Gutenberg Bible in 1945)?</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "42",
+            "question_title": "Lines per page",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767128902345": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q2-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What creature is a universal symbol of rebirth and resilience?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128920521": {
+          "appearance_config": {
+            "appearance_order": 7,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q2-3",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">In Harry Potter, what kind of magical bird is is Fawkes?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128925921": {
+          "appearance_config": {
+            "appearance_order": 9,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q3-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What is the name of the sun's upper atmosphere?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128928289": {
+          "appearance_config": {
+            "appearance_order": 12,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q4-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What is the only number to officially be retired by every single team in the MLB to honour the legacy of Jackie Robinson?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128933073": {
+          "appearance_config": {
+            "appearance_order": 10,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q3-3",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">A brand of beer</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767128934553": {
+          "appearance_config": {
+            "appearance_order": 13,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_delay": 12,
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q4-3",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"\"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">What is the answer to life, the universe, and everything?</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        }
+      },
+      "name": "Hard/Easy",
+      "page_order": 13,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 900,
+            "rotation": 0,
+            "width": 250,
+            "x": 585,
+            "y": 88
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767128180447": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 90
+              },
+              "config": {}
+            },
+            "element-1767128812250": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 500
+              },
+              "config": {}
+            },
+            "element-1767128815290": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 910
+              },
+              "config": {}
+            },
+            "element-1767128817682": {
+              "answer_display_config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1320
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 1800,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767128111284": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767128180447": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 10,
+                "y": 130
+              }
+            },
+            "element-1767128332003": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 650,
+                "y": 130
+              }
+            },
+            "element-1767128334107": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 1290,
+                "y": 130
+              }
+            },
+            "element-1767128812250": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 10,
+                "y": 370
+              }
+            },
+            "element-1767128815290": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 10,
+                "y": 610
+              }
+            },
+            "element-1767128817682": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 10,
+                "y": 850
+              }
+            },
+            "element-1767128902345": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 650,
+                "y": 370
+              }
+            },
+            "element-1767128920521": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 1290,
+                "y": 370
+              }
+            },
+            "element-1767128925921": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 650,
+                "y": 610
+              }
+            },
+            "element-1767128928289": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 650,
+                "y": 850
+              }
+            },
+            "element-1767128933073": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 1290,
+                "y": 610
+              }
+            },
+            "element-1767128934553": {
+              "config": {
+                "height": 220,
+                "rotation": 0,
+                "width": 620,
+                "x": 1290,
+                "y": 850
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/Downhill4.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767128180447": {
+              "answer_input_config": {
+                "height": 180,
+                "rotation": 0,
+                "width": 360,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            },
+            "element-1767128812250": {
+              "answer_input_config": {
+                "height": 180,
+                "rotation": 0,
+                "width": 360,
+                "x": 5,
+                "y": 315
+              },
+              "config": {}
+            },
+            "element-1767128815290": {
+              "answer_input_config": {
+                "height": 180,
+                "rotation": 0,
+                "width": 360,
+                "x": 5,
+                "y": 510
+              },
+              "config": {}
+            },
+            "element-1767128817682": {
+              "answer_input_config": {
+                "height": 180,
+                "rotation": 0,
+                "width": 360,
+                "x": 5,
+                "y": 705
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 900,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "status-podium-1767126889593": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 48px; font-weight: bold; color: #FFD700;\">🥇 🥈 🥉<br>PODIUM</div>",
+            "id": "status-podium-1767126889593",
+            "text": "PODIUM",
+            "type": "text"
+          }
+        },
+        "status-table-1767126889593": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; font-size: 36px; font-weight: bold;\">📊 PARTICIPANT RANKINGS TABLE</div>",
+            "id": "status-table-1767126889593",
+            "text": "PARTICIPANT TABLE",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Status 6",
+      "page_order": 14,
+      "page_type": "status_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 200,
+            "rotation": 0,
+            "width": 360,
+            "x": 447,
+            "y": 149
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "status-podium-1767126889593": {
+              "config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 50
+              }
+            },
+            "status-table-1767126889593": {
+              "config": {
+                "height": 400,
+                "rotation": 0,
+                "width": 900,
+                "x": 50,
+                "y": 400
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/quiz.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767137032688": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;Answer&nbsp;</b></span></font><b style=\"font-size: 72px; color: rgb(243, 242, 242); font-family: inherit;\">Smash - Intro</b></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767137991446": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1",
+          "is_question": true,
+          "layer_order": 2,
+          "properties": {
+            "file_name": "image_1.png",
+            "filename": "image_1.png",
+            "layer_order": 2,
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1.png",
+            "src": "/api/media/serve/image_1.png"
+          },
+          "question_config": {
+            "question_correct_answer": "ElephAntartica",
+            "question_title": "Example Smash",
+            "question_type": "text"
+          },
+          "type": "image"
+        },
+        "element-1767138024901": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><span style=\"font-size: 24px;\"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Southernmost continent on Earth</span></font></span></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767138179398": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": null,
+          "is_question": false,
+          "layer_order": 19,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        }
+      },
+      "name": "Answer Smash - Intro",
+      "page_order": 15,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 280,
+            "rotation": 0,
+            "width": 250,
+            "x": 571,
+            "y": 93.5
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767137991446": {
+              "answer_display_config": {
+                "height": 280,
+                "rotation": 0,
+                "width": 491.99993896484375,
+                "x": 16,
+                "y": 89
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767137032688": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767137991446": {
+              "config": {
+                "height": 336,
+                "rotation": 0,
+                "width": 595,
+                "x": 189,
+                "y": 397
+              }
+            },
+            "element-1767138024901": {
+              "config": {
+                "height": 332,
+                "rotation": 0,
+                "width": 381,
+                "x": 1166,
+                "y": 398
+              }
+            },
+            "element-1767138179398": {
+              "config": {
+                "height": 225,
+                "rotation": 0,
+                "width": 225,
+                "x": 865,
+                "y": 474
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/smash.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767137991446": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "element-1767137155647": {
+          "appearance_config": {
+            "appearance_order": 1,
+            "appearance_type": "on_load",
+            "config": {}
+          },
+          "element_name": "title",
+          "is_question": false,
+          "layer_order": 1,
+          "properties": {
+            "background_color": "#0070c0",
+            "content": "<p><font color=\"#f3f2f2\"><span style=\"font-size: 72px;\"><b>&nbsp;Answer&nbsp;</b></span></font><b style=\"font-size: 72px; color: rgb(243, 242, 242); font-family: inherit;\">Smash</b></p>",
+            "font_size": 16,
+            "text_align_horizontal": "left",
+            "text_align_vertical": "top",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767138917338": {
+          "appearance_config": {
+            "appearance_order": 2,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q1-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">3 year old red character on a TV show</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "ElMoana",
+            "question_title": "Red character",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767139474126": {
+          "appearance_config": {
+            "appearance_order": 4,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q1-2",
+          "is_question": false,
+          "layer_order": 19,
+          "properties": {
+            "file_name": "image_1_2_3_4.png",
+            "filename": "image_1_2_3_4.png",
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1_2_3_4.png",
+            "src": "/api/media/serve/image_1_2_3_4.png"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767139967786": {
+          "appearance_config": {
+            "appearance_order": 3,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": null,
+          "is_question": false,
+          "layer_order": 20,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        },
+        "element-1767140259745": {
+          "appearance_config": {
+            "appearance_order": 8,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q3-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">The name of Tina Fey's Character in \"30 Rock\"</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Liz Lemonade",
+            "question_title": "Tina Fey",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767140293345": {
+          "appearance_config": {
+            "appearance_order": 9,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "plus3",
+          "height": 200,
+          "is_question": false,
+          "layer_order": 21,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "rotation": 0,
+          "type": "plus",
+          "width": 200,
+          "x": 465,
+          "y": 702
+        },
+        "element-1767140539331": {
+          "appearance_config": {
+            "appearance_order": 14,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q5-1",
+          "is_question": true,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">The common name of the body part also called the laryngeal prominence</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {
+            "question_correct_answer": "Adam's aPelican",
+            "question_title": "Laryngeal prominence",
+            "question_type": "text"
+          },
+          "type": "richtext"
+        },
+        "element-1767140602242": {
+          "appearance_config": {
+            "appearance_order": 15,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "plus5",
+          "is_question": false,
+          "layer_order": 22,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        },
+        "element-1767140634999": {
+          "appearance_config": {
+            "appearance_order": 10,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q3-2",
+          "is_question": false,
+          "layer_order": 23,
+          "properties": {
+            "file_name": "image_1_2_3_4_5_6_7_8.png",
+            "filename": "image_1_2_3_4_5_6_7_8.png",
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1_2_3_4_5_6_7_8.png",
+            "src": "/api/media/serve/image_1_2_3_4_5_6_7_8.png"
+          },
+          "question_config": {},
+          "type": "image"
+        },
+        "element-1767140655156": {
+          "appearance_config": {
+            "appearance_order": 7,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q2-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">The customary code of polite behaviour in society</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767140664820": {
+          "appearance_config": {
+            "appearance_order": 13,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q4-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">Famous adage Patch Adams is likely to say</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767140668148": {
+          "appearance_config": {
+            "appearance_order": 19,
+            "appearance_type": "timer",
+            "config": {
+              "delay": 0
+            },
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q6-2",
+          "is_question": false,
+          "layer_order": 18,
+          "properties": {
+            "background_color": "#4472c4",
+            "content": "<p style=\"text-align: center; \"><font color=\"#ffffff\"><span style=\"font-size: 36px;\">One of these might sell you Brooklyn Bridge or the Eiffel Tower</span></font></p>",
+            "font_family": "Arial",
+            "font_size": 16,
+            "layer_order": 18,
+            "text_align_horizontal": "center",
+            "text_align_vertical": "middle",
+            "text_color": "#ffffff"
+          },
+          "question_config": {},
+          "type": "richtext"
+        },
+        "element-1767140687412": {
+          "appearance_config": {
+            "appearance_order": 12,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "plus4",
+          "is_question": false,
+          "layer_order": 24,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        },
+        "element-1767140691564": {
+          "appearance_config": {
+            "appearance_order": 6,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "plus2",
+          "is_question": false,
+          "layer_order": 25,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        },
+        "element-1767140698308": {
+          "appearance_config": {
+            "appearance_order": 18,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "plus6",
+          "is_question": false,
+          "layer_order": 26,
+          "properties": {
+            "border_color": "#000000",
+            "border_width": 2,
+            "fill_color": "#a74f1f"
+          },
+          "question_config": {},
+          "type": "plus"
+        },
+        "element-1767140800189": {
+          "appearance_config": {
+            "appearance_order": 17,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q6-1",
+          "is_question": true,
+          "layer_order": 27,
+          "properties": {
+            "file_name": "image_1_2_3_4_5_6_7_8_9_10.png",
+            "filename": "image_1_2_3_4_5_6_7_8_9_10.png",
+            "layer_order": 27,
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1_2_3_4_5_6_7_8_9_10.png",
+            "src": "/api/media/serve/image_1_2_3_4_5_6_7_8_9_10.png"
+          },
+          "question_config": {
+            "question_correct_answer": "LepraCon artist",
+            "question_title": "Brooklyn Tower",
+            "question_type": "text"
+          },
+          "type": "image"
+        },
+        "element-1767147566768": {
+          "appearance_config": {
+            "appearance_order": 11,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q4-1",
+          "is_question": true,
+          "layer_order": 28,
+          "properties": {
+            "file_name": "image.png",
+            "filename": "image.png",
+            "layer_order": 28,
+            "media_type": "image",
+            "media_url": "/api/media/serve/image.png",
+            "src": "/api/media/serve/image.png"
+          },
+          "question_config": {
+            "question_correct_answer": "Count OLaughter is the best medicine",
+            "question_title": "Patch Adams",
+            "question_type": "text"
+          },
+          "type": "image"
+        },
+        "element-1767147939778": {
+          "appearance_config": {
+            "appearance_order": 5,
+            "appearance_type": "control",
+            "config": {
+              "delay": 0
+            }
+          },
+          "element_name": "q2-1",
+          "is_question": true,
+          "layer_order": 29,
+          "properties": {
+            "file_name": "image_1_2.png",
+            "filename": "image_1_2.png",
+            "layer_order": 29,
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1_2.png",
+            "src": "/api/media/serve/image_1_2.png"
+          },
+          "question_config": {
+            "question_correct_answer": "SmurfEtiquete",
+            "question_title": "Customary code",
+            "question_type": "text"
+          },
+          "type": "image"
+        },
+        "element-1767148624252": {
+          "appearance_config": {
+            "appearance_order": 16,
+            "appearance_type": "timer",
+            "config": {},
+            "timer_trigger": "previous_element"
+          },
+          "element_name": "q5-2",
+          "is_question": false,
+          "layer_order": 30,
+          "properties": {
+            "file_name": "image_1_2_3.png",
+            "filename": "image_1_2_3.png",
+            "media_type": "image",
+            "media_url": "/api/media/serve/image_1_2_3.png",
+            "src": "/api/media/serve/image_1_2_3.png"
+          },
+          "question_config": {},
+          "type": "image"
+        }
+      },
+      "name": "Answer Smash",
+      "page_order": 16,
+      "page_type": "quiz_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 1100,
+            "rotation": 0,
+            "width": 250,
+            "x": 581,
+            "y": 89
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {},
+            "element-1767138917338": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 90
+              },
+              "config": {}
+            },
+            "element-1767140259745": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 730
+              },
+              "config": {}
+            },
+            "element-1767140539331": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1370
+              },
+              "config": {}
+            },
+            "element-1767140800189": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1690
+              },
+              "config": {}
+            },
+            "element-1767147566768": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 1050
+              },
+              "config": {}
+            },
+            "element-1767147939778": {
+              "answer_display_config": {
+                "height": 300,
+                "rotation": 0,
+                "width": 550,
+                "x": 25,
+                "y": 410
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 2100,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "element-1767137155647": {
+              "config": {
+                "height": 120,
+                "rotation": 0,
+                "width": 1920,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "element-1767138917338": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 22,
+                "y": 149
+              }
+            },
+            "element-1767139474126": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 320,
+                "x": 605,
+                "y": 150
+              }
+            },
+            "element-1767139967786": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 441,
+                "y": 196
+              }
+            },
+            "element-1767140259745": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 35,
+                "y": 763
+              }
+            },
+            "element-1767140293345": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 462,
+                "y": 792
+              }
+            },
+            "element-1767140539331": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 988,
+                "y": 442
+              }
+            },
+            "element-1767140602242": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 1426,
+                "y": 488
+              }
+            },
+            "element-1767140634999": {
+              "config": {
+                "height": 278,
+                "rotation": 0,
+                "width": 265,
+                "x": 669,
+                "y": 727
+              }
+            },
+            "element-1767140655156": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 518,
+                "y": 448
+              }
+            },
+            "element-1767140664820": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 1490,
+                "y": 150
+              }
+            },
+            "element-1767140668148": {
+              "config": {
+                "height": 240,
+                "rotation": 0,
+                "width": 400,
+                "x": 1473,
+                "y": 732
+              }
+            },
+            "element-1767140687412": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 1325,
+                "y": 201
+              }
+            },
+            "element-1767140691564": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 300,
+                "y": 484
+              }
+            },
+            "element-1767140698308": {
+              "config": {
+                "height": 150,
+                "rotation": 0,
+                "width": 150,
+                "x": 1286,
+                "y": 765
+              }
+            },
+            "element-1767140800189": {
+              "config": {
+                "height": 268,
+                "rotation": 0,
+                "width": 247,
+                "x": 1004,
+                "y": 723
+              }
+            },
+            "element-1767147566768": {
+              "config": {
+                "height": 253,
+                "rotation": 0,
+                "width": 328,
+                "x": 984,
+                "y": 150
+              }
+            },
+            "element-1767147939778": {
+              "config": {
+                "height": 237,
+                "rotation": 0,
+                "width": 180,
+                "x": 66,
+                "y": 448
+              }
+            },
+            "element-1767148624252": {
+              "config": {
+                "height": 250,
+                "rotation": 0,
+                "width": 250,
+                "x": 1611,
+                "y": 433
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/smash.jpg"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {
+            "element-1767138917338": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 120
+              },
+              "config": {}
+            },
+            "element-1767140259745": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 510
+              },
+              "config": {}
+            },
+            "element-1767140539331": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 900
+              },
+              "config": {}
+            },
+            "element-1767140800189": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 1095
+              },
+              "config": {}
+            },
+            "element-1767147566768": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 705
+              },
+              "config": {}
+            },
+            "element-1767147939778": {
+              "answer_input_config": {
+                "height": 175,
+                "rotation": 0,
+                "width": 380,
+                "x": 5,
+                "y": 315
+              },
+              "config": {}
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+              },
+              "type": "color"
+            },
+            "size": {
+              "height": 1300,
+              "width": 390
+            }
+          }
+        }
+      }
+    },
+    {
+      "elements": {
+        "results-rankings-1767064871044": {
+          "appearance_config": {
+            "appearance_order": 1
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"padding: 2rem;\"><div style=\"font-size: 36px; font-weight: bold; margin-bottom: 1rem;\">📋 RANKINGS</div><div style=\"font-size: 24px; line-height: 2;\">2nd Place - Name<br>3rd Place - Name<br>4th Place - Name<br>5th Place - Name<br>...</div></div>",
+            "id": "results-rankings-1767064871044",
+            "text": "RANKINGS",
+            "type": "text"
+          }
+        },
+        "results-winner-1767064871044": {
+          "appearance_config": {
+            "appearance_order": 0
+          },
+          "is_question": false,
+          "properties": {
+            "html": "<div style=\"text-align: center; padding: 2rem;\"><div style=\"font-size: 120px;\">🎉</div><div style=\"font-size: 64px; margin: 1rem 0;\">👤</div><div style=\"font-size: 48px; font-weight: bold; margin: 1rem 0;\">WINNER NAME</div><div style=\"font-size: 36px; margin-top: 1rem;\">🏆 CHAMPION 🏆</div></div>",
+            "id": "results-winner-1767064871044",
+            "text": "WINNER",
+            "type": "text"
+          }
+        }
+      },
+      "name": "Results",
+      "page_order": 17,
+      "page_type": "result_page",
+      "views": {
+        "control": {
+          "appearance_control_modal": {
+            "height": 300,
+            "rotation": 0,
+            "width": 360,
+            "x": 437,
+            "y": 83
+          },
+          "local_element_configs": {
+            "appearance-control-modal": {}
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 390,
+              "width": 844
+            }
+          }
+        },
+        "display": {
+          "local_element_configs": {
+            "results-rankings-1767064871044": {
+              "config": {
+                "height": 700,
+                "rotation": 0,
+                "width": 450,
+                "x": 550,
+                "y": 50
+              }
+            },
+            "results-winner-1767064871044": {
+              "config": {
+                "height": 700,
+                "rotation": 0,
+                "width": 450,
+                "x": 50,
+                "y": 50
+              }
+            }
+          },
+          "view_config": {
+            "background": {
+              "config": {
+                "image_url": "/api/media/serve/festive-scene-features-gold-teal-ornaments-golden-stars-scattered-dark-background-fireworks-burst-sky-above-395330339.webp"
+              },
+              "type": "image"
+            },
+            "size": {
+              "height": 1080,
+              "width": 1920
+            }
+          }
+        },
+        "participant": {
+          "local_element_configs": {},
+          "view_config": {
+            "background": {
+              "config": {
+                "angle": 135,
+                "colour1": "#667eea",
+                "colour2": "#764ba2"
+              },
+              "type": "gradient"
+            },
+            "size": {
+              "height": 844,
+              "width": 390
+            }
+          }
+        }
+      }
+    }
+  ],
+  "public": false
+}

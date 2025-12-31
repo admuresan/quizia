@@ -52,7 +52,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update header immediately if we have the info
     updateParticipantHeader();
 
+    // Handle WebSocket errors and fallback to polling
+    socket.on('connect_error', (error) => {
+        console.warn('[Participant] Connection error:', error);
+        // If WebSocket fails, force polling only
+        if (socket.io.opts.transports.includes('websocket')) {
+            console.log('[Participant] Falling back to polling transport');
+            socket.io.opts.transports = ['polling'];
+            socket.disconnect();
+            socket.connect();
+        }
+    });
+
     socket.on('connect', () => {
+        console.log('[Participant] Socket connected via', socket.io.engine.transport.name);
         if (rejoinId) {
             socket.emit('participant_join', {
                 room_code: window.roomCode,
@@ -65,6 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 avatar: avatar
             });
         }
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.warn('[Participant] Socket disconnected:', reason);
     });
 
     socket.on('joined_room', (data) => {

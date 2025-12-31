@@ -1,5 +1,6 @@
 // Display page (for large screen) - matches editor display view exactly
-const socket = io();
+// Prefer polling first for better Windows compatibility (threading mode has WebSocket issues)
+const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true, forceNew: false });
 window.socket = socket; // Make socket available globally
 let currentPageIndex = 0; // Track current page index to stay in sync
 let currentPage = null;
@@ -50,8 +51,25 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('touchstart', enableAudio, { once: true });
     document.addEventListener('keydown', enableAudio, { once: true });
 
+    // Handle WebSocket errors and fallback to polling
+    socket.on('connect_error', (error) => {
+        console.warn('[Display] Connection error:', error);
+        // If WebSocket fails, force polling only
+        if (socket.io.opts.transports.includes('websocket')) {
+            console.log('[Display] Falling back to polling transport');
+            socket.io.opts.transports = ['polling'];
+            socket.disconnect();
+            socket.connect();
+        }
+    });
+
     socket.on('connect', () => {
+        console.log('[Display] Socket connected via', socket.io.engine.transport.name);
         socket.emit('display_join', { room_code: currentRoomCode });
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.warn('[Display] Socket disconnected:', reason);
     });
 
     // Unified handler for both display_state and page_changed
@@ -396,9 +414,56 @@ function renderPage(pageIndex, page) {
         orderedElements.forEach((element, index) => {
             try {
                 // Get full element data from page.elements to access media_config
+                // CRITICAL: Preserve x, y, width, height from element (from display view config)
+                // The element from getViewElements() already has the correct coordinates from display view config
+                // We must NOT let top-level properties from page.elements override these view-specific coordinates
                 let elementData = element;
                 if (page.elements && page.elements[element.id]) {
-                    elementData = { ...element, ...page.elements[element.id] };
+                    const pageElement = page.elements[element.id];
+                    
+                    // CRITICAL: Get coordinates from display view config directly as fallback
+                    // First try from element (from getViewElements), then from display view config, then default
+                    let displayConfig = null;
+                    if (page.views && page.views.display && page.views.display.local_element_configs && 
+                        page.views.display.local_element_configs[element.id]) {
+                        displayConfig = page.views.display.local_element_configs[element.id].config || {};
+                    }
+                    
+                    // Extract and preserve coordinates - prioritize element (from getViewElements), then display config, then defaults
+                    const preservedCoords = {
+                        x: (element.x !== undefined && element.x !== null) ? element.x : 
+                           (displayConfig && displayConfig.x !== undefined && displayConfig.x !== null) ? displayConfig.x : 0,
+                        y: (element.y !== undefined && element.y !== null) ? element.y : 
+                           (displayConfig && displayConfig.y !== undefined && displayConfig.y !== null) ? displayConfig.y : 0,
+                        width: (element.width !== undefined && element.width !== null) ? element.width : 
+                               (displayConfig && displayConfig.width !== undefined && displayConfig.width !== null) ? displayConfig.width : 100,
+                        height: (element.height !== undefined && element.height !== null) ? element.height : 
+                                (displayConfig && displayConfig.height !== undefined && displayConfig.height !== null) ? displayConfig.height : 100,
+                        rotation: (element.rotation !== undefined && element.rotation !== null) ? element.rotation : 
+                                  (displayConfig && displayConfig.rotation !== undefined && displayConfig.rotation !== null) ? displayConfig.rotation : 0
+                    };
+                    
+                    // Remove coordinate properties from pageElement to prevent them from overriding
+                    const { x, y, width, height, rotation, ...pageElementWithoutCoords } = pageElement;
+                    
+                    // Merge: element (has correct coords) -> pageElementWithoutCoords (has media_config, etc.) -> preservedCoords (ensures coords win)
+                    elementData = { 
+                        ...element, 
+                        ...pageElementWithoutCoords, 
+                        ...preservedCoords  // Final spread ensures coordinates from display view config are used
+                    };
+                    
+                    // Debug log for coordinate preservation
+                    if (element.id === 'element-1767202169147') {
+                        console.log('[Display] Audio element coordinate preservation:', {
+                            elementId: element.id,
+                            fromGetViewElements: { x: element.x, y: element.y, width: element.width, height: element.height },
+                            fromDisplayConfig: displayConfig ? { x: displayConfig.x, y: displayConfig.y, width: displayConfig.width, height: displayConfig.height } : 'not found',
+                            fromPageElements: { x: pageElement.x, y: pageElement.y, width: pageElement.width, height: pageElement.height },
+                            preserved: preservedCoords,
+                            final: { x: elementData.x, y: elementData.y, width: elementData.width, height: elementData.height }
+                        });
+                    }
                 }
                 
                 const el = RuntimeRenderer.ElementRenderer.renderElement(container, elementData, {

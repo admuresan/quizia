@@ -37,6 +37,14 @@
                                     delete converted.views[viewName].local_element_configs[elementId];
                                 }
                             });
+                        } else {
+                            // CRITICAL: Remove x, y, width, height, rotation from main element definition
+                            // These should ONLY be in view-specific configs, not in the main element definition
+                            if ('x' in element) delete element.x;
+                            if ('y' in element) delete element.y;
+                            if ('width' in element) delete element.width;
+                            if ('height' in element) delete element.height;
+                            if ('rotation' in element) delete element.rotation;
                         }
                     });
                 }
@@ -635,7 +643,28 @@
         if (!page.elements) {
             page.elements = {};
         }
-        page.elements[elementId] = elementData;
+        
+        // CRITICAL: Remove x, y, width, height, rotation from elementData before saving
+        // These should ONLY be in view-specific configs, not in the main element definition
+        // Use explicit deletion to ensure they're completely removed
+        const elementDataWithoutCoords = { ...elementData };
+        delete elementDataWithoutCoords.x;
+        delete elementDataWithoutCoords.y;
+        delete elementDataWithoutCoords.width;
+        delete elementDataWithoutCoords.height;
+        delete elementDataWithoutCoords.rotation;
+        
+        // Also remove these properties from any existing element data to ensure they're not persisted
+        if (page.elements[elementId]) {
+            const existingElement = page.elements[elementId];
+            delete existingElement.x;
+            delete existingElement.y;
+            delete existingElement.width;
+            delete existingElement.height;
+            delete existingElement.rotation;
+        }
+        
+        page.elements[elementId] = elementDataWithoutCoords;
         
         // Add/update element config in the appropriate view's local_element_configs
         if (!page.views) {

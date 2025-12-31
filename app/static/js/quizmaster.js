@@ -451,29 +451,71 @@ async function startQuiz(quizId) {
      * @param {string} quizId - The unique quiz ID (from quiz.id field, NOT quiz.name)
      *                          Multiple quizzes can have the same name, so ID is required.
      */
+    console.log('[Start Quiz] Starting quiz with ID:', quizId);
+    
     // Connect to WebSocket and start quiz
     const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
     
+    let quizStarted = false;
+    let responseReceived = false;
+    
+    // Function to emit the start quiz event
+    const emitStartQuiz = () => {
+        if (!quizStarted && socket.connected) {
+            console.log('[Start Quiz] Emitting quizmaster_start_quiz with quiz_id:', quizId);
+            socket.emit('quizmaster_start_quiz', { quiz_id: quizId });
+            quizStarted = true;
+        }
+    };
+    
+    // Set up all event listeners first
     socket.on('connect', () => {
-        socket.emit('quizmaster_start_quiz', { quiz_id: quizId });
+        console.log('[Start Quiz] Socket connected');
+        emitStartQuiz();
     });
     
     socket.on('quiz_started', (data) => {
+        console.log('[Start Quiz] Quiz started with room_code:', data.room_code);
+        responseReceived = true;
+        
         // Open display page in new tab
         window.open(`/display/${data.room_code}`, '_blank');
         
         // Open control page in new window
         window.open(`/control/${data.room_code}`, '_blank', 'width=1400,height=900');
+        
+        // Clean up socket
+        socket.disconnect();
     });
     
     socket.on('error', (data) => {
+        console.error('[Start Quiz] Error:', data.message);
+        responseReceived = true;
         alert('Error: ' + data.message);
         socket.disconnect();
     });
     
+    socket.on('connect_error', (error) => {
+        console.error('[Start Quiz] Connection error:', error);
+        responseReceived = true;
+        alert('Failed to connect to server. Please try again.');
+        socket.disconnect();
+    });
+    
+    // Check if already connected (after setting up listeners to avoid race condition)
+    // Use setTimeout to ensure listeners are registered first
+    setTimeout(() => {
+        if (socket.connected && !quizStarted) {
+            console.log('[Start Quiz] Socket already connected, emitting immediately');
+            emitStartQuiz();
+        }
+    }, 0);
+    
     // Clean up socket after a timeout if no response
     setTimeout(() => {
-        if (socket.connected) {
+        if (!responseReceived) {
+            console.warn('[Start Quiz] Timeout waiting for response');
+            alert('No response from server. Please check your connection and try again.');
             socket.disconnect();
         }
     }, 10000);

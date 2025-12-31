@@ -32,6 +32,21 @@ RuntimeRenderer.ElementRenderer = (function() {
                 console.warn('[RuntimeRenderer] Element missing coordinates:', element.id, element.type, element);
             }
             
+            // Debug log for specific audio element
+            if (element.id === 'element-1767202169147') {
+                console.log('[RuntimeRenderer] Applying position to audio element:', {
+                    id: element.id,
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height,
+                    elementX: element.x,
+                    elementY: element.y,
+                    elementWidth: element.width,
+                    elementHeight: element.height
+                });
+            }
+            
             el.style.position = 'absolute';
             el.style.left = `${x}px`;
             el.style.top = `${y}px`;
@@ -259,6 +274,10 @@ RuntimeRenderer.ElementRenderer = (function() {
         
         el.appendChild(audioElement);
         el.style.border = 'none';
+        el.style.display = 'flex';
+        el.style.alignItems = 'center';
+        el.style.justifyContent = 'center';
+        // Position is already set by applyElementPosition() - don't override it
     }
     
     function renderRectangle(el, element) {
@@ -532,7 +551,7 @@ RuntimeRenderer.ElementRenderer = (function() {
         el.style.display = 'flex';
         el.style.alignItems = 'center';
         el.style.justifyContent = 'center';
-        el.style.position = 'relative';
+        // Position is already set by applyElementPosition() - don't override it
         
         // Store element reference for counter updates
         el.dataset.counterId = element.id;
