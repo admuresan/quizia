@@ -660,6 +660,7 @@
                 
                 // Hover highlighting - highlight corresponding canvas element based on current view
                 let highlightedCanvasElement = null;
+                let isClicking = false;
                 const handleMouseEnter = () => {
                     // Don't highlight if we're dragging
                     if (isDragging || Editor.Properties.PageVisibilityProperties.isDraggingVisibilityItem) {
@@ -682,7 +683,8 @@
                         // In display view, highlight the question element itself (element.id)
                     }
                     
-                    const canvasElement = document.getElementById(`element-${elementIdToHighlight}`);
+                    // Canvas elements use element.id directly (no "element-" prefix)
+                    const canvasElement = document.getElementById(elementIdToHighlight);
                     if (canvasElement) {
                         highlightedCanvasElement = canvasElement;
                         canvasElement.style.outline = '4px solid #FF8C42';
@@ -698,6 +700,11 @@
                         return;
                     }
                     
+                    // Don't clear highlight if we're clicking (mouseleave can fire before click)
+                    if (isClicking) {
+                        return;
+                    }
+                    
                     if (highlightedCanvasElement) {
                         highlightedCanvasElement.style.outline = '';
                         highlightedCanvasElement.style.outlineOffset = '';
@@ -709,6 +716,18 @@
                 
                 visibilityItem.addEventListener('mouseenter', handleMouseEnter);
                 visibilityItem.addEventListener('mouseleave', handleMouseLeave);
+                
+                // Track when mouse is down to prevent clearing highlight during click
+                visibilityItem.addEventListener('mousedown', () => {
+                    isClicking = true;
+                });
+                
+                visibilityItem.addEventListener('mouseup', () => {
+                    // Small delay to allow click event to fire
+                    setTimeout(() => {
+                        isClicking = false;
+                    }, 100);
+                });
                 
                 // Custom drag implementation using mouse events
                 let isMouseDown = false;
@@ -842,9 +861,9 @@
                         elementToSelect = viewElements.find(el => el.id === elementId);
                     }
                     
-                    if (elementToSelect && typeof selectElement === 'function') {
+                    if (elementToSelect && Editor && Editor.ElementSelection && typeof Editor.ElementSelection.selectElement === 'function') {
                         // Select the element - this will update canvas and properties pane
-                        selectElement(elementToSelect);
+                        Editor.ElementSelection.selectElement(elementToSelect);
                     }
                 });
                 

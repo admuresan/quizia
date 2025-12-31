@@ -60,7 +60,7 @@
                 if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                     Editor.InteractionHandlers.addRotateHandle(el, element);
-                } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {
+                } else if (['image', 'video', 'audio', 'richtext', 'counter'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                 } else if (['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
@@ -188,7 +188,7 @@
                 if (['rectangle', 'circle', 'triangle', 'arrow', 'line', 'plus'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                     Editor.InteractionHandlers.addRotateHandle(el, element);
-                } else if (['image', 'video', 'audio', 'richtext'].includes(element.type)) {
+                } else if (['image', 'video', 'audio', 'richtext', 'counter'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);
                 } else if (['audio_control', 'answer_input', 'answer_display'].includes(element.type)) {
                     Editor.InteractionHandlers.addResizeHandles(el, element);

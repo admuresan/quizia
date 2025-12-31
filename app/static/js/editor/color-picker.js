@@ -128,6 +128,35 @@
         colorInput.value = parsed.hex;
         colorInput.style.cssText = 'width: 100%; height: 100%; border: none; padding: 0; cursor: pointer;';
         
+        // Make overlay transparent when color input is clicked (for eyedropper to work)
+        let overlayHidden = false;
+        const hideOverlayForEyedropper = () => {
+            if (!overlayHidden) {
+                modal.style.background = 'transparent';
+                modal.style.pointerEvents = 'none';
+                modalContent.style.pointerEvents = 'auto'; // Keep modal content clickable
+                overlayHidden = true;
+            }
+        };
+        
+        const showOverlay = () => {
+            if (overlayHidden) {
+                modal.style.background = 'rgba(0,0,0,0.5)';
+                modal.style.pointerEvents = 'auto';
+                overlayHidden = false;
+            }
+        };
+        
+        // Hide overlay when color input is clicked/focused (for eyedropper)
+        colorInput.addEventListener('click', hideOverlayForEyedropper);
+        colorInput.addEventListener('focus', hideOverlayForEyedropper);
+        
+        // Show overlay again when color input loses focus
+        colorInput.addEventListener('blur', () => {
+            // Delay to allow eyedropper to complete
+            setTimeout(showOverlay, 100);
+        });
+        
         // RGB inputs row (like native picker)
         const rgbContainer = document.createElement('div');
         rgbContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 16px; align-items: center;';
@@ -322,9 +351,9 @@
         modalContent.appendChild(buttonsContainer);
         modal.appendChild(modalContent);
         
-        // Close on overlay click
+        // Close on overlay click (but not when overlay is transparent for eyedropper)
         modal.onclick = (e) => {
-            if (e.target === modal) {
+            if (e.target === modal && !overlayHidden) {
                 modal.remove();
             }
         };
