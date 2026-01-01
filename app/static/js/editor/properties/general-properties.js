@@ -450,12 +450,19 @@
             
             // Simple save function - just save the HTML content (declared early so it can be referenced)
             let bgColorInput = null; // Will be set later
+            let currentBackgroundColor = selectedElement.background_color || null; // Track current background color
             const saveRichTextContent = () => {
                 selectedElement.content = editor.innerHTML;
-                // Save background color if changed
-                if (bgColorInput) {
-                    selectedElement.background_color = bgColorInput.value;
+                // Save background color from the tracked value
+                // currentBackgroundColor is updated when user selects a color via the picker
+                // If it's null, use the editor's current background color (which may have been set initially)
+                if (currentBackgroundColor !== null) {
+                    selectedElement.background_color = currentBackgroundColor;
+                } else if (editor.style.backgroundColor && editor.style.backgroundColor !== 'transparent' && editor.style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                    // Fallback to editor style if no explicit selection was made in this session
+                    selectedElement.background_color = editor.style.backgroundColor;
                 }
+                // If currentBackgroundColor is null and editor has no background, preserve existing background_color
                 // Save vertical alignment if changed
                 if (editor.style.justifyContent) {
                     if (editor.style.justifyContent === 'center') {
@@ -664,6 +671,8 @@
                 if (Editor.ColorPicker && Editor.ColorPicker.open) {
                     Editor.ColorPicker.open(currentBgColor, (rgbaColor) => {
                         editor.style.backgroundColor = rgbaColor;
+                        // Save the selected color to the tracked variable
+                        currentBackgroundColor = rgbaColor;
                         // Update button appearance
                         const newParsed = Editor.ColorPicker ? Editor.ColorPicker.parseColor(rgbaColor) : { hex: rgbaColor, opacity: 1 };
                         bgColorInput.style.background = newParsed.opacity < 1 && Editor.ColorPicker ? Editor.ColorPicker.hexToRgba(newParsed.hex, newParsed.opacity) : newParsed.hex;

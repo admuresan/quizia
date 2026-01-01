@@ -38,6 +38,7 @@ fi
 
 # Configuration
 SERVER_IP="40.233.70.245"
+DOMAIN_NAME="quizia.freedynamicdns.net"
 SSH_USER="ubuntu"  # Default for Oracle Cloud, adjust if needed
 SSH_KEY="ssh/ssh-key-2025-12-26.key"
 APP_DIR="/opt/quizia"
@@ -223,7 +224,7 @@ ENDSSH
     cat > "$TEMP_NGINX" << EOF
 server {
     listen 80;
-    server_name ${SERVER_IP};
+    server_name ${DOMAIN_NAME} ${SERVER_IP};
 
     client_max_body_size 100M;
 
@@ -290,7 +291,9 @@ if [ "$CODE_ONLY" = true ]; then
     echo -e "${YELLOW}To restart service manually: ssh -i $SSH_KEY ${SSH_USER}@${SERVER_IP} 'sudo systemctl restart ${SERVICE_NAME}'${NC}"
 else
     echo -e "${GREEN}Deployment complete!${NC}"
-    echo -e "${GREEN}Application should be accessible at: http://${SERVER_IP}${NC}"
+    echo -e "${GREEN}Application should be accessible at:${NC}"
+    echo -e "${GREEN}  - http://${DOMAIN_NAME}${NC}"
+    echo -e "${GREEN}  - http://${SERVER_IP}${NC}"
     if [ "$FULL_CLEANUP" = false ]; then
         echo -e "${GREEN}Default quizmaster account created:${NC}"
         echo -e "${GREEN}  Username: quizmaster${NC}"
