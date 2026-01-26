@@ -86,8 +86,6 @@ if [ "$FULL_CLEANUP" = true ]; then
         sudo systemctl daemon-reload
         # Remove application directory completely
         sudo rm -rf ${APP_DIR}
-        # Clear nginx cache
-        sudo rm -rf /var/cache/nginx/* 2>/dev/null || true
         echo "Cleanup complete"
 ENDSSH
     echo -e "${GREEN}Cleanup complete. Proceeding with fresh deployment...${NC}"
@@ -98,9 +96,9 @@ if [ "$CODE_ONLY" = false ]; then
     echo -e "${YELLOW}Step 2: Installing system dependencies...${NC}"
     ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << 'ENDSSH'
         sudo apt-get update -qq
-        # Install Python, pip, venv, git, nginx, Node.js (required for Playwright), and dependencies for Playwright
+        # Install Python, pip, venv, git, Node.js (required for Playwright), and dependencies for Playwright
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
-            python3 python3-pip python3-venv git nginx nodejs npm coreutils \
+            python3 python3-pip python3-venv git nodejs npm coreutils \
             libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
             libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
             libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
@@ -183,7 +181,7 @@ else
     echo -e "${YELLOW}Step 5-7: Code-only mode - Skipping Python environment and data initialization...${NC}"
 fi
 
-# Skip service and nginx configuration for code-only
+# Skip service and firewall configuration for code-only
 if [ "$CODE_ONLY" = false ]; then
     echo -e "${YELLOW}Step 8: Creating systemd service...${NC}"
     TEMP_SERVICE=$(mktemp ${SERVICE_NAME}.service.XXXXXX 2>/dev/null || echo "${SERVICE_NAME}.service.tmp")
@@ -198,7 +196,7 @@ User=${SSH_USER}
 WorkingDirectory=${APP_DIR}
 Environment="HOME=/home/${SSH_USER}"
 Environment="PLAYWRIGHT_BROWSERS_PATH=/home/${SSH_USER}/.cache/ms-playwright"
-ExecStart=/usr/bin/python3 -m gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${APP_PORT} --timeout 120 wsgi:app
+ExecStart=/usr/bin/python3 -m gunicorn --worker-class eventlet -w 1 --bind 127.0.0.1:${APP_PORT} --timeout 120 wsgi:app
 Restart=always
 RestartSec=10
 
@@ -219,70 +217,32 @@ EOF
         sleep 2
 ENDSSH
 
-    echo -e "${YELLOW}Step 9: Configuring nginx reverse proxy...${NC}"
-    TEMP_NGINX=$(mktemp quizia.nginx.XXXXXX 2>/dev/null || echo "quizia.nginx.tmp")
-    cat > "$TEMP_NGINX" << EOF
-server {
-    listen 80;
-    server_name ${DOMAIN_NAME} ${SERVER_IP};
-
-    client_max_body_size 100M;
-
-    location / {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 300s;
-        proxy_connect_timeout 75s;
-    }
-
-    location /static/ {
-        alias ${APP_DIR}/app/static/;
-        # Cache static files but allow revalidation for JS/CSS
-        expires 1h;
-        add_header Cache-Control "public, must-revalidate";
-        # Don't cache JS files aggressively to ensure updates are picked up
-        location ~* \.(js|css)$ {
-            expires -1;
-            add_header Cache-Control "no-cache, must-revalidate";
-        }
-    }
-}
-EOF
-    scp $SSH_OPTS "$TEMP_NGINX" ${SSH_USER}@${SERVER_IP}:/tmp/quizia
-    rm -f "$TEMP_NGINX"
+    echo -e "${YELLOW}Step 9: Configuring firewall for app port only...${NC}"
     ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
-        sudo mv /tmp/quizia /etc/nginx/sites-available/quizia
-        sudo ln -sf /etc/nginx/sites-available/quizia /etc/nginx/sites-enabled/
-        sudo rm -f /etc/nginx/sites-enabled/default
-        sudo nginx -t && sudo systemctl reload nginx
-        # Clear nginx cache to ensure fresh static files are served
-        sudo rm -rf /var/cache/nginx/* 2>/dev/null || true
+        # Configure UFW if available (only allow app port, not port 80)
+        # Port 80 will be handled by the third-party proxy app
+        if command -v ufw >/dev/null 2>&1; then
+            echo "y" | sudo ufw --force enable 2>/dev/null || true
+            sudo ufw allow ${APP_PORT}/tcp
+            sudo ufw reload
+        fi
+        
+        # Configure iptables directly (for systems without UFW)
+        # Only allow app port, port 80 is handled by third-party proxy
+        sudo iptables -C INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || \
+            sudo iptables -I INPUT 1 -p tcp --dport ${APP_PORT} -j ACCEPT
+        
+        # Save iptables rules if possible
+        if [ -d /etc/iptables ]; then
+            sudo iptables-save | sudo tee /etc/iptables/rules.v4 >/dev/null 2>&1 || true
+        fi
 ENDSSH
 
-    echo -e "${YELLOW}Step 10: Configuring firewall...${NC}"
-    ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
-        sudo ufw allow 80/tcp 2>/dev/null || sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || true
-        sudo ufw allow ${APP_PORT}/tcp 2>/dev/null || sudo iptables -I INPUT -p tcp --dport ${APP_PORT} -j ACCEPT 2>/dev/null || true
-ENDSSH
-
-    echo -e "${YELLOW}Step 11: Checking service status...${NC}"
+    echo -e "${YELLOW}Step 10: Checking service status...${NC}"
     sleep 3
     ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} "sudo systemctl status ${SERVICE_NAME} --no-pager -l | head -20"
-    ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} "sudo systemctl status nginx --no-pager -l | head -10"
 else
-    echo -e "${YELLOW}Step 8-11: Code-only mode - Skipping service and nginx configuration...${NC}"
-    echo -e "${YELLOW}Clearing nginx cache to ensure fresh static files are served...${NC}"
-    ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} << ENDSSH
-        sudo rm -rf /var/cache/nginx/* 2>/dev/null || true
-        # Reload nginx to pick up any changes
-        sudo systemctl reload nginx 2>/dev/null || true
-ENDSSH
+    echo -e "${YELLOW}Step 8-10: Code-only mode - Skipping service and firewall configuration...${NC}"
 fi
 
 if [ "$CODE_ONLY" = true ]; then
@@ -291,9 +251,16 @@ if [ "$CODE_ONLY" = true ]; then
     echo -e "${YELLOW}To restart service manually: ssh -i $SSH_KEY ${SSH_USER}@${SERVER_IP} 'sudo systemctl restart ${SERVICE_NAME}'${NC}"
 else
     echo -e "${GREEN}Deployment complete!${NC}"
-    echo -e "${GREEN}Application should be accessible at:${NC}"
-    echo -e "${GREEN}  - http://${DOMAIN_NAME}${NC}"
-    echo -e "${GREEN}  - http://${SERVER_IP}${NC}"
+    echo -e "${GREEN}Application is running on port ${APP_PORT} (localhost:${APP_PORT})${NC}"
+    echo -e "${GREEN}App is ready to be proxied by a third-party application on port 80${NC}"
+    echo -e "${YELLOW}Note: The app is configured with ProxyFix middleware and is ready for reverse proxy.${NC}"
+    echo -e "${YELLOW}Configure your third-party proxy to forward requests to: http://127.0.0.1:${APP_PORT}${NC}"
+    echo -e "${YELLOW}Make sure your proxy passes these headers:${NC}"
+    echo -e "${YELLOW}  - X-Forwarded-For${NC}"
+    echo -e "${YELLOW}  - X-Forwarded-Proto${NC}"
+    echo -e "${YELLOW}  - X-Forwarded-Host${NC}"
+    echo -e "${YELLOW}  - X-Forwarded-Port${NC}"
+    echo -e "${YELLOW}  - Upgrade and Connection (for WebSocket support)${NC}"
     if [ "$FULL_CLEANUP" = false ]; then
         echo -e "${GREEN}Default quizmaster account created:${NC}"
         echo -e "${GREEN}  Username: quizmaster${NC}"
@@ -301,4 +268,3 @@ else
     fi
 fi
 echo -e "${YELLOW}To check logs: ssh -i $SSH_KEY ${SSH_USER}@${SERVER_IP} 'sudo journalctl -u ${SERVICE_NAME} -f'${NC}"
-echo -e "${YELLOW}Nginx logs: ssh -i $SSH_KEY ${SSH_USER}@${SERVER_IP} 'sudo tail -f /var/log/nginx/error.log'${NC}"

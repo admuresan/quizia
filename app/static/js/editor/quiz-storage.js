@@ -3,6 +3,10 @@
 (function(Editor) {
     'use strict';
 
+    // Track save state to prevent duplicate saves
+    let saveInProgress = false;
+    let pendingSave = null;
+
     Editor.QuizStorage = {
         loadQuiz: async function(quizId) {
             try {
@@ -42,6 +46,16 @@
                 return;
             }
 
+            // If a save is in progress, queue this save request
+            if (saveInProgress) {
+                // Store the latest save request (overwrite any previous pending save)
+                pendingSave = { currentQuiz, quizName };
+                return;
+            }
+
+            // Mark save as in progress
+            saveInProgress = true;
+
             currentQuiz.name = quizName;
             
             // Convert to new format before saving
@@ -56,6 +70,9 @@
                 delete quizToSave.view_settings;
             }
             
+            // Store the ID before saving to ensure we use it even if multiple saves are queued
+            const quizIdBeforeSave = currentQuiz.id;
+            
             // Ensure ID is set (use existing ID or generate new one on save will handle it)
             const saveStatus = document.getElementById('save-status');
             
@@ -69,7 +86,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        id: currentQuiz.id, // Include ID if it exists (for updates)
+                        id: quizIdBeforeSave, // Include ID if it exists (for updates)
                         quiz: quizToSave
                     })
                 });
@@ -77,7 +94,8 @@
                 const data = await response.json();
                 if (response.ok) {
                     // Update currentQuiz with the ID returned from server (for new quizzes)
-                    if (data.id && !currentQuiz.id) {
+                    if (data.id) {
+                        // Always update the ID if we get one back (important for new quizzes)
                         currentQuiz.id = data.id;
                         // Update URL to include quiz ID
                         const url = new URL(window.location.href);
@@ -108,6 +126,19 @@
                     saveStatus.style.color = '#f44336';
                 }
                 console.error('Save error:', error);
+            } finally {
+                // Mark save as complete
+                saveInProgress = false;
+                
+                // If there's a pending save, execute it now
+                if (pendingSave) {
+                    const nextSave = pendingSave;
+                    pendingSave = null;
+                    // Use setTimeout to allow the current call stack to complete
+                    setTimeout(() => {
+                        Editor.QuizStorage.autosaveQuiz(nextSave.currentQuiz, nextSave.quizName);
+                    }, 0);
+                }
             }
         },
 
@@ -115,6 +146,14 @@
             if (!quizName || !quizName.trim()) {
                 return;
             }
+
+            // Wait for any in-progress autosave to complete before force saving
+            while (saveInProgress) {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            // Clear any pending autosave since we're doing a force save
+            pendingSave = null;
 
             currentQuiz.name = quizName;
             
@@ -130,6 +169,9 @@
                 delete quizToSave.view_settings;
             }
             
+            // Store the ID before saving
+            const quizIdBeforeSave = currentQuiz.id;
+            
             const saveStatus = document.getElementById('save-status');
             
             if (saveStatus) {
@@ -142,7 +184,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        id: currentQuiz.id, // Include ID if it exists (for updates)
+                        id: quizIdBeforeSave, // Include ID if it exists (for updates)
                         quiz: quizToSave,
                         force_recreate: true // Flag to force file recreation
                     })
@@ -151,7 +193,8 @@
                 const data = await response.json();
                 if (response.ok) {
                     // Update currentQuiz with the ID returned from server (for new quizzes)
-                    if (data.id && !currentQuiz.id) {
+                    if (data.id) {
+                        // Always update the ID if we get one back (important for new quizzes)
                         currentQuiz.id = data.id;
                         // Update URL to include quiz ID
                         const url = new URL(window.location.href);

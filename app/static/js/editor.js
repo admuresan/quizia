@@ -1438,6 +1438,26 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Back button not found in DOM');
     }
 
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/quizmaster/login';
+                } else {
+                    alert('Error logging out. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error logging out:', error);
+                alert('Error logging out. Please try again.');
+            }
+        });
+    }
+
     // Quiz name already handled above for autosave
 
     // Media modal handlers

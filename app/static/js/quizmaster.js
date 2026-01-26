@@ -12,7 +12,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Display user info
     if (checkData.username) {
         const userInfoDiv = document.getElementById('user-info');
-        userInfoDiv.innerHTML = `<p style="color: white; text-align: right; margin-bottom: 1rem;">Logged in as: <strong>${checkData.username}</strong></p>`;
+        userInfoDiv.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div></div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <p style="color: white; margin: 0;">Logged in as: <strong>${checkData.username}</strong></p>
+                    <button id="logout-btn" class="btn btn-small" style="background-color: #dc3545; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer;">Logout</button>
+                </div>
+            </div>
+        `;
+        
+        // Add logout button handler
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/auth/logout', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/quizmaster/login';
+                } else {
+                    alert('Error logging out. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error logging out:', error);
+                alert('Error logging out. Please try again.');
+            }
+        });
     }
 
     // Check if running on server and show warning

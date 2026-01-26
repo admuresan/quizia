@@ -151,53 +151,18 @@ def api_tvdisplay_image(room_code):
         return Response('Quiz has ended', status=404, mimetype='text/plain')
     
     # Get base URL for Playwright to use
-    # Auto-detect: localhost uses port 6005 (direct Flask), server uses port 80 (through nginx)
-    import os
-    
-    # Detect if we're on localhost/development or production server
-    is_localhost = False
+    # Use request.url_root which automatically handles both proxied and non-proxied setups
+    # When behind a proxy with ProxyFix: uses the proxied domain
+    # When not proxied: uses the actual server URL
     try:
-        # Check environment variable first (most reliable)
-        flask_env = os.environ.get('FLASK_ENV', '').lower()
-        flask_debug = os.environ.get('FLASK_DEBUG', '').lower()
-        
-        # Development indicators:
-        # 1. FLASK_ENV is 'development'
-        # 2. FLASK_DEBUG is set
-        # 3. Request came from localhost/127.0.0.1 (not a public IP)
-        # 4. WERKZEUG_RUN_MAIN is set (Flask dev server)
-        if (flask_env == 'development' or 
-            flask_debug == '1' or 
-            flask_debug == 'true' or
-            os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
-            is_localhost = True
-        else:
-            # Check request host - if it's localhost/127.0.0.1, likely development
-            request_host = request.host.lower() if request.host else ''
-            if 'localhost' in request_host or '127.0.0.1' in request_host:
-                # But check if it's port 6005 (dev) or port 80 (production nginx)
-                if ':6005' in request_host or request_host.endswith('localhost') or request_host.endswith('127.0.0.1'):
-                    is_localhost = True
-    except Exception as e:
-        print(f"[TV Display API] Error detecting environment: {e}, defaulting to production")
-    
-    if is_localhost:
-        # Development/localhost: use direct Flask on port 6005
-        base_url = "http://127.0.0.1:6005"
-        print(f"[TV Display API] Detected localhost/development - using direct Flask on port 6005")
-    else:
-        # Production/server: use nginx on port 80
-        base_url = "http://127.0.0.1:80"
-        print(f"[TV Display API] Detected production/server - using nginx on port 80")
-    
-    # Log the original request URL for debugging
-    try:
-        original_url = request.url_root.rstrip('/')
+        base_url = request.url_root.rstrip('/')
         request_host = request.host if request.host else 'unknown'
-        print(f"[TV Display API] Request came from: {original_url} (host: {request_host})")
+        print(f"[TV Display API] Request came from: {base_url} (host: {request_host})")
         print(f"[TV Display API] Using base_url: {base_url} for room {room_code}")
     except Exception as e:
-        print(f"[TV Display API] Error reading request URL: {e}, using default: {base_url}")
+        # Fallback to localhost if request.url_root fails (shouldn't happen, but safety first)
+        print(f"[TV Display API] Error reading request URL: {e}, using fallback")
+        base_url = "http://127.0.0.1:6005"
     
     # Render the display page
     try:

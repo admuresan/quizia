@@ -37,7 +37,9 @@ async def render_display_page(room_code, base_url='http://127.0.0.1:6005'):
     
     Args:
         room_code: The room code to render
-        base_url: Base URL of the application (default: localhost:6005)
+        base_url: Base URL of the application. Should be passed from request.url_root
+                  to work correctly with reverse proxies. Default is localhost:6005
+                  for backward compatibility when not proxied.
     
     Returns:
         bytes: PNG image data, or None if rendering failed
@@ -280,6 +282,12 @@ def render_display_page_sync(room_code, base_url='http://127.0.0.1:6005'):
     Synchronous wrapper that runs Playwright in a separate process to avoid eventlet conflicts.
     Eventlet creates an async event loop that conflicts with Playwright's sync API,
     so we use subprocess to run it in a completely separate Python process.
+    
+    Args:
+        room_code: The room code to render
+        base_url: Base URL of the application. Should be passed from request.url_root
+                  to work correctly with reverse proxies. Default is localhost:6005
+                  for backward compatibility when not proxied.
     """
     import subprocess
     import tempfile

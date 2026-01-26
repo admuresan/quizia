@@ -5,12 +5,70 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Quizia{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .feature-request-btn {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            background: rgba(74, 144, 226, 0.9);
+            border: 1px solid rgba(74, 144, 226, 1);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        .feature-request-btn:hover {
+            background: rgba(74, 144, 226, 1);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .feature-request-btn:active {
+            transform: translateY(0);
+        }
+        @media (max-width: 768px) {
+            .feature-request-btn {
+                top: 10px;
+                right: 10px;
+                padding: 0.4rem 0.8rem;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <button id="feature-request-btn" class="feature-request-btn" title="Request Features or Tips">
+        💡 Request Features/Tip
+    </button>
     {% block content %}{% endblock %}
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        // Feature Request button handler
+        (function() {
+            const btn = document.getElementById('feature-request-btn');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    // Get FeatureRequestor URL from environment variable or use default
+                    const featureRequestorUrl = window.FEATURE_REQUESTOR_URL || 
+                        (window.location.origin.includes('localhost') 
+                            ? 'http://localhost:6003' 
+                            : 'https://featurerequestor.yourdomain.com');
+                    
+                    // Open feature requests page for quizia app
+                    const appName = 'quizia';
+                    const url = featureRequestorUrl + '/feature-requests?app=' + appName;
+                    window.open(url, '_blank');
+                });
+            }
+        })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

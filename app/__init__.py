@@ -19,6 +19,28 @@ def create_app():
                 static_folder='static',
                 template_folder='templates')
     
+    # Configure ProxyFix middleware to handle reverse proxy headers
+    # ProxyFix is safe to use even when not behind a proxy - it only processes
+    # X-Forwarded-* headers if they're present. If not present, requests pass through unchanged.
+    # This allows the app to work correctly in both proxied and non-proxied setups.
+    # 
+    # Security: x_for=1 means we only trust headers from 1 proxy layer.
+    # If a client sends X-Forwarded-* headers directly (no proxy), ProxyFix will
+    # process them, but this is generally safe as it only affects URL generation,
+    # not authentication or authorization.
+    try:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        # x_for=1: trust 1 proxy for X-Forwarded-For
+        # x_proto=1: trust 1 proxy for X-Forwarded-Proto
+        # x_host=1: trust 1 proxy for X-Forwarded-Host
+        # x_port=1: trust 1 proxy for X-Forwarded-Port
+        # x_prefix=1: trust 1 proxy for X-Forwarded-Prefix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
+        print("[App] ProxyFix middleware enabled (works in both proxied and non-proxied setups)")
+    except ImportError:
+        print("[App] WARNING: werkzeug.middleware.proxy_fix not available. Install werkzeug>=0.15.0 for proxy support.")
+        print("[App] The app will still work, but may not handle reverse proxy headers correctly.")
+    
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     app.config['UPLOAD_FOLDER'] = Path(__file__).parent / 'uploads'
