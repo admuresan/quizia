@@ -196,7 +196,7 @@ User=${SSH_USER}
 WorkingDirectory=${APP_DIR}
 Environment="HOME=/home/${SSH_USER}"
 Environment="PLAYWRIGHT_BROWSERS_PATH=/home/${SSH_USER}/.cache/ms-playwright"
-ExecStart=/usr/bin/python3 -m gunicorn --worker-class eventlet -w 1 --bind 127.0.0.1:${APP_PORT} --timeout 120 wsgi:app
+ExecStart=/usr/bin/python3 -m gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${APP_PORT} --timeout 120 wsgi:app
 Restart=always
 RestartSec=10
 

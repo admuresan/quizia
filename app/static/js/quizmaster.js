@@ -5,6 +5,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const checkData = await checkResponse.json();
     
     if (!checkData.logged_in) {
+        try {
+            const input = '/quizmaster/login';
+            const appSlug = window.__APP_MANAGER_APP_SLUG || '';
+            const expected = appSlug ? (appSlug + input) : input;
+            console.log('[BG TRACE][quizia] redirect.not_logged_in', { input, expected, actual: input, appSlug });
+        } catch (e) {}
         window.location.href = '/quizmaster/login';
         return;
     }
@@ -30,6 +36,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
                 
                 if (response.ok) {
+                    try {
+                        const input = '/quizmaster/login';
+                        const appSlug = window.__APP_MANAGER_APP_SLUG || '';
+                        const expected = appSlug ? (appSlug + input) : input;
+                        console.log('[BG TRACE][quizia] redirect.logout', { input, expected, actual: input, appSlug });
+                    } catch (e) {}
                     window.location.href = '/quizmaster/login';
                 } else {
                     alert('Error logging out. Please try again.');

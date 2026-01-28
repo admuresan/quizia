@@ -43,6 +43,8 @@ def create_app():
     
     # Configuration
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    # Cookie isolation: multiple apps share the same domain, so cookie names must be unique per app.
+    app.config['SESSION_COOKIE_NAME'] = os.environ.get('SESSION_COOKIE_NAME', 'quizia_session')
     app.config['UPLOAD_FOLDER'] = Path(__file__).parent / 'uploads'
     app.config['QUIZES_FOLDER'] = Path(__file__).parent / 'quizes'
     app.config['AVATARS_FOLDER'] = Path(__file__).parent / 'static' / 'avatars'

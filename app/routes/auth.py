@@ -38,6 +38,22 @@ def login_route():
     data = request.json
     username = data.get('username')
     password = data.get('password')
+
+    # BG TRACE: do NOT log password; log URL/path + expected public URL
+    try:
+        xf_prefix = request.headers.get('X-Forwarded-Prefix')
+        xf_host = request.headers.get('X-Forwarded-Host')
+        expected_public = (request.url_root.rstrip('/') + request.path) if request.url_root else None
+        print(
+            "[BG TRACE][quizia] api=/api/auth/login "
+            f"input_path={request.path} "
+            f"expected_public={expected_public} "
+            f"actual_url={request.url} "
+            f"xf_prefix={xf_prefix} xf_host={xf_host} "
+            f"username={username}"
+        )
+    except Exception:
+        pass
     
     if not username or not password:
         return jsonify({'error': 'Username and password required'}), 400

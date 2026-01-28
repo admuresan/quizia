@@ -1,24 +1,51 @@
 """
 Main routes for the application.
 """
-from flask import Blueprint, render_template, send_from_directory
+from flask import Blueprint, Response, render_template, send_from_directory
 from pathlib import Path
 
 bp = Blueprint('main', __name__)
 
+@bp.route('/quiziaIcon.png')
+def quizia_icon():
+    """Serve the Quizia PNG icon (used for tab shortcut/favicons)."""
+    icon_path = Path(__file__).resolve().parent.parent / 'quiziaIcon.png'
+    if icon_path.exists():
+        return send_from_directory(
+            str(icon_path.parent),
+            icon_path.name,
+            mimetype='image/png',
+        )
+    return Response(status=404)
+
 @bp.route('/favicon.ico')
 def favicon():
-    """Serve favicon or return 204 No Content to stop browser requests."""
-    from flask import Response
-    import os
-    from pathlib import Path
-    
-    # Try to serve favicon from static folder if it exists
-    favicon_path = Path(__file__).parent.parent / 'static' / 'favicon.ico'
+    """
+    Serve favicon.
+
+    Prefer the app's `quiziaIcon.png` (new icon). If an old `static/favicon.ico`
+    exists, serve that as fallback. Otherwise return 204 to stop repeated
+    browser favicon requests.
+    """
+    # 1) Preferred: the new PNG icon in the app folder (deployed by `deploy.sh`)
+    icon_path = Path(__file__).resolve().parent.parent / 'quiziaIcon.png'
+    if icon_path.exists():
+        return send_from_directory(
+            str(icon_path.parent),
+            icon_path.name,
+            mimetype='image/png',
+        )
+
+    # 2) Fallback: legacy favicon.ico if present
+    favicon_path = Path(__file__).resolve().parent.parent / 'static' / 'favicon.ico'
     if favicon_path.exists():
-        return send_from_directory(str(favicon_path.parent), 'favicon.ico', mimetype='image/vnd.microsoft.icon')
-    
-    # If no favicon exists, return 204 No Content to stop browser requests
+        return send_from_directory(
+            str(favicon_path.parent),
+            favicon_path.name,
+            mimetype='image/vnd.microsoft.icon',
+        )
+
+    # 3) No icon available
     return Response(status=204)
 
 @bp.route('/')
@@ -75,6 +102,21 @@ def quizmaster():
 @bp.route('/quizmaster/login')
 def quizmaster_login():
     """Quizmaster login page."""
+    # BG TRACE: log how this request arrived (proxied vs direct)
+    try:
+        from flask import request
+        xf_prefix = request.headers.get('X-Forwarded-Prefix')
+        xf_host = request.headers.get('X-Forwarded-Host')
+        expected_public = (request.url_root.rstrip('/') + request.path) if request.url_root else None
+        print(
+            "[BG TRACE][quizia] route=/quizmaster/login "
+            f"input_path={request.path} "
+            f"expected_public={expected_public} "
+            f"actual_url={request.url} "
+            f"xf_prefix={xf_prefix} xf_host={xf_host}"
+        )
+    except Exception:
+        pass
     return render_template('quizmaster_login.html')
 
 @bp.route('/quizmaster/create')

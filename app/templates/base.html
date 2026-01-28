@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Quizia{% endblock %}</title>
+    <!-- Tab shortcut / favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('main.quizia_icon') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('main.quizia_icon') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('main.quizia_icon') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         .feature-request-btn {

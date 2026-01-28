@@ -22,6 +22,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
+            try {
+                const input = '/api/auth/login';
+                const appSlug = window.__APP_MANAGER_APP_SLUG || '';
+                const expected = appSlug ? (appSlug + input) : input;
+                console.log('[BG TRACE][quizia] fetch.login', { input, expected, actual: input, appSlug });
+            } catch (e) {}
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -33,6 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 showMessage('Login successful! Redirecting...', 'success');
                 setTimeout(() => {
+                    try {
+                        const input = '/quizmaster';
+                        const appSlug = window.__APP_MANAGER_APP_SLUG || '';
+                        const expected = appSlug ? (appSlug + input) : input;
+                        console.log('[BG TRACE][quizia] redirect.login_success', { input, expected, actual: input, appSlug });
+                    } catch (e) {}
                     window.location.href = '/quizmaster';
                 }, 1000);
             } else {
