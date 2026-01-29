@@ -58,9 +58,13 @@
         // Apply background image if we have a valid non-empty string
         if (bgImage !== null && bgImage !== undefined && typeof bgImage === 'string' && bgImage.trim() !== '') {
             // Background image - stretch to fit
-            const imageUrl = bgImage.startsWith('/') || bgImage.startsWith('http') 
+            let imageUrl = bgImage.startsWith('/') || bgImage.startsWith('http') 
                 ? bgImage 
                 : '/api/media/serve/' + bgImage;
+            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+            if (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) {
+                imageUrl = window.UrlUtils.normalizeMediaUrl(imageUrl);
+            }
             
             element.style.setProperty('background-image', `url("${imageUrl}")`, 'important');
             element.style.setProperty('background-size', 'cover', 'important');
@@ -130,9 +134,13 @@
 
         if (bgImage !== null && bgImage !== undefined && typeof bgImage === 'string' && bgImage.trim() !== '') {
             type = 'image';
-            const imageUrl = bgImage.startsWith('/') || bgImage.startsWith('http') 
+            let imageUrl = bgImage.startsWith('/') || bgImage.startsWith('http') 
                 ? bgImage 
                 : '/api/media/serve/' + bgImage;
+            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+            if (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) {
+                imageUrl = window.UrlUtils.normalizeMediaUrl(imageUrl);
+            }
             previewStyle = `background-image: url(${imageUrl}); background-size: cover; background-position: center;`;
         } else if (displayBg.includes('gradient')) {
             type = 'gradient';

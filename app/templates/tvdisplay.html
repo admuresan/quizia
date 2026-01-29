@@ -106,6 +106,7 @@
         <div id="room-code-display">{{ room_code }}</div>
     </div>
     
+    <script src="{{ url_for('static', filename='js/url-utils.js') }}"></script>
     <script>
         // TV-Safe Display - No WebSockets, uses polling
         (function() {
@@ -220,6 +221,10 @@
                         var imageUrl = bgConfig.image_url;
                         if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
                             imageUrl = '/api/media/serve/' + imageUrl;
+                        }
+                        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                        if (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) {
+                            imageUrl = window.UrlUtils.normalizeMediaUrl(imageUrl);
                         }
                         container.style.backgroundImage = 'url(' + imageUrl + ')';
                         container.style.backgroundSize = 'cover';
@@ -449,7 +454,9 @@
                             src = '/api/media/serve/' + src;
                         }
                         if (src) {
-                            img.src = src;
+                            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                            img.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+                                window.UrlUtils.normalizeMediaUrl(src) : src;
                             img.className = 'element-image';
                             img.style.width = '100%';
                             img.style.height = '100%';

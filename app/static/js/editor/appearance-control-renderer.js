@@ -172,7 +172,8 @@
                                 mediaElement = document.createElement('audio');
                             }
                             const mediaSrc = displayElement.src || displayElement.media_url || (displayElement.filename ? '/api/media/serve/' + displayElement.filename : '') || (displayElement.file_name ? '/api/media/serve/' + displayElement.file_name : '');
-                            mediaElement.src = mediaSrc;
+                            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                            mediaElement.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(mediaSrc) : mediaSrc;
                             mediaElement.style.display = 'none';
                             document.body.appendChild(mediaElement);
                         }

@@ -195,7 +195,9 @@ RuntimeRenderer.ElementRenderer = (function() {
             return;
         }
         
-        img.src = imageSrc;
+        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+        img.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+            window.UrlUtils.normalizeMediaUrl(imageSrc) : imageSrc;
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'fill';
@@ -209,7 +211,10 @@ RuntimeRenderer.ElementRenderer = (function() {
     
     function renderVideo(el, element) {
         const video = document.createElement('video');
-        video.src = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+        const videoSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+        video.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+            window.UrlUtils.normalizeMediaUrl(videoSrc) : videoSrc;
         video.controls = false;
         video.style.width = '100%';
         video.style.height = '100%';
@@ -240,7 +245,9 @@ RuntimeRenderer.ElementRenderer = (function() {
         if (src && !src.startsWith('http') && !src.startsWith('/')) {
             src = '/api/media/serve/' + src;
         }
-        audioElement.src = src;
+        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+        audioElement.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+            window.UrlUtils.normalizeMediaUrl(src) : src;
         audioElement.style.display = 'none';
         audioElement.id = `audio-${element.id}`;
         
@@ -624,7 +631,9 @@ RuntimeRenderer.ElementRenderer = (function() {
         const mediaSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
         const audioControl = document.createElement('audio');
         audioControl.style.display = 'none';
-        audioControl.src = mediaSrc;
+        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+        audioControl.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+            window.UrlUtils.normalizeMediaUrl(mediaSrc) : mediaSrc;
         audioControl.id = `audio-control-${element.id}`;
         if (element.media_type === 'video') {
             const videoControl = document.createElement('video');

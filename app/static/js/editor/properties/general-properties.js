@@ -36,6 +36,43 @@
         return hex;
     }
     
+    // Helper function to normalize media URLs - always works, even if Utils isn't loaded
+    function normalizeMediaUrlSafe(url) {
+        if (!url || typeof url !== 'string') {
+            return url || '';
+        }
+        
+        // If already relative, return as-is
+        if (url.startsWith('/')) {
+            return url;
+        }
+        
+        // Try to use Editor.Utils or window.UrlUtils if available
+        if (Editor && Editor.Utils && Editor.Utils.normalizeMediaUrl) {
+            return Editor.Utils.normalizeMediaUrl(url);
+        }
+        if (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) {
+            return window.UrlUtils.normalizeMediaUrl(url);
+        }
+        
+        // Fallback: Always convert HTTP URLs pointing to /api/media/serve/ to relative
+        // This is critical for IP addresses which can't be upgraded to HTTPS
+        if (url.startsWith('http://') && url.includes('/api/media/serve/')) {
+            const match = url.match(/\/api\/media\/serve\/.+$/);
+            if (match) {
+                return match[0];
+            }
+        }
+        
+        // If not absolute URL, assume it's a filename
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            return '/api/media/serve/' + url;
+        }
+        
+        // Return as-is if we can't normalize
+        return url;
+    }
+    
     Editor.PropertiesPanel.renderGeneralProperties = function(container, selectedElement) {
         if (!selectedElement) {
             container.innerHTML = '<p>No element selected</p>';
@@ -1698,7 +1735,8 @@
                         
                         if (imageSrc) {
                             const img = document.createElement('img');
-                            img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
+                            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                            img.src = normalizeMediaUrlSafe(imageSrc);
                             img.style.cssText = 'max-width: 100%; height: auto; cursor: crosshair; border: 1px solid #ccc; border-radius: 4px;';
                             img.alt = 'Click to set correct answer';
                             
@@ -1938,7 +1976,9 @@
             const audioContainer = document.createElement('div');
             const audio = document.createElement('audio');
             audio.controls = true;
-            audio.src = selectedElement.src || (selectedElement.filename ? '/api/media/serve/' + selectedElement.filename : '');
+            const audioSrc = selectedElement.media_url || selectedElement.src || (selectedElement.filename ? '/api/media/serve/' + selectedElement.filename : '');
+            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+            audio.src = normalizeMediaUrlSafe(audioSrc);
             audio.style.width = '100%';
             audioContainer.appendChild(audio);
             audioGroup.appendChild(audioContainer);

@@ -53,7 +53,9 @@ QuestionTypes.ImageClick.ParticipantView = (function() {
             let isSubmitted = !!submittedAnswer;
             
             const img = document.createElement('img');
-            img.src = imageSrc;
+            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+            img.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+                window.UrlUtils.normalizeMediaUrl(imageSrc) : imageSrc;
             img.style.cssText = submittedAnswer 
                 ? 'max-width: 100%; height: auto; cursor: not-allowed; border: 2px solid #9e9e9e; border-radius: 4px; opacity: 0.7;'
                 : 'max-width: 100%; height: auto; cursor: crosshair; border: 2px solid #2196F3; border-radius: 4px;';

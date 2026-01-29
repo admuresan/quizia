@@ -20,6 +20,7 @@
     window.roomCode = '{{ room_code }}';
     window.participantId = sessionStorage.getItem('participant_id');
 </script>
+<script src="{{ url_for('static', filename='js/url-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/background-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/avatar-utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/question-types/common.js') }}"></script>

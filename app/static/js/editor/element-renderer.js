@@ -17,7 +17,8 @@ Editor.ElementRenderer = (function() {
     function renderMediaElement(el, element) {
         if (element.media_type === 'image' || (!element.media_type && element.type === 'image')) {
             const img = document.createElement('img');
-            img.src = element.src || '/api/media/serve/' + (element.filename || '');
+            const imageUrl = element.media_url || element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
+            img.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(imageUrl) : imageUrl;
             img.style.width = '100%';
             img.style.height = '100%';
             img.style.objectFit = 'fill';
@@ -30,7 +31,8 @@ Editor.ElementRenderer = (function() {
             playIcon.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 48px; color: white; cursor: pointer; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 10;';
             playIcon.addEventListener('click', () => {
                 const video = document.createElement('video');
-                video.src = element.src || '/api/media/serve/' + (element.filename || '');
+                const videoUrl = element.media_url || element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
+                video.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(videoUrl) : videoUrl;
                 video.controls = true;
                 video.style.width = '100%';
                 video.style.height = '100%';
@@ -168,7 +170,8 @@ Editor.ElementRenderer = (function() {
         switch (element.type) {
             case 'image':
                 const img = document.createElement('img');
-                img.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : 'placeholder.png');
+                const imageUrl = element.media_url || element.src || (element.filename ? '/api/media/serve/' + element.filename : 'placeholder.png');
+                img.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(imageUrl) : imageUrl;
                 img.style.width = '100%';
                 img.style.height = '100%';
                 img.style.objectFit = 'fill';
@@ -177,7 +180,8 @@ Editor.ElementRenderer = (function() {
                 break;
             case 'video':
                 const video = document.createElement('video');
-                video.src = element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
+                const videoUrl = element.media_url || element.src || (element.filename ? '/api/media/serve/' + element.filename : '');
+                video.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(videoUrl) : videoUrl;
                 video.controls = true;
                 video.style.width = '100%';
                 video.style.height = '100%';
@@ -356,14 +360,15 @@ Editor.ElementRenderer = (function() {
                 
                 // Create hidden audio element
                 const mediaSrc = element.media_url || element.src || (element.file_name ? '/api/media/serve/' + element.file_name : '') || (element.filename ? '/api/media/serve/' + element.filename : '');
+                const normalizedMediaSrc = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(mediaSrc) : mediaSrc;
                 const audioControl = document.createElement('audio');
                 audioControl.style.display = 'none';
-                audioControl.src = mediaSrc;
+                audioControl.src = normalizedMediaSrc;
                 audioControl.id = `audio-control-${element.id}`;
                 if (element.media_type === 'video') {
                     const videoControl = document.createElement('video');
                     videoControl.style.display = 'none';
-                    videoControl.src = mediaSrc;
+                    videoControl.src = normalizedMediaSrc;
                     videoControl.id = `video-control-${element.id}`;
                     el.appendChild(videoControl);
                 } else {
@@ -983,7 +988,10 @@ Editor.ElementRenderer = (function() {
                         imageWrapper.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
                         
                         const img = document.createElement('img');
-                        img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
+                        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                        img.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? 
+                            Editor.Utils.normalizeMediaUrl(imageSrc) : 
+                            (imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc);
                         img.style.cssText = 'width: 100%; height: auto; display: block; max-width: 800px; object-fit: contain;';
                         
                         // Add highlights after image loads (using same 10% radius as runtime)

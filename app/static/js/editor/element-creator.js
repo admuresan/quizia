@@ -309,7 +309,8 @@
                                     callbacks.onElementAdded(element);
                                 }
                             };
-                            img.src = selectedMedia.url;
+                            // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                            img.src = Editor.Utils && Editor.Utils.normalizeMediaUrl ? Editor.Utils.normalizeMediaUrl(selectedMedia.url) : selectedMedia.url;
                         } else {
                             // For non-image media, use default size
                             const element = {

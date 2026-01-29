@@ -68,8 +68,8 @@ fi
 # Set proper permissions for SSH key
 chmod 600 "$SSH_KEY"
 
-# SSH options
-SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+# SSH options - suppress MOTD/login messages
+SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o BatchMode=yes"
 
 echo -e "${YELLOW}Step 1: Testing SSH connection...${NC}"
 ssh $SSH_OPTS ${SSH_USER}@${SERVER_IP} "echo 'SSH connection successful'"
@@ -145,9 +145,20 @@ if [ "$CODE_ONLY" = false ]; then
         export HOME=/home/${SSH_USER}
         # Use python3 -m playwright to ensure we use the system-installed playwright
         sudo -u ${SSH_USER} python3 -m playwright install chromium 2>&1 || echo "Playwright browser installation may have failed, but continuing..."
-        # Verify installation - test that browsers can be launched
+        # Verify installation - test that browsers can be launched (with timeout to prevent hanging)
         echo "Verifying Playwright installation..."
-        sudo -u ${SSH_USER} python3 -c "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); browser = p.chromium.launch(headless=True); browser.close(); p.stop(); print('Playwright browsers OK')" 2>&1 || echo "WARNING: Playwright verification failed - browsers may not be accessible"
+        timeout 30 sudo -u ${SSH_USER} python3 -c "
+from playwright.sync_api import sync_playwright
+try:
+    p = sync_playwright().start()
+    browser = p.chromium.launch(headless=True, timeout=15000)
+    browser.close()
+    p.stop()
+    print('Playwright browsers OK')
+except Exception as e:
+    print(f'WARNING: Playwright verification failed: {e}')
+    exit(1)
+" 2>&1 || echo "WARNING: Playwright verification failed or timed out after 30s - browsers may not be accessible, but continuing deployment..."
         # Ensure cache directory is accessible
         chmod -R 755 /home/${SSH_USER}/.cache/ms-playwright 2>/dev/null || echo "Cache directory permissions check skipped"
         # Verify gunicorn is accessible

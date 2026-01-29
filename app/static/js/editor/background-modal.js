@@ -269,9 +269,12 @@
             
             if (currentBgImage) {
                 const currentImage = document.createElement('img');
-                currentImage.src = currentBgImage.startsWith('/') || currentBgImage.startsWith('http') 
+                let imageSrc = currentBgImage.startsWith('/') || currentBgImage.startsWith('http') 
                     ? currentBgImage 
                     : '/api/media/serve/' + currentBgImage;
+                // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                currentImage.src = (Editor.Utils && Editor.Utils.normalizeMediaUrl) ? 
+                    Editor.Utils.normalizeMediaUrl(imageSrc) : imageSrc;
                 currentImage.style.cssText = 'max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 0.5rem;';
                 currentImageContainer.appendChild(currentImage);
                 
@@ -312,7 +315,9 @@
                         // Update the preview in the modal
                         currentImageContainer.innerHTML = '';
                         const newImage = document.createElement('img');
-                        newImage.src = imageUrl;
+                        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+                        newImage.src = (Editor.Utils && Editor.Utils.normalizeMediaUrl) ? 
+                            Editor.Utils.normalizeMediaUrl(imageUrl) : imageUrl;
                         newImage.style.cssText = 'max-width: 100%; max-height: 150px; border-radius: 4px; margin-bottom: 0.5rem;';
                         currentImageContainer.appendChild(newImage);
                         

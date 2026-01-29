@@ -10,35 +10,55 @@
     <link rel="apple-touch-icon" href="{{ url_for('main.quizia_icon') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        .feature-request-btn {
+        body {
+            padding-bottom: 0;
+        }
+        .feature-request-footer {
+            position: relative;
+            background-color: transparent;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            z-index: 1000;
+        }
+        .feature-request-footer.fixed-bottom {
             position: fixed;
-            top: 15px;
-            right: 15px;
-            background: rgba(74, 144, 226, 0.9);
-            border: 1px solid rgba(74, 144, 226, 1);
-            color: white;
+            bottom: 0;
+            right: 0;
+            left: auto;
+            width: auto;
+        }
+        .feature-request-btn {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.9);
             padding: 0.5rem 1rem;
-            border-radius: 6px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 0.9rem;
             font-weight: 500;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             white-space: nowrap;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .feature-request-btn:hover {
-            background: rgba(74, 144, 226, 1);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2), 0 4px 8px rgba(0, 0, 0, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
         }
         .feature-request-btn:active {
             transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
         }
         @media (max-width: 768px) {
+            .feature-request-footer {
+                padding: 8px 15px;
+            }
             .feature-request-btn {
-                top: 10px;
-                right: 10px;
                 padding: 0.4rem 0.8rem;
                 font-size: 0.8rem;
             }
@@ -47,10 +67,12 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <button id="feature-request-btn" class="feature-request-btn" title="Request Features or Tips">
-        💡 Request Features/Tip
-    </button>
     {% block content %}{% endblock %}
+    <footer class="feature-request-footer">
+        <button id="feature-request-btn" class="feature-request-btn" title="Request Features or Tips">
+            💡 Request Features/Tip
+        </button>
+    </footer>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script>
@@ -71,6 +93,43 @@
                     window.open(url, '_blank');
                 });
             }
+        })();
+        
+        // Position feature request button at bottom of window when window is larger than page
+        (function() {
+            const footer = document.querySelector('.feature-request-footer');
+            if (!footer) return;
+            
+            function updateButtonPosition() {
+                const windowHeight = window.innerHeight;
+                const documentHeight = Math.max(
+                    document.body.scrollHeight,
+                    document.body.offsetHeight,
+                    document.documentElement.clientHeight,
+                    document.documentElement.scrollHeight,
+                    document.documentElement.offsetHeight
+                );
+                
+                if (windowHeight > documentHeight) {
+                    footer.classList.add('fixed-bottom');
+                } else {
+                    footer.classList.remove('fixed-bottom');
+                }
+            }
+            
+            // Update on load and resize
+            updateButtonPosition();
+            window.addEventListener('resize', updateButtonPosition);
+            window.addEventListener('load', updateButtonPosition);
+            
+            // Also update when content changes (e.g., dynamic content loading)
+            const observer = new MutationObserver(updateButtonPosition);
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['style', 'class']
+            });
         })();
     </script>
     {% block scripts %}{% endblock %}

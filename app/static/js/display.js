@@ -1562,7 +1562,10 @@ function renderImageClickAnswersDisplay(container, answers, participants, imageS
         imageWrapper.style.cssText = 'position: relative; display: inline-block; max-width: 100%;';
         
         const img = document.createElement('img');
-        img.src = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
+        let normalizedSrc = imageSrc.startsWith('/') || imageSrc.startsWith('http') ? imageSrc : '/api/media/serve/' + imageSrc;
+        // Normalize URL to prevent mixed content errors (HTTP -> HTTPS or absolute -> relative)
+        img.src = (window.UrlUtils && window.UrlUtils.normalizeMediaUrl) ? 
+            window.UrlUtils.normalizeMediaUrl(normalizedSrc) : normalizedSrc;
         img.style.cssText = 'width: 100%; height: auto; display: block; max-width: 800px; object-fit: contain;';
         
         // Function to update highlights
