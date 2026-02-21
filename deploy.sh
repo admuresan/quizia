@@ -56,4 +56,7 @@ $SSH "$SERVER_USER@$SERVER_IP" "cd $APP_DIR && mkdir -p app/data app/quizes app/
     ([ -f app/data/requests.json ] && [ -s app/data/requests.json ]) || echo '{\"requests\": []}' > app/data/requests.json; \
     ([ -f app/data/stats.json ] && [ -s app/data/stats.json ]) || echo '{\"quiz_runs\": []}' > app/data/stats.json"
 
+echo "🔐 Ensuring default quizmaster account exists (create only if missing; never reset password)..."
+$SSH "$SERVER_USER@$SERVER_IP" "cd $APP_DIR && python3 setup_admin.py"
+
 echo "✅ Deployment complete!"

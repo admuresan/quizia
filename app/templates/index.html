@@ -4,8 +4,8 @@
 <div class="container">
     <h1>Quizia</h1>
     <div class="button-group">
-        <a href="/quizmaster/login" class="btn btn-primary">Quizmaster Login</a>
-        <a href="/join" class="btn btn-secondary">Join as Participant</a>
+        <a href="{{ url_for('main.quizmaster_login') }}" class="btn btn-primary">Quizmaster Login</a>
+        <a href="{{ url_for('main.join') }}" class="btn btn-secondary">Join as Participant</a>
     </div>
 </div>
 {% endblock %}

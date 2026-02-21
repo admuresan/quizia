@@ -81,6 +81,15 @@ def create_app():
         if restored > 0:
             print(f"Restored {restored} room(s) from disk")
     
+    # When deployed under a subpath (e.g. APPLICATION_ROOT=/quizmaster), ensure request.script_root
+    # is set so url_for() and APP_BASE_PATH in templates generate correct URLs. ProxyFix sets
+    # SCRIPT_NAME from X-Forwarded-Prefix when present; if not, use APPLICATION_ROOT.
+    @app.before_request
+    def _set_script_root():
+        from flask import request
+        if _app_root and not request.environ.get('SCRIPT_NAME'):
+            request.environ['SCRIPT_NAME'] = _app_root.rstrip('/')
+
     # Register blueprints
     from app.routes import main, auth, quiz, websocket, media, debug
     app.register_blueprint(main.bp)

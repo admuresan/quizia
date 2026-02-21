@@ -1,7 +1,9 @@
 // Quizmaster dashboard
+const _base = () => (window.APP_BASE_PATH || '');
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Check if logged in
-    const checkResponse = await fetch('/api/auth/check');
+    const checkResponse = await fetch(_base() + '/api/auth/check');
     const checkData = await checkResponse.json();
     
     if (!checkData.logged_in) {
@@ -11,7 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const expected = appSlug ? (appSlug + input) : input;
             console.log('[BG TRACE][quizia] redirect.not_logged_in', { input, expected, actual: input, appSlug });
         } catch (e) {}
-        window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/login';
+        window.location.href = _base() + '/quizmaster/login';
         return;
     }
 
@@ -31,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Add logout button handler
         document.getElementById('logout-btn').addEventListener('click', async () => {
             try {
-                const response = await fetch('/api/auth/logout', {
+                const response = await fetch(_base() + '/api/auth/logout', {
                     method: 'POST'
                 });
                 
@@ -42,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const expected = appSlug ? (appSlug + input) : input;
                         console.log('[BG TRACE][quizia] redirect.logout', { input, expected, actual: input, appSlug });
                     } catch (e) {}
-                    window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/login';
+                    window.location.href = _base() + '/quizmaster/login';
                 } else {
                     alert('Error logging out. Please try again.');
                 }
@@ -55,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Check if running on server and show warning
     try {
-        const localhostCheck = await fetch('/api/quiz/check-localhost');
+        const localhostCheck = await fetch(_base() + '/api/quiz/check-localhost');
         const localhostData = await localhostCheck.json();
         const isLocalhost = localhostData.is_localhost;
         
@@ -134,7 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Create quiz button
     document.getElementById('create-quiz-btn').addEventListener('click', () => {
-        window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/create';
+        window.location.href = _base() + '/quizmaster/create';
     });
 
     // Upload quiz button
@@ -150,7 +152,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         formData.append('file', file);
 
         try {
-            const response = await fetch('/api/quiz/upload', {
+            const response = await fetch(_base() + '/api/quiz/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -194,7 +196,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             formData.append('public', 'false');
 
             try {
-                const response = await fetch('/api/media/upload', {
+                const response = await fetch(_base() + '/api/media/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -244,7 +246,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadRunningQuizzes() {
     try {
-        const response = await fetch('/api/quiz/running');
+        const response = await fetch(_base() + '/api/quiz/running');
         const data = await response.json();
         
         const listDiv = document.getElementById('running-quizzes-list');
@@ -307,8 +309,8 @@ async function loadRunningQuizzes() {
 
 async function goToQuiz(roomCode) {
     // Open display page in new tab and navigate to control page
-    window.open(`/display/${roomCode}`, '_blank');
-    window.location.href = (window.APP_BASE_PATH || '') + `/control/${roomCode}`;
+    window.open(_base() + `/display/${roomCode}`, '_blank');
+    window.location.href = _base() + `/control/${roomCode}`;
 }
 
 async function endRunningQuiz(roomCode, quizName) {
@@ -317,7 +319,7 @@ async function endRunningQuiz(roomCode, quizName) {
     }
     
     try {
-        const response = await fetch(`/api/quiz/end/${roomCode}`, {
+        const response = await fetch(_base() + `/api/quiz/end/${roomCode}`, {
             method: 'POST'
         });
         
@@ -336,7 +338,7 @@ async function endRunningQuiz(roomCode, quizName) {
 
 async function toggleRunningQuizPublic(roomCode, isPublic) {
     try {
-        const response = await fetch(`/api/quiz/running/toggle-public/${roomCode}`, {
+        const response = await fetch(_base() + `/api/quiz/running/toggle-public/${roomCode}`, {
             method: 'POST'
         });
         
@@ -365,7 +367,7 @@ async function loadQuizzes() {
      * multiple quizzes can have the same name.
      */
     try {
-        const response = await fetch('/api/quiz/list');
+        const response = await fetch(_base() + '/api/quiz/list');
         const data = await response.json();
         
         const listDiv = document.getElementById('quizes-list');
@@ -377,12 +379,12 @@ async function loadQuizzes() {
         }
 
         // Check if running on localhost
-        const localhostCheck = await fetch('/api/quiz/check-localhost');
+        const localhostCheck = await fetch(_base() + '/api/quiz/check-localhost');
         const localhostData = await localhostCheck.json();
         const isLocalhost = localhostData.is_localhost;
 
         // Get current user info
-        const checkResponse = await fetch('/api/auth/check');
+        const checkResponse = await fetch(_base() + '/api/auth/check');
         const checkData = await checkResponse.json();
         const currentUsername = checkData.username;
 
@@ -480,7 +482,7 @@ async function loadQuizzes() {
 }
 
 async function editQuiz(quizId) {
-    window.location.href = `/quizmaster/create?quiz=${encodeURIComponent(quizId)}`;
+    window.location.href = _base() + `/quizmaster/create?quiz=${encodeURIComponent(quizId)}`;
 }
 
 async function startQuiz(quizId) {
@@ -492,7 +494,7 @@ async function startQuiz(quizId) {
     console.log('[Start Quiz] Starting quiz with ID:', quizId);
     
     // Connect to WebSocket and start quiz
-    const socket = io({ path: (window.APP_BASE_PATH || '') + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
+    const socket = io({ path: _base() + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
     
     let quizStarted = false;
     let responseReceived = false;
@@ -517,10 +519,10 @@ async function startQuiz(quizId) {
         responseReceived = true;
         
         // Open display page in new tab
-        window.open(`/display/${data.room_code}`, '_blank');
+        window.open(_base() + `/display/${data.room_code}`, '_blank');
         
         // Open control page in new window
-        window.open(`/control/${data.room_code}`, '_blank', 'width=1400,height=900');
+        window.open(_base() + `/control/${data.room_code}`, '_blank', 'width=1400,height=900');
         
         // Clean up socket
         socket.disconnect();
@@ -560,19 +562,19 @@ async function startQuiz(quizId) {
 }
 
 async function downloadQuiz(quizId) {
-    window.location.href = (window.APP_BASE_PATH || '') + `/api/quiz/download/${encodeURIComponent(quizId)}`;
+    window.location.href = _base() + `/api/quiz/download/${encodeURIComponent(quizId)}`;
 }
 
 async function deleteQuiz(quizId) {
     // Get quiz name for confirmation
     try {
-        const response = await fetch(`/api/quiz/load/${encodeURIComponent(quizId)}`);
+        const response = await fetch(_base() + `/api/quiz/load/${encodeURIComponent(quizId)}`);
         const data = await response.json();
         const quizName = data.quiz ? data.quiz.name : 'this quiz';
         
         if (!confirm(`Are you sure you want to delete "${quizName}"?`)) return;
 
-        const deleteResponse = await fetch(`/api/quiz/delete/${encodeURIComponent(quizId)}`, {
+        const deleteResponse = await fetch(_base() + `/api/quiz/delete/${encodeURIComponent(quizId)}`, {
             method: 'DELETE'
         });
 
@@ -590,7 +592,7 @@ async function deleteQuiz(quizId) {
 
 async function copyQuiz(quizId) {
     try {
-        const response = await fetch(`/api/quiz/copy/${encodeURIComponent(quizId)}`, {
+        const response = await fetch(_base() + `/api/quiz/copy/${encodeURIComponent(quizId)}`, {
             method: 'POST'
         });
 
@@ -608,7 +610,7 @@ async function copyQuiz(quizId) {
 
 async function loadUsers() {
     try {
-        const response = await fetch('/api/auth/quizmasters');
+        const response = await fetch(_base() + '/api/auth/quizmasters');
         const data = await response.json();
         
         const listDiv = document.getElementById('users-list');
@@ -640,7 +642,7 @@ async function loadUsers() {
 
 async function loadAccountRequests() {
     try {
-        const response = await fetch('/api/auth/requests');
+        const response = await fetch(_base() + '/api/auth/requests');
         const data = await response.json();
         
         const requestsDiv = document.getElementById('account-requests');
@@ -673,7 +675,7 @@ async function loadAccountRequests() {
 
 async function approveRequest(requestId) {
     try {
-        const response = await fetch('/api/auth/approve', {
+        const response = await fetch(_base() + '/api/auth/approve', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ request_id: requestId })
@@ -693,7 +695,7 @@ async function approveRequest(requestId) {
 
 async function rejectRequest(requestId) {
     try {
-        const response = await fetch('/api/auth/reject', {
+        const response = await fetch(_base() + '/api/auth/reject', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ request_id: requestId })
@@ -713,7 +715,7 @@ async function rejectRequest(requestId) {
 
 async function createUser(username, password) {
     try {
-        const response = await fetch('/api/auth/create', {
+        const response = await fetch(_base() + '/api/auth/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
@@ -733,7 +735,7 @@ async function createUser(username, password) {
 
 async function toggleQuizPublic(quizId, isPublic) {
     try {
-        const response = await fetch(`/api/quiz/toggle-public/${encodeURIComponent(quizId)}`, {
+        const response = await fetch(_base() + `/api/quiz/toggle-public/${encodeURIComponent(quizId)}`, {
             method: 'POST'
         });
 
@@ -767,7 +769,7 @@ async function loadMedia(preserveScroll = false) {
             scrollPosition = window.scrollY || document.documentElement.scrollTop;
         }
         
-        const response = await fetch('/api/media/list');
+        const response = await fetch(_base() + '/api/media/list');
         const data = await response.json();
         
         const listDiv = document.getElementById('media-list');
@@ -792,7 +794,7 @@ async function loadMedia(preserveScroll = false) {
         });
 
         // Get current user info
-        const checkResponse = await fetch('/api/auth/check');
+        const checkResponse = await fetch(_base() + '/api/auth/check');
         const checkData = await checkResponse.json();
         const currentUsername = checkData.username;
         currentMediaData.currentUsername = currentUsername;
@@ -1136,7 +1138,7 @@ async function bulkDeleteMedia() {
     console.log(`Sending ${filenames.length} filenames to delete:`, filenames);
     
     try {
-        const response = await fetch('/api/media/bulk-delete', {
+        const response = await fetch(_base() + '/api/media/bulk-delete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1180,7 +1182,7 @@ async function bulkToggleMediaPublic(makePublic) {
     const action = makePublic ? 'make public' : 'make private';
     
     try {
-        const response = await fetch('/api/media/bulk-toggle-public', {
+        const response = await fetch(_base() + '/api/media/bulk-toggle-public', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1224,14 +1226,14 @@ function getFileType(filename) {
 }
 
 async function downloadMedia(filename) {
-    window.location.href = (window.APP_BASE_PATH || '') + `/api/media/download/${encodeURIComponent(filename)}`;
+    window.location.href = _base() + `/api/media/download/${encodeURIComponent(filename)}`;
 }
 
 async function deleteMedia(filename) {
     if (!confirm(`Are you sure you want to delete "${filename}"?`)) return;
 
     try {
-        const response = await fetch(`/api/media/delete/${encodeURIComponent(filename)}`, {
+        const response = await fetch(_base() + `/api/media/delete/${encodeURIComponent(filename)}`, {
             method: 'DELETE'
         });
 
@@ -1249,7 +1251,7 @@ async function deleteMedia(filename) {
 
 async function toggleMediaPublic(filename, isPublic) {
     try {
-        const response = await fetch(`/api/media/toggle-public/${encodeURIComponent(filename)}`, {
+        const response = await fetch(_base() + `/api/media/toggle-public/${encodeURIComponent(filename)}`, {
             method: 'POST'
         });
 
@@ -1278,7 +1280,7 @@ async function renameMedia(filename, currentName) {
     }
     
     try {
-        const response = await fetch(`/api/media/rename/${encodeURIComponent(filename)}`, {
+        const response = await fetch(_base() + `/api/media/rename/${encodeURIComponent(filename)}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1380,7 +1382,7 @@ async function migrateQuiz(quizId) {
     statusDiv.style.color = '#666';
     
     try {
-        const response = await fetch(`/api/quiz/migrate/${encodeURIComponent(quizId)}`, {
+        const response = await fetch(_base() + `/api/quiz/migrate/${encodeURIComponent(quizId)}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
