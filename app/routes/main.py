@@ -6,10 +6,15 @@ from pathlib import Path
 
 bp = Blueprint('main', __name__)
 
+def _logo_path():
+    """Path to logo.png at app root (standardized across apps)."""
+    return Path(__file__).resolve().parent.parent / 'logo.png'
+
+
 @bp.route('/quiziaIcon.png')
 def quizia_icon():
-    """Serve the Quizia PNG icon (used for tab shortcut/favicons)."""
-    icon_path = Path(__file__).resolve().parent.parent / 'quiziaIcon.png'
+    """Serve logo.png from app root (legacy URL for tab shortcut/favicons)."""
+    icon_path = _logo_path()
     if icon_path.exists():
         return send_from_directory(
             str(icon_path.parent),
@@ -18,25 +23,32 @@ def quizia_icon():
         )
     return Response(status=404)
 
-@bp.route('/favicon.ico')
-def favicon():
-    """
-    Serve favicon.
 
-    Prefer the app's `quiziaIcon.png` (new icon). If an old `static/favicon.ico`
-    exists, serve that as fallback. Otherwise return 204 to stop repeated
-    browser favicon requests.
-    """
-    # 1) Preferred: the new PNG icon in the app folder (deployed by `deploy.sh`)
-    icon_path = Path(__file__).resolve().parent.parent / 'quiziaIcon.png'
+@bp.route('/favicon.png')
+def favicon_png():
+    """Serve logo.png from app root as tab icon."""
+    icon_path = _logo_path()
     if icon_path.exists():
         return send_from_directory(
             str(icon_path.parent),
             icon_path.name,
             mimetype='image/png',
         )
+    return Response(status=404)
 
-    # 2) Fallback: legacy favicon.ico if present
+
+@bp.route('/favicon.ico')
+def favicon():
+    """
+    Serve favicon (logo.png from app root). Fallback to legacy static/favicon.ico if present.
+    """
+    icon_path = _logo_path()
+    if icon_path.exists():
+        return send_from_directory(
+            str(icon_path.parent),
+            icon_path.name,
+            mimetype='image/png',
+        )
     favicon_path = Path(__file__).resolve().parent.parent / 'static' / 'favicon.ico'
     if favicon_path.exists():
         return send_from_directory(
@@ -44,8 +56,6 @@ def favicon():
             favicon_path.name,
             mimetype='image/vnd.microsoft.icon',
         )
-
-    # 3) No icon available
     return Response(status=204)
 
 @bp.route('/')

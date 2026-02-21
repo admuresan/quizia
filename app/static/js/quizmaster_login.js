@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const expected = appSlug ? (appSlug + input) : input;
                 console.log('[BG TRACE][quizia] fetch.login', { input, expected, actual: input, appSlug });
             } catch (e) {}
-            const response = await fetch('/api/auth/login', {
+            const response = await fetch((window.APP_BASE_PATH || '') + '/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const expected = appSlug ? (appSlug + input) : input;
                         console.log('[BG TRACE][quizia] redirect.login_success', { input, expected, actual: input, appSlug });
                     } catch (e) {}
-                    window.location.href = '/quizmaster';
+                    window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster';
                 }, 1000);
             } else {
                 showMessage(data.error || 'Login failed', 'error');
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/auth/request', {
+            const response = await fetch((window.APP_BASE_PATH || '') + '/api/auth/request', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })

@@ -11,7 +11,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-socketio = SocketIO(cors_allowed_origins="*")
+# When behind path proxy (APPLICATION_ROOT e.g. /quizia), Socket.IO must be served under that prefix
+_app_root = os.environ.get('APPLICATION_ROOT', '') or ''
+_socketio_path = (_app_root.rstrip('/') + '/socket.io') if _app_root else '/socket.io'
+socketio = SocketIO(cors_allowed_origins="*", path=_socketio_path)
 
 def create_app():
     """Create and configure Flask application."""
@@ -45,6 +48,7 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     # Cookie isolation: multiple apps share the same domain, so cookie names must be unique per app.
     app.config['SESSION_COOKIE_NAME'] = os.environ.get('SESSION_COOKIE_NAME', 'quizia_session')
+    app.config['SESSION_COOKIE_PATH'] = os.environ.get('APPLICATION_ROOT', '') or '/'
     app.config['UPLOAD_FOLDER'] = Path(__file__).parent / 'uploads'
     app.config['QUIZES_FOLDER'] = Path(__file__).parent / 'quizes'
     app.config['AVATARS_FOLDER'] = Path(__file__).parent / 'static' / 'avatars'

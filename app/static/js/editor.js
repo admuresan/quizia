@@ -1432,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backBtn = document.getElementById('back-btn');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            window.location.href = '/quizmaster';
+            window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster';
         });
     } else {
         console.warn('Back button not found in DOM');
@@ -1442,12 +1442,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
             try {
-                const response = await fetch('/api/auth/logout', {
+                const response = await fetch((window.APP_BASE_PATH || '') + '/api/auth/logout', {
                     method: 'POST'
                 });
                 
                 if (response.ok) {
-                    window.location.href = '/quizmaster/login';
+                    window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/login';
                 } else {
                     alert('Error logging out. Please try again.');
                 }

@@ -126,10 +126,10 @@
         loadMediaForTab: async function(tabType) {
             try {
                 currentTabType = tabType;
-                const response = await fetch('/api/media/list');
+                const response = await fetch((window.APP_BASE_PATH || '') + '/api/media/list');
                 const data = await response.json();
                 
-                const checkResponse = await fetch('/api/auth/check');
+                const checkResponse = await fetch((window.APP_BASE_PATH || '') + '/api/auth/check');
                 const checkData = await checkResponse.json();
                 const currentUsername = checkData.username;
                 
@@ -277,7 +277,7 @@
             formData.append('public', 'false');
             
             try {
-                const response = await fetch('/api/media/upload', {
+                const response = await fetch((window.APP_BASE_PATH || '') + '/api/media/upload', {
                     method: 'POST',
                     body: formData
                 });

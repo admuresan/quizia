@@ -1,6 +1,6 @@
 // Display page (for large screen) - matches editor display view exactly
 // Prefer polling first for better Windows compatibility (threading mode has WebSocket issues)
-const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true, forceNew: false });
+const socket = io({ path: (window.APP_BASE_PATH || '') + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true, forceNew: false });
 window.socket = socket; // Make socket available globally
 let currentPageIndex = 0; // Track current page index to stay in sync
 let currentPage = null;

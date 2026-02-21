@@ -17,14 +17,14 @@
             return url || '';
         }
         
-        // If it's already a relative URL, return as-is
+        // If it's already a relative URL (root-relative), add base path when under proxy
         if (url.startsWith('/')) {
-            return url;
+            return (window.APP_BASE_PATH || '') + url;
         }
         
         // If it's not an absolute URL, assume it's a filename and make it relative
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            return '/api/media/serve/' + url;
+            return (window.APP_BASE_PATH || '') + '/api/media/serve/' + url;
         }
         
         // Handle absolute URLs
@@ -33,9 +33,9 @@
             const currentOrigin = window.location.origin;
             const currentProtocol = window.location.protocol;
             
-            // If the URL is from the same origin, convert to relative
+            // If the URL is from the same origin, convert to relative (with base path when under proxy)
             if (urlObj.origin === currentOrigin) {
-                return urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
+                return (window.APP_BASE_PATH || '') + urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
             }
             
             // If page is HTTPS but URL is HTTP, ALWAYS convert HTTP URLs to relative if they point to /api/media/serve/
@@ -45,8 +45,7 @@
                 // This handles IP addresses and any HTTP URLs pointing to the same server's media API
                 if (urlObj.pathname.startsWith('/api/media/serve/')) {
                     // Extract the path and convert to relative - this works for same-server scenarios
-                    // This is safe because /api/media/serve/ is always served by the same server
-                    return urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
+                    return (window.APP_BASE_PATH || '') + urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
                 }
                 // For other HTTP URLs on HTTPS pages, try converting to HTTPS
                 // But this will fail for IP addresses, so we should still convert to relative if possible
@@ -55,7 +54,7 @@
                 const urlPort = urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80');
                 // If ports match or URL is on common media-serving ports, convert to relative
                 if (urlPort === currentPort || urlObj.pathname.startsWith('/api/') || urlObj.pathname.startsWith('/static/')) {
-                    return urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
+                    return (window.APP_BASE_PATH || '') + urlObj.pathname + (urlObj.search || '') + (urlObj.hash || '');
                 }
                 // Last resort: try converting HTTP to HTTPS (will fail for IP addresses)
                 urlObj.protocol = 'https:';

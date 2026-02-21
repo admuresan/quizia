@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const expected = appSlug ? (appSlug + input) : input;
             console.log('[BG TRACE][quizia] redirect.not_logged_in', { input, expected, actual: input, appSlug });
         } catch (e) {}
-        window.location.href = '/quizmaster/login';
+        window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/login';
         return;
     }
 
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const expected = appSlug ? (appSlug + input) : input;
                         console.log('[BG TRACE][quizia] redirect.logout', { input, expected, actual: input, appSlug });
                     } catch (e) {}
-                    window.location.href = '/quizmaster/login';
+                    window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/login';
                 } else {
                     alert('Error logging out. Please try again.');
                 }
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Create quiz button
     document.getElementById('create-quiz-btn').addEventListener('click', () => {
-        window.location.href = '/quizmaster/create';
+        window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster/create';
     });
 
     // Upload quiz button
@@ -308,7 +308,7 @@ async function loadRunningQuizzes() {
 async function goToQuiz(roomCode) {
     // Open display page in new tab and navigate to control page
     window.open(`/display/${roomCode}`, '_blank');
-    window.location.href = `/control/${roomCode}`;
+    window.location.href = (window.APP_BASE_PATH || '') + `/control/${roomCode}`;
 }
 
 async function endRunningQuiz(roomCode, quizName) {
@@ -492,7 +492,7 @@ async function startQuiz(quizId) {
     console.log('[Start Quiz] Starting quiz with ID:', quizId);
     
     // Connect to WebSocket and start quiz
-    const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
+    const socket = io({ path: (window.APP_BASE_PATH || '') + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
     
     let quizStarted = false;
     let responseReceived = false;
@@ -560,7 +560,7 @@ async function startQuiz(quizId) {
 }
 
 async function downloadQuiz(quizId) {
-    window.location.href = `/api/quiz/download/${encodeURIComponent(quizId)}`;
+    window.location.href = (window.APP_BASE_PATH || '') + `/api/quiz/download/${encodeURIComponent(quizId)}`;
 }
 
 async function deleteQuiz(quizId) {
@@ -1224,7 +1224,7 @@ function getFileType(filename) {
 }
 
 async function downloadMedia(filename) {
-    window.location.href = `/api/media/download/${encodeURIComponent(filename)}`;
+    window.location.href = (window.APP_BASE_PATH || '') + `/api/media/download/${encodeURIComponent(filename)}`;
 }
 
 async function deleteMedia(filename) {

@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
         publicRoomsList.innerHTML = '<p>Loading public rooms...</p>';
         
         try {
-            const response = await fetch('/api/public-rooms');
+            const response = await fetch((window.APP_BASE_PATH || '') + '/api/public-rooms');
             if (!response.ok) {
                 publicRoomsList.innerHTML = '<p style="color: #f44336;">Error loading public rooms</p>';
                 return;

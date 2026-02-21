@@ -82,7 +82,7 @@
             }
 
             try {
-                const response = await fetch('/api/quiz/save', {
+                const response = await fetch((window.APP_BASE_PATH || '') + '/api/quiz/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -180,7 +180,7 @@
             }
 
             try {
-                const response = await fetch('/api/quiz/save', {
+                const response = await fetch((window.APP_BASE_PATH || '') + '/api/quiz/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

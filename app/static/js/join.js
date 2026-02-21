@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const avatar = selectedAvatar.dataset.avatar;
-        window.location.href = `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
+        window.location.href = (window.APP_BASE_PATH || '') + `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
     });
 
     rejoinBtn.addEventListener('click', () => {
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Rejoin using name+avatar combo (the system will look it up)
         const name = selectedParticipant.dataset.name;
         const avatar = selectedParticipant.dataset.avatar;
-        window.location.href = `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
+        window.location.href = (window.APP_BASE_PATH || '') + `/participant/${roomCode}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
     });
 
     // Show error message if redirected from participant page

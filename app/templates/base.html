@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>window.APP_BASE_PATH = "{{ request.script_root or '' }}";</script>
     <title>{% block title %}Quizia{% endblock %}</title>
     <!-- Tab shortcut / favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('main.quizia_icon') }}">
@@ -110,10 +111,10 @@
                     document.documentElement.offsetHeight
                 );
                 
-                if (windowHeight > documentHeight) {
-                    footer.classList.add('fixed-bottom');
-                } else {
-                    footer.classList.remove('fixed-bottom');
+                const shouldBeFixed = windowHeight > documentHeight;
+                const isFixed = footer.classList.contains('fixed-bottom');
+                if (shouldBeFixed !== isFixed) {
+                    footer.classList.toggle('fixed-bottom', shouldBeFixed);
                 }
             }
             
@@ -122,8 +123,23 @@
             window.addEventListener('resize', updateButtonPosition);
             window.addEventListener('load', updateButtonPosition);
             
-            // Also update when content changes (e.g., dynamic content loading)
-            const observer = new MutationObserver(updateButtonPosition);
+            // Throttled update when content changes. Disconnect before modifying to avoid
+            // feedback loop (our class change would re-trigger the observer and freeze the page)
+            let rafId = null;
+            let observer = null;
+            const throttledUpdate = () => {
+                if (rafId) return;
+                rafId = requestAnimationFrame(() => {
+                    observer && observer.disconnect();
+                    updateButtonPosition();
+                    observer && observer.observe(document.body, {
+                        childList: true, subtree: true,
+                        attributes: true, attributeFilter: ['style', 'class']
+                    });
+                    rafId = null;
+                });
+            };
+            observer = new MutationObserver(throttledUpdate);
             observer.observe(document.body, {
                 childList: true,
                 subtree: true,

@@ -1,5 +1,5 @@
 // Participant page - matches editor participant view template exactly
-const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
+const socket = io({ path: (window.APP_BASE_PATH || '') + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
 // roomCode is set in template as window.roomCode
 let participantId = null;
 let currentPageIndex = 0; // Track current page index to stay in sync
@@ -129,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (data.message.includes('already taken') || data.message.includes('combination')) {
                 // Duplicate name+avatar combo - redirect back to join page with error
                 const errorMsg = encodeURIComponent(data.message);
-                window.location.href = `/join?error=${errorMsg}&room=${encodeURIComponent(window.roomCode)}`;
+                window.location.href = (window.APP_BASE_PATH || '') + `/join?error=${errorMsg}&room=${encodeURIComponent(window.roomCode)}`;
             } else {
                 alert('Error: ' + data.message);
             }

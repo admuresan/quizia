@@ -1,5 +1,5 @@
 // Quizmaster control page - matches editor control view exactly with live answers
-const socket = io({ transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
+const socket = io({ path: (window.APP_BASE_PATH || '') + '/socket.io', transports: ['polling', 'websocket'], upgrade: true, reconnection: true });
 window.socket = socket; // Make socket available globally for question type views
 // roomCode is set in template as window.roomCode
 let currentPageIndex = 0;
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // If access denied, redirect to quizmaster dashboard
             if (data.message.includes('Access denied') || data.message.includes('access denied')) {
                 setTimeout(() => {
-                    window.location.href = '/quizmaster';
+                    window.location.href = (window.APP_BASE_PATH || '') + '/quizmaster';
                 }, 2000);
             }
         }

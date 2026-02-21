@@ -130,8 +130,9 @@ def handle_start_quiz(data):
     join_room(f'control_{room_code}')
     emit('room_created', {'room_code': room_code}, room=f'control_{room_code}')
     
-    # Redirect quizmaster to control page
-    emit('redirect', {'url': f'/control/{room_code}'}, room=f'control_{room_code}')
+    # Redirect quizmaster to control page (use prefix when behind path proxy)
+    prefix = (request.script_root or '') if request else ''
+    emit('redirect', {'url': f'{prefix}/control/{room_code}'}, room=f'control_{room_code}')
 
 @socketio.on('quizmaster_join_control')
 def handle_quizmaster_join_control(data):
